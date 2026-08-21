@@ -110,8 +110,17 @@ export function MasterPage() {
   }
 
   async function saveExam() {
+    if (!exam.title.trim() || exam.title.trim().length < 2) {
+      setMsg('عنوان الاختبار مطلوب');
+      return;
+    }
+    if (!exam.date || !exam.link) {
+      setMsg('أكمل التاريخ والرابط');
+      return;
+    }
     await api('/api/master/exams', { method: 'POST', json: exam });
     setShowExam(false);
+    setExam({ targetDarId: 'الكل', date: '', link: '', title: '' });
     setMsg('تم نشر الاختبار');
   }
 

@@ -7,14 +7,15 @@
 - Backend: Fastify + Prisma + PostgreSQL
 - نشر: Docker Compose على VPS + دومين العميل
 
-## التجربة المحلية
+## التجربة المحلية (بدون Docker)
 ```bash
-cp .env.example .env
-docker compose up --build
+./scripts/dev.sh
 ```
-- الواجهة: http://localhost:8080
-- API: http://localhost:4000/api/health
-- الدخول الافتراضي: `0555143246` / `Nazem@123`
+- الواجهة والـ API معاً: http://127.0.0.1:4000
+- أو واجهة Vite للتطوير: http://127.0.0.1:5173 (Proxies إلى 4000)
+- في Cursor: Ports → Forward **4000**
+- الدخول: `0555143246` / `Nazem@123`
+- الحسابات الجديدة تُجبر على تغيير كلمة المرور عند أول دخول
 
 ## التطوير بدون Docker للواجهة
 ```bash

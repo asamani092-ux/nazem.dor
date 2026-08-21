@@ -32,22 +32,35 @@ enum AlertKind {
 }
 
 model User {
-  id           String       @id @default(cuid())
-  phone        String       @unique
-  passwordHash String
-  name         String
-  role         Role
-  status       EntityStatus @default(ACTIVE)
-  darId        String?
-  classId      String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id                 String       @id @default(cuid())
+  phone              String       @unique
+  passwordHash       String
+  name               String
+  role               Role
+  status             EntityStatus @default(ACTIVE)
+  mustChangePassword Boolean      @default(true)
+  darId              String?
+  classId            String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   dar   Dar?   @relation(fields: [darId], references: [id])
   class Class? @relation(fields: [classId], references: [id])
 
   @@index([role, status])
   @@index([darId])
+}
+
+model TeacherNotificationRead {
+  id             String   @id @default(cuid())
+  notificationId String
+  userId         String
+  createdAt      DateTime @default(now())
+
+  notification TeacherNotification @relation(fields: [notificationId], references: [id])
+
+  @@unique([notificationId, userId])
+  @@index([userId])
 }
 
 model Dar {
@@ -179,8 +192,9 @@ model TeacherNotification {
   content   String
   createdAt DateTime @default(now())
 
-  dar   Dar    @relation(fields: [darId], references: [id])
-  class Class? @relation(fields: [classId], references: [id])
+  dar   Dar                       @relation(fields: [darId], references: [id])
+  class Class?                    @relation(fields: [classId], references: [id])
+  reads TeacherNotificationRead[]
 
   @@index([darId, classId, createdAt])
 }

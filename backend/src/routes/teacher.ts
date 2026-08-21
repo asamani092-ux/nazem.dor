@@ -11,12 +11,12 @@ export async function teacherRoutes(app: FastifyInstance) {
   const guard = { preHandler: requireRoles(Role.TEACHER) };
 
   app.get('/dashboard', guard, async (request, reply) => {
-    const { darId, classId } = request.user;
+    const { darId, classId, id: userId } = request.user;
     if (!darId || !classId) {
       return reply.code(400).send({ status: 'error', message: 'حساب المعلمة غير مكتمل' });
     }
 
-    const [notifications, students] = await Promise.all([
+    const [notifications, students, reads] = await Promise.all([
       prisma.teacherNotification.findMany({
         where: {
           darId,
@@ -26,19 +26,27 @@ export async function teacherRoutes(app: FastifyInstance) {
         take: 50,
       }),
       prisma.student.findMany({
-        where: { darId, classId, status: { not: EntityStatus.DELETED } },
+        where: { darId, classId, status: EntityStatus.ACTIVE },
         orderBy: { name: 'asc' },
       }),
+      prisma.teacherNotificationRead.findMany({
+        where: { userId },
+        select: { notificationId: true },
+      }),
     ]);
+
+    const readSet = new Set(reads.map((r) => r.notificationId));
 
     return {
       status: 'success',
       data: {
         alerts: notifications.map((n) => ({
+          id: n.id,
           title: n.title,
           body: n.content,
           content: n.content,
           date: n.createdAt.toLocaleDateString('en-GB'),
+          isRead: readSet.has(n.id),
         })),
         students: students.map((s) => ({
           id: s.id,
@@ -46,6 +54,48 @@ export async function teacherRoutes(app: FastifyInstance) {
           parentPhone: s.parentPhone,
         })),
       },
+    };
+  });
+
+  app.post('/notifications/:id/read', guard, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const userId = request.user.id;
+    const note = await prisma.teacherNotification.findUnique({ where: { id } });
+    if (!note || note.darId !== request.user.darId) {
+      return reply.code(404).send({ status: 'error', message: 'الإشعار غير موجود' });
+    }
+    await prisma.teacherNotificationRead.upsert({
+      where: { notificationId_userId: { notificationId: id, userId } },
+      create: { notificationId: id, userId },
+      update: {},
+    });
+    return { status: 'success' };
+  });
+
+  app.get('/tracking', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+    const q = z
+      .object({
+        week: z.coerce.number().int().positive(),
+        day: z.string().min(1),
+      })
+      .parse(request.query);
+
+    const rows = await prisma.dailyTracking.findMany({
+      where: { darId, classId, week: q.week, day: q.day },
+    });
+
+    return {
+      status: 'success',
+      data: rows.map((r) => ({
+        studentId: r.studentId,
+        attendance: r.attendance,
+        homework: r.homework,
+        educational: r.educational,
+        tarbawi: r.tarbawi,
+        attachment: r.attachment || '',
+      })),
     };
   });
 

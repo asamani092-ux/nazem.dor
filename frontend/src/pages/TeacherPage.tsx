@@ -3,7 +3,7 @@ import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 
 type Student = { id: string; name: string; parentPhone: string };
-type Alert = { title: string; content: string; date: string };
+type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
 type Exam = { id: string; title: string; date: string; link?: string };
 
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
@@ -64,6 +64,32 @@ export function TeacherPage() {
       `/api/teacher/lesson-plan?level=${encodeURIComponent(user?.classLevel || '')}&week=${week}&day=${encodeURIComponent(day)}`,
     );
     setPlan(res);
+
+    const prior = await api<{
+      data: Array<{
+        studentId: string;
+        attendance: string;
+        homework: string;
+        educational: string;
+        tarbawi: string;
+      }>;
+    }>(`/api/teacher/tracking?week=${week}&day=${encodeURIComponent(day)}`);
+
+    if (prior.data.length > 0) {
+      setStates((prev) => {
+        const next = { ...prev };
+        for (const row of prior.data) {
+          next[row.studentId] = {
+            attendance: row.attendance,
+            homework: row.homework,
+            educational: row.educational,
+            tarbawi: row.tarbawi || 'أتقنت',
+          };
+        }
+        return next;
+      });
+      setMsg('تم تحميل الرصد السابق لهذا اليوم — يمكن التعديل ثم الحفظ');
+    }
   }
 
   function toggle(studentId: string, field: keyof TrackState) {
@@ -189,7 +215,10 @@ export function TeacherPage() {
 
       <div className="space-y-4 p-4">
         {alerts.map((a, i) => (
-          <div key={i} className="rounded-xl border-r-4 border-blue-500 bg-blue-50/50 p-3">
+          <div
+            key={a.id || i}
+            className={`rounded-xl border-r-4 border-blue-500 bg-blue-50/50 p-3 ${a.isRead ? 'opacity-60' : ''}`}
+          >
             <div className="flex justify-between">
               <h4 className="text-xs font-bold text-blue-800">{a.title}</h4>
               <span className="text-[8px] text-blue-400">{a.date}</span>
@@ -201,6 +230,17 @@ export function TeacherPage() {
             ) : (
               <p className="mt-1 text-[11px] text-gray-600">{a.content}</p>
             )}
+            {a.id && !a.isRead ? (
+              <button
+                className="mt-2 rounded-full bg-white px-3 py-1 text-[9px] font-bold text-blue-700"
+                onClick={async () => {
+                  await api(`/api/teacher/notifications/${a.id}/read`, { method: 'POST' });
+                  await loadDashboard();
+                }}
+              >
+                تحديد كمقروء
+              </button>
+            ) : null}
           </div>
         ))}
 

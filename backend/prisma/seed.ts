@@ -21,10 +21,15 @@ async function main() {
         name,
         role: Role.SUPER_MASTER,
         passwordHash: await bcrypt.hash(password, 10),
+        mustChangePassword: false,
       },
     });
     console.log(`Created SUPER_MASTER ${phone} / ${password}`);
   } else {
+    await prisma.user.update({
+      where: { phone },
+      data: { mustChangePassword: false },
+    });
     console.log('SUPER_MASTER already exists');
   }
 

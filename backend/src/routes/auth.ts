@@ -5,6 +5,41 @@ import { EntityStatus } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { authenticate } from '../middleware/auth.js';
 
+async function enrichUser(user: {
+  id: string;
+  phone: string;
+  name: string;
+  role: string;
+  darId: string | null;
+  classId: string | null;
+  mustChangePassword: boolean;
+}) {
+  let darName: string | undefined;
+  let className: string | undefined;
+  let classLevel: string | undefined;
+  if (user.darId) {
+    const dar = await prisma.dar.findUnique({ where: { id: user.darId } });
+    darName = dar?.name;
+  }
+  if (user.classId) {
+    const cls = await prisma.class.findUnique({ where: { id: user.classId } });
+    className = cls?.name;
+    classLevel = cls?.level;
+  }
+  return {
+    id: user.id,
+    name: user.name,
+    phone: user.phone,
+    role: user.role,
+    darId: user.darId,
+    darName,
+    classId: user.classId,
+    className,
+    classLevel,
+    mustChangePassword: user.mustChangePassword,
+  };
+}
+
 export async function authRoutes(app: FastifyInstance) {
   app.post('/login', async (request, reply) => {
     const body = z
@@ -55,69 +90,18 @@ export async function authRoutes(app: FastifyInstance) {
       classId: user.classId,
     });
 
-    let darName: string | undefined;
-    let className: string | undefined;
-    let classLevel: string | undefined;
-
-    if (user.darId) {
-      const dar = await prisma.dar.findUnique({ where: { id: user.darId } });
-      darName = dar?.name;
-    }
-    if (user.classId) {
-      const cls = await prisma.class.findUnique({ where: { id: user.classId } });
-      className = cls?.name;
-      classLevel = cls?.level;
-    }
-
     return {
       status: 'success',
       token,
       role: user.role.toLowerCase(),
-      user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        darId: user.darId,
-        darName,
-        classId: user.classId,
-        className,
-        classLevel,
-      },
+      user: await enrichUser(user),
     };
   });
 
   app.get('/me', { preHandler: authenticate }, async (request) => {
     const user = await prisma.user.findUnique({ where: { id: request.user.id } });
     if (!user) return { status: 'error', message: 'المستخدم غير موجود' };
-
-    let darName: string | undefined;
-    let className: string | undefined;
-    let classLevel: string | undefined;
-    if (user.darId) {
-      const dar = await prisma.dar.findUnique({ where: { id: user.darId } });
-      darName = dar?.name;
-    }
-    if (user.classId) {
-      const cls = await prisma.class.findUnique({ where: { id: user.classId } });
-      className = cls?.name;
-      classLevel = cls?.level;
-    }
-
-    return {
-      status: 'success',
-      user: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        darId: user.darId,
-        darName,
-        classId: user.classId,
-        className,
-        classLevel,
-      },
-    };
+    return { status: 'success', user: await enrichUser(user) };
   });
 
   app.post('/change-password', { preHandler: authenticate }, async (request, reply) => {
@@ -128,6 +112,10 @@ export async function authRoutes(app: FastifyInstance) {
       })
       .parse(request.body);
 
+    if (body.currentPassword === body.newPassword) {
+      return reply.code(400).send({ status: 'error', message: 'كلمة المرور الجديدة يجب أن تختلف عن الحالية' });
+    }
+
     const user = await prisma.user.findUnique({ where: { id: request.user.id } });
     if (!user) return reply.code(404).send({ status: 'error', message: 'غير موجود' });
 
@@ -136,7 +124,10 @@ export async function authRoutes(app: FastifyInstance) {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash: await bcrypt.hash(body.newPassword, 10) },
+      data: {
+        passwordHash: await bcrypt.hash(body.newPassword, 10),
+        mustChangePassword: false,
+      },
     });
 
     return { status: 'success' };

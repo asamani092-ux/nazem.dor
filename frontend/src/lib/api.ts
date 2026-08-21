@@ -10,6 +10,7 @@ export type AuthUser = {
   classId?: string | null;
   className?: string;
   classLevel?: string;
+  mustChangePassword?: boolean;
 };
 
 const TOKEN_KEY = 'nazem_token';

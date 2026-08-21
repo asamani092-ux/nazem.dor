@@ -85,6 +85,7 @@ export async function managerRoutes(app: FastifyInstance) {
           passwordHash: await bcrypt.hash(password, 10),
           darId,
           classId: created.id,
+          mustChangePassword: true,
         },
       });
       return created;
@@ -203,7 +204,11 @@ export async function managerRoutes(app: FastifyInstance) {
       where: { darId, classId: id, status: EntityStatus.ACTIVE },
     });
     const trackings = await prisma.dailyTracking.findMany({
-      where: { darId, classId: id },
+      where: {
+        darId,
+        classId: id,
+        student: { status: { not: EntityStatus.DELETED } },
+      },
       select: { attendance: true, educational: true },
     });
     const total = trackings.length;

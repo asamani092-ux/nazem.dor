@@ -95,6 +95,7 @@ export async function masterRoutes(app: FastifyInstance) {
           role: Role.MANAGER,
           passwordHash: await bcrypt.hash(password, 10),
           darId: created.id,
+          mustChangePassword: true,
         },
       });
       return created;
@@ -193,11 +194,14 @@ export async function masterRoutes(app: FastifyInstance) {
     }
 
     const [classesCount, totalStudents, activeStudents, trackings] = await Promise.all([
-      prisma.class.count({ where: { darId: id, status: { not: EntityStatus.DELETED } } }),
+      prisma.class.count({ where: { darId: id, status: EntityStatus.ACTIVE } }),
       prisma.student.count({ where: { darId: id, status: { not: EntityStatus.DELETED } } }),
       prisma.student.count({ where: { darId: id, status: EntityStatus.ACTIVE } }),
       prisma.dailyTracking.findMany({
-        where: { darId: id },
+        where: {
+          darId: id,
+          student: { status: { not: EntityStatus.DELETED } },
+        },
         select: { attendance: true, educational: true },
       }),
     ]);
@@ -261,6 +265,7 @@ export async function masterRoutes(app: FastifyInstance) {
         phone,
         role: Role.MASTER,
         passwordHash: await bcrypt.hash(password, 10),
+        mustChangePassword: true,
       },
     });
 
@@ -303,16 +308,16 @@ export async function masterRoutes(app: FastifyInstance) {
     const body = z
       .object({
         targetDarId: z.string(),
-        date: z.string(),
+        date: z.string().min(1),
         link: z.string().url(),
-        title: z.string().optional(),
+        title: z.string().min(2, 'عنوان الاختبار مطلوب'),
       })
       .parse(request.body);
 
     const isAll = body.targetDarId === 'الكل';
     const exam = await prisma.exam.create({
       data: {
-        title: body.title || (isAll ? 'اختبار مركزي' : 'اختبار للدار'),
+        title: body.title.trim(),
         darId: isAll ? null : body.targetDarId,
         examDate: new Date(body.date),
         link: body.link,
@@ -341,5 +346,55 @@ export async function masterRoutes(app: FastifyInstance) {
       },
     });
     return { status: 'success' };
+  });
+
+  app.get('/curriculum', guard, async () => {
+    const rows = await prisma.curriculumPlan.findMany({
+      orderBy: [{ level: 'asc' }, { week: 'asc' }, { day: 'asc' }],
+    });
+    return { status: 'success', data: rows };
+  });
+
+  app.post('/curriculum', guard, async (request) => {
+    const body = z
+      .object({
+        level: z.string().min(1),
+        week: z.number().int().positive(),
+        day: z.string().min(1),
+        educational: z.string().min(1),
+        homework: z.string(),
+        tarbawi: z.string().optional(),
+      })
+      .parse(request.body);
+
+    const row = await prisma.curriculumPlan.upsert({
+      where: {
+        level_week_day: { level: body.level, week: body.week, day: body.day },
+      },
+      create: {
+        level: body.level,
+        week: body.week,
+        day: body.day,
+        educational: body.educational,
+        homework: body.homework,
+        tarbawi: body.tarbawi || '',
+      },
+      update: {
+        educational: body.educational,
+        homework: body.homework,
+        tarbawi: body.tarbawi || '',
+      },
+    });
+    return { status: 'success', data: row };
+  });
+
+  app.delete('/curriculum/:id', { preHandler: requireRoles(Role.SUPER_MASTER) }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      await prisma.curriculumPlan.delete({ where: { id } });
+      return { status: 'success' };
+    } catch {
+      return reply.code(404).send({ status: 'error', message: 'غير موجود' });
+    }
   });
 }
