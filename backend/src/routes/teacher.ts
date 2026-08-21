@@ -277,17 +277,18 @@ export async function teacherRoutes(app: FastifyInstance) {
     const exam = await prisma.exam.findUnique({ where: { id } });
     if (!exam) return reply.code(404).send({ status: 'error', message: 'الاختبار غير موجود' });
 
+    const already = await prisma.examGrade.findFirst({ where: { classId, examId: id } });
+    if (already) {
+      return reply.code(403).send({
+        status: 'error',
+        message: 'تم رصد هذا الاختبار مسبقاً. التعديل غير مسموح إلا عبر طلب موافقة (قريباً).',
+      });
+    }
+
     await prisma.$transaction(
       body.gradesData.map((g) =>
-        prisma.examGrade.upsert({
-          where: {
-            classId_examId_studentId: {
-              classId,
-              examId: id,
-              studentId: g.studentId,
-            },
-          },
-          create: {
+        prisma.examGrade.create({
+          data: {
             darId,
             classId,
             examId: id,
@@ -295,11 +296,6 @@ export async function teacherRoutes(app: FastifyInstance) {
             studentId: g.studentId,
             studentName: g.name,
             score: g.score,
-          },
-          update: {
-            score: g.score,
-            studentName: g.name,
-            examTitle: body.examTitle,
           },
         }),
       ),
