@@ -108,6 +108,26 @@ export async function teacherRoutes(app: FastifyInstance) {
       })
       .parse(request.query);
 
+    const { darId, classId } = request.user;
+    if (darId && classId) {
+      const [dar, cls] = await Promise.all([
+        prisma.dar.findUnique({ where: { id: darId } }),
+        prisma.class.findUnique({ where: { id: classId } }),
+      ]);
+      if (dar && cls) {
+        const { levelsForCurriculum, isLevelAllowed } = await import('../lib/domain.js');
+        if (!isLevelAllowed(dar.curriculum, cls.level)) {
+          return reply.code(400).send({
+            status: 'error',
+            message: `مستوى الفصل غير متوافق مع منهج الدار. المسموح: ${levelsForCurriculum(dar.curriculum).join('، ')}`,
+          });
+        }
+        if (cls.level !== q.level) {
+          return reply.code(400).send({ status: 'error', message: 'المستوى لا يطابق فصل المعلمة' });
+        }
+      }
+    }
+
     const cleanLevel = q.level.replace(/أ/g, 'ا').trim();
     const plans = await prisma.curriculumPlan.findMany({ where: { week: q.week, day: q.day } });
     const plan = plans.find((p) => p.level.replace(/أ/g, 'ا').trim() === cleanLevel);

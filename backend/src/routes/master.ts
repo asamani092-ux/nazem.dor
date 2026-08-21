@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
+import { computeRates, levelsForCurriculum } from '../lib/domain.js';
 import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
@@ -187,6 +188,86 @@ export async function masterRoutes(app: FastifyInstance) {
     return { status: 'success' };
   });
 
+  app.get('/indicators', guard, async () => {
+    const dars = await prisma.dar.findMany({
+      where: { status: { not: EntityStatus.DELETED } },
+      select: { id: true, name: true, curriculum: true, status: true },
+    });
+    const activeDarIds = dars.filter((d) => d.status === EntityStatus.ACTIVE).map((d) => d.id);
+
+    const [classesCount, studentsActive, studentsTotal, trackings, examsCount, teachersCount] =
+      await Promise.all([
+        prisma.class.count({
+          where: { darId: { in: activeDarIds }, status: EntityStatus.ACTIVE },
+        }),
+        prisma.student.count({
+          where: { darId: { in: activeDarIds }, status: EntityStatus.ACTIVE },
+        }),
+        prisma.student.count({
+          where: { darId: { in: activeDarIds }, status: { not: EntityStatus.DELETED } },
+        }),
+        prisma.dailyTracking.findMany({
+          where: {
+            darId: { in: activeDarIds },
+            student: { status: { not: EntityStatus.DELETED } },
+          },
+          select: { attendance: true, educational: true, homework: true, darId: true },
+        }),
+        prisma.exam.count(),
+        prisma.user.count({
+          where: {
+            role: Role.TEACHER,
+            status: EntityStatus.ACTIVE,
+            darId: { in: activeDarIds },
+          },
+        }),
+      ]);
+
+    const rates = computeRates(trackings);
+    const byCurriculum = {
+      tibyan: dars.filter((d) => d.curriculum === CurriculumType.TIBYAN && d.status === EntityStatus.ACTIVE).length,
+      qari: dars.filter((d) => d.curriculum === CurriculumType.QARI && d.status === EntityStatus.ACTIVE).length,
+      both: dars.filter((d) => d.curriculum === CurriculumType.BOTH && d.status === EntityStatus.ACTIVE).length,
+    };
+
+    const perDar = [];
+    for (const d of dars) {
+      const rows = trackings.filter((t) => t.darId === d.id);
+      const r = computeRates(rows);
+      const activeStudents = await prisma.student.count({
+        where: { darId: d.id, status: EntityStatus.ACTIVE },
+      });
+      const classCount = await prisma.class.count({
+        where: { darId: d.id, status: EntityStatus.ACTIVE },
+      });
+      perDar.push({
+        id: d.id,
+        name: d.name,
+        curriculum: curriculumLabel(d.curriculum),
+        status: statusLabel(d.status),
+        activeStudents,
+        classesCount: classCount,
+        ...r,
+      });
+    }
+
+    return {
+      status: 'success',
+      data: {
+        darsTotal: dars.length,
+        darsActive: activeDarIds.length,
+        classesCount,
+        teachersCount,
+        studentsActive,
+        studentsTotal,
+        examsCount,
+        byCurriculum,
+        ...rates,
+        perDar,
+      },
+    };
+  });
+
   app.get('/dars/:id/stats', guard, async (request, reply) => {
     const { id } = request.params as { id: string };
     const dar = await prisma.dar.findUnique({ where: { id } });
@@ -194,8 +275,11 @@ export async function masterRoutes(app: FastifyInstance) {
       return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
     }
 
-    const [classesCount, totalStudents, activeStudents, trackings] = await Promise.all([
-      prisma.class.count({ where: { darId: id, status: EntityStatus.ACTIVE } }),
+    const [classes, totalStudents, activeStudents, trackings] = await Promise.all([
+      prisma.class.findMany({
+        where: { darId: id, status: { not: EntityStatus.DELETED } },
+        orderBy: { name: 'asc' },
+      }),
       prisma.student.count({ where: { darId: id, status: { not: EntityStatus.DELETED } } }),
       prisma.student.count({ where: { darId: id, status: EntityStatus.ACTIVE } }),
       prisma.dailyTracking.findMany({
@@ -203,25 +287,142 @@ export async function masterRoutes(app: FastifyInstance) {
           darId: id,
           student: { status: { not: EntityStatus.DELETED } },
         },
-        select: { attendance: true, educational: true },
+        select: {
+          attendance: true,
+          educational: true,
+          homework: true,
+          classId: true,
+        },
       }),
     ]);
 
-    const totalRecords = trackings.length;
-    const attendanceCount = trackings.filter((t) => t.attendance === 'حاضرة').length;
-    const completionCount = trackings.filter((t) => t.educational === 'أتقنت').length;
-    const attendanceRate = totalRecords ? Math.round((attendanceCount / totalRecords) * 100) : 0;
-    const completionRate = totalRecords ? Math.round((completionCount / totalRecords) * 100) : 0;
+    const rates = computeRates(trackings);
+    const classBreakdown = [];
+    for (const c of classes) {
+      const rows = trackings.filter((t) => t.classId === c.id);
+      const r = computeRates(rows);
+      const studentCount = await prisma.student.count({
+        where: { classId: c.id, status: EntityStatus.ACTIVE },
+      });
+      classBreakdown.push({
+        id: c.id,
+        name: c.name,
+        level: c.level,
+        teacherName: c.teacherName,
+        status: statusLabel(c.status),
+        studentCount,
+        ...r,
+      });
+    }
 
     return {
       status: 'success',
       data: {
+        dar: {
+          id: dar.id,
+          name: dar.name,
+          curriculum: curriculumLabel(dar.curriculum),
+          managerName: dar.managerName,
+          managerPhone: dar.managerPhone,
+          status: statusLabel(dar.status),
+          allowedLevels: levelsForCurriculum(dar.curriculum),
+        },
         totalStudents,
         activeStudents,
-        classesCount,
-        attendanceRate,
-        completionRate,
-        overallRate: Math.round((attendanceRate + completionRate) / 2),
+        classesCount: classes.filter((c) => c.status === EntityStatus.ACTIVE).length,
+        ...rates,
+        classBreakdown,
+      },
+    };
+  });
+
+  app.get('/dars/:id/report', guard, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const dar = await prisma.dar.findUnique({ where: { id } });
+    if (!dar || dar.status === EntityStatus.DELETED) {
+      return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
+    }
+
+    const classes = await prisma.class.findMany({
+      where: { darId: id, status: { not: EntityStatus.DELETED } },
+    });
+    const students = await prisma.student.findMany({
+      where: { darId: id, status: { not: EntityStatus.DELETED } },
+      orderBy: { name: 'asc' },
+    });
+    const trackings = await prisma.dailyTracking.findMany({
+      where: { darId: id, student: { status: { not: EntityStatus.DELETED } } },
+      select: {
+        studentId: true,
+        classId: true,
+        attendance: true,
+        educational: true,
+        homework: true,
+        week: true,
+        day: true,
+        dateStr: true,
+      },
+    });
+    const examGrades = await prisma.examGrade.findMany({
+      where: { darId: id },
+      orderBy: { gradedAt: 'desc' },
+    });
+
+    const rates = computeRates(trackings);
+    const classMap = Object.fromEntries(classes.map((c) => [c.id, c]));
+
+    const studentReports = students.map((s) => {
+      const rows = trackings.filter((t) => t.studentId === s.id);
+      const r = computeRates(rows);
+      const grades = examGrades.filter((g) => g.studentId === s.id);
+      let examSum = 0;
+      let examN = 0;
+      for (const g of grades) {
+        const n = parseFloat(g.score);
+        if (!Number.isNaN(n)) {
+          examSum += n;
+          examN++;
+        }
+      }
+      return {
+        id: s.id,
+        name: s.name,
+        className: classMap[s.classId]?.name || '-',
+        level: classMap[s.classId]?.level || '-',
+        status: statusLabel(s.status),
+        parentPhone: s.parentPhone,
+        ...r,
+        examAvg: examN ? Math.round(examSum / examN) : 0,
+        examsCount: examN,
+      };
+    });
+
+    return {
+      status: 'success',
+      data: {
+        generatedAt: new Date().toISOString(),
+        dar: {
+          id: dar.id,
+          name: dar.name,
+          curriculum: curriculumLabel(dar.curriculum),
+          managerName: dar.managerName,
+          managerPhone: dar.managerPhone,
+          allowedLevels: levelsForCurriculum(dar.curriculum),
+        },
+        summary: {
+          totalStudents: students.length,
+          activeStudents: students.filter((s) => s.status === EntityStatus.ACTIVE).length,
+          classesCount: classes.filter((c) => c.status === EntityStatus.ACTIVE).length,
+          ...rates,
+        },
+        students: studentReports,
+        examGrades: examGrades.map((g) => ({
+          examTitle: g.examTitle,
+          studentName: g.studentName,
+          className: classMap[g.classId]?.name || '-',
+          score: g.score,
+          gradedAt: g.gradedAt.toLocaleDateString('en-GB'),
+        })),
       },
     };
   });
