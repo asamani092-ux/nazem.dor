@@ -66,7 +66,25 @@ type CurriculumRow = {
   tarbawi: string;
 };
 
+type WeekSlot = {
+  day: string;
+  plan: CurriculumRow | null;
+};
+
 type Tab = 'dars' | 'indicators' | 'curriculum';
+type PlanViewMode = 'table' | 'cards';
+
+const CURRICULUM_LEVELS = ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'] as const;
+const WEEK_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'] as const;
+
+/** Time O(n) scan plans + O(1) build 5 day slots. Space O(1) for slots. */
+function buildWeekSlots(plans: CurriculumRow[], level: string, week: number): WeekSlot[] {
+  const byDay = new Map<string, CurriculumRow>();
+  for (const p of plans) {
+    if (p.level === level && p.week === week) byDay.set(p.day, p);
+  }
+  return WEEK_DAYS.map((day) => ({ day, plan: byDay.get(day) || null }));
+}
 
 export function MasterPage() {
   const { user, logout } = useAuth();
@@ -82,7 +100,12 @@ export function MasterPage() {
   const [report, setReport] = useState<DarReport | null>(null);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
   const [curriculum, setCurriculum] = useState<CurriculumRow[]>([]);
-  const [currFilter, setCurrFilter] = useState('');
+  const [planViewLevel, setPlanViewLevel] = useState<string>('تمهيدي 1');
+  const [planViewWeek, setPlanViewWeek] = useState(1);
+  const [planViewMode, setPlanViewMode] = useState<PlanViewMode>('table');
+  const [planMenuDay, setPlanMenuDay] = useState<string | null>(null);
+  const [showPlanEditor, setShowPlanEditor] = useState(false);
+  const [planEditorMode, setPlanEditorMode] = useState<'add' | 'edit'>('add');
   const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [form, setForm] = useState({
     name: '',
@@ -104,10 +127,18 @@ export function MasterPage() {
   });
 
   const filtered = useMemo(() => dars.filter((d) => d.name.includes(q.trim())), [dars, q]);
-  const filteredPlans = useMemo(() => {
-    if (!currFilter) return curriculum.slice(0, 80);
-    return curriculum.filter((p) => p.level === currFilter).slice(0, 80);
-  }, [curriculum, currFilter]);
+  const maxWeek = useMemo(() => {
+    let m = 1;
+    for (const p of curriculum) {
+      if (p.level === planViewLevel && p.week > m) m = p.week;
+    }
+    return Math.max(m, 1);
+  }, [curriculum, planViewLevel]);
+  const weekSlots = useMemo(
+    () => buildWeekSlots(curriculum, planViewLevel, planViewWeek),
+    [curriculum, planViewLevel, planViewWeek],
+  );
+  const weekFilled = useMemo(() => weekSlots.filter((s) => s.plan).length, [weekSlots]);
 
   async function load() {
     setBusy(true);
@@ -261,9 +292,103 @@ export function MasterPage() {
   }
 
   async function savePlan() {
+    if (!planForm.educational.trim()) {
+      setMsg('الدرس التعليمي مطلوب');
+      return;
+    }
+    const existed = curriculum.some(
+      (p) => p.level === planForm.level && p.week === Number(planForm.week) && p.day === planForm.day,
+    );
     await api('/api/master/curriculum', { method: 'POST', json: { ...planForm, week: Number(planForm.week) } });
-    setMsg('تم حفظ خطة المنهج');
+    setMsg(existed || planEditorMode === 'edit' ? 'تم تحديث الخطة' : 'تمت إضافة الخطة');
+    setShowPlanEditor(false);
+    setPlanMenuDay(null);
+    setPlanViewLevel(planForm.level);
+    setPlanViewWeek(Number(planForm.week));
     await loadCurriculum();
+  }
+
+  function openAddPlan(day?: string) {
+    setPlanEditorMode('add');
+    setPlanForm({
+      level: planViewLevel,
+      week: planViewWeek,
+      day: day || 'الأحد',
+      educational: '',
+      homework: '',
+      tarbawi: '',
+    });
+    setPlanMenuDay(null);
+    setShowPlanEditor(true);
+  }
+
+  function openEditPlan(plan: CurriculumRow) {
+    setPlanEditorMode('edit');
+    setPlanForm({
+      level: plan.level,
+      week: plan.week,
+      day: plan.day,
+      educational: plan.educational,
+      homework: plan.homework,
+      tarbawi: plan.tarbawi || '',
+    });
+    setPlanMenuDay(null);
+    setShowPlanEditor(true);
+  }
+
+  async function deletePlan(plan: CurriculumRow) {
+    if (!confirm(`حذف خطة ${plan.day} — أسبوع ${plan.week}؟`)) return;
+    await api(`/api/master/curriculum/${plan.id}`, { method: 'DELETE' });
+    setMsg('تم حذف الخطة');
+    setPlanMenuDay(null);
+    await loadCurriculum();
+  }
+
+  function PlanActions({ slot }: { slot: WeekSlot }) {
+    const open = planMenuDay === slot.day;
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[10px] font-bold text-[#7A1F3D]"
+          onClick={() => setPlanMenuDay(open ? null : slot.day)}
+        >
+          إجراءات
+        </button>
+        {open ? (
+          <div className="absolute left-0 z-20 mt-1 min-w-[7.5rem] rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
+            {slot.plan ? (
+              <>
+                <button
+                  type="button"
+                  className="block w-full px-3 py-2 text-right text-[11px] font-bold text-gray-700 hover:bg-gray-50"
+                  onClick={() => openEditPlan(slot.plan!)}
+                >
+                  تعديل
+                </button>
+                {user?.role === 'SUPER_MASTER' ? (
+                  <button
+                    type="button"
+                    className="block w-full px-3 py-2 text-right text-[11px] font-bold text-red-600 hover:bg-red-50"
+                    onClick={() => void deletePlan(slot.plan!)}
+                  >
+                    حذف
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <button
+                type="button"
+                className="block w-full px-3 py-2 text-right text-[11px] font-bold text-[#7A1F3D] hover:bg-gray-50"
+                onClick={() => openAddPlan(slot.day)}
+              >
+                إضافة
+              </button>
+            )}
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -386,55 +511,145 @@ export function MasterPage() {
 
       {tab === 'curriculum' ? (
         <div className="space-y-4 p-4">
-          <div className="ios-card space-y-2 p-4">
-            <h3 className="font-bold text-[#7A1F3D]">إضافة / تحديث خطة يوم</h3>
-            <select className="ios-input" value={planForm.level} onChange={(e) => setPlanForm({ ...planForm, level: e.target.value })}>
-              {['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'].map((l) => (
-                <option key={l}>{l}</option>
-              ))}
-            </select>
-            <input className="ios-input" type="number" min={1} value={planForm.week} onChange={(e) => setPlanForm({ ...planForm, week: Number(e.target.value) })} />
-            <select className="ios-input" value={planForm.day} onChange={(e) => setPlanForm({ ...planForm, day: e.target.value })}>
-              {['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'].map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
-            <input className="ios-input" placeholder="الدرس التعليمي" value={planForm.educational} onChange={(e) => setPlanForm({ ...planForm, educational: e.target.value })} />
-            <input className="ios-input" placeholder="الواجب" value={planForm.homework} onChange={(e) => setPlanForm({ ...planForm, homework: e.target.value })} />
-            <input className="ios-input" placeholder="التربوي" value={planForm.tarbawi} onChange={(e) => setPlanForm({ ...planForm, tarbawi: e.target.value })} />
-            <button className="btn-primary" onClick={() => void savePlan()}>
-              حفظ الخطة
-            </button>
-          </div>
-          <p className="text-[10px] font-bold text-gray-500">
-            الربط: منهج تبيان ← تمهيدي | منهج قارئ ← صفوف أولية | كلاهما ← الكل
-          </p>
-          <select className="ios-input" value={currFilter} onChange={(e) => setCurrFilter(e.target.value)}>
-            <option value="">كل المستويات</option>
-            {['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'].map((l) => (
-              <option key={l}>{l}</option>
-            ))}
-          </select>
-          {filteredPlans.map((p) => (
-            <div key={p.id} className="ios-card p-3 text-[11px]">
-              <p className="font-bold">
-                {p.level} | أسبوع {p.week} | {p.day}
-              </p>
-              <p>تعليمي: {p.educational}</p>
-              <p>واجب: {p.homework}</p>
-              {user?.role === 'SUPER_MASTER' ? (
-                <button
-                  className="mt-1 text-red-500"
-                  onClick={async () => {
-                    await api(`/api/master/curriculum/${p.id}`, { method: 'DELETE' });
-                    await loadCurriculum();
+          <div className="ios-card space-y-3 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-[#7A1F3D]">خطط المنهج</h3>
+              <button type="button" className="rounded-lg bg-[#7A1F3D] px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddPlan()}>
+                إضافة يوم
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-[9px] font-bold text-gray-400">المستوى</label>
+                <select
+                  className="ios-input py-2 text-sm"
+                  value={planViewLevel}
+                  onChange={(e) => {
+                    setPlanViewLevel(e.target.value);
+                    setPlanMenuDay(null);
                   }}
                 >
-                  حذف
-                </button>
-              ) : null}
+                  {CURRICULUM_LEVELS.map((l) => (
+                    <option key={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-[9px] font-bold text-gray-400">الأسبوع</label>
+                <select
+                  className="ios-input py-2 text-sm"
+                  value={planViewWeek}
+                  onChange={(e) => {
+                    setPlanViewWeek(Number(e.target.value));
+                    setPlanMenuDay(null);
+                  }}
+                >
+                  {Array.from({ length: Math.max(maxWeek, planViewWeek) + 2 }, (_, i) => i + 1).map((w) => (
+                    <option key={w} value={w}>
+                      أسبوع {w}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          ))}
+            <div className="flex rounded-xl bg-gray-200 p-1">
+              {(
+                [
+                  ['table', 'جدول'],
+                  ['cards', 'بطاقات'],
+                ] as const
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setPlanViewMode(mode);
+                    setPlanMenuDay(null);
+                  }}
+                  className={`flex-1 rounded-lg py-2 text-[11px] font-bold ${planViewMode === mode ? 'bg-white text-[#7A1F3D] shadow-sm' : 'text-gray-500'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] font-bold text-gray-500">
+              {planViewLevel} — أسبوع {planViewWeek}: {weekFilled} من {WEEK_DAYS.length} أيام
+            </p>
+            <p className="text-[9px] text-gray-400">الربط: تبيان ← تمهيدي | قارئ ← صفوف أولية | كلاهما ← الكل</p>
+          </div>
+
+          {planViewMode === 'table' ? (
+            <div className="ios-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[28rem] text-right text-[11px]">
+                  <thead className="bg-gray-50 text-[10px] text-gray-500">
+                    <tr>
+                      <th className="p-2 font-bold">اليوم</th>
+                      <th className="p-2 font-bold">التعليمي</th>
+                      <th className="p-2 font-bold">الواجب</th>
+                      <th className="p-2 font-bold">التربوي</th>
+                      <th className="p-2 font-bold">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {weekSlots.map((slot) => (
+                      <tr key={slot.day} className="border-t border-gray-100 align-top">
+                        <td className="p-2 font-extrabold text-[#7A1F3D]">{slot.day}</td>
+                        {slot.plan ? (
+                          <>
+                            <td className="p-2 font-bold text-gray-700">{slot.plan.educational}</td>
+                            <td className="p-2 text-gray-600">{slot.plan.homework || '—'}</td>
+                            <td className="p-2 text-gray-600">{slot.plan.tarbawi || '—'}</td>
+                          </>
+                        ) : (
+                          <td colSpan={3} className="p-2 text-gray-400">
+                            فارغ — لم تُسجَّل خطة
+                          </td>
+                        )}
+                        <td className="p-2">
+                          <PlanActions slot={slot} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {weekSlots.map((slot) => (
+                <div key={slot.day} className={`ios-card p-3 ${slot.plan ? '' : 'border border-dashed border-gray-300 bg-gray-50/80'}`}>
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-extrabold text-[#7A1F3D]">{slot.day}</p>
+                      <p className="text-[9px] font-bold text-gray-400">
+                        {planViewLevel} · أسبوع {planViewWeek}
+                      </p>
+                    </div>
+                    <PlanActions slot={slot} />
+                  </div>
+                  {slot.plan ? (
+                    <div className="space-y-1 text-[11px]">
+                      <p>
+                        <span className="font-bold text-gray-500">تعليمي: </span>
+                        {slot.plan.educational}
+                      </p>
+                      <p>
+                        <span className="font-bold text-gray-500">واجب: </span>
+                        {slot.plan.homework || '—'}
+                      </p>
+                      <p>
+                        <span className="font-bold text-gray-500">تربوي: </span>
+                        {slot.plan.tarbawi || '—'}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] font-bold text-gray-400">لا توجد خطة — اختاري إضافة من الإجراءات</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -566,6 +781,65 @@ export function MasterPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </Modal>
+      ) : null}
+
+      {showPlanEditor ? (
+        <Modal
+          title={planEditorMode === 'edit' ? 'تحديث خطة يوم' : 'إضافة خطة يوم'}
+          onClose={() => setShowPlanEditor(false)}
+        >
+          <div className="space-y-2">
+            <select
+              className="ios-input"
+              value={planForm.level}
+              onChange={(e) => setPlanForm({ ...planForm, level: e.target.value })}
+              disabled={planEditorMode === 'edit'}
+            >
+              {CURRICULUM_LEVELS.map((l) => (
+                <option key={l}>{l}</option>
+              ))}
+            </select>
+            <input
+              className="ios-input"
+              type="number"
+              min={1}
+              value={planForm.week}
+              onChange={(e) => setPlanForm({ ...planForm, week: Number(e.target.value) })}
+              disabled={planEditorMode === 'edit'}
+            />
+            <select
+              className="ios-input"
+              value={planForm.day}
+              onChange={(e) => setPlanForm({ ...planForm, day: e.target.value })}
+              disabled={planEditorMode === 'edit'}
+            >
+              {WEEK_DAYS.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+            <input
+              className="ios-input"
+              placeholder="الدرس التعليمي"
+              value={planForm.educational}
+              onChange={(e) => setPlanForm({ ...planForm, educational: e.target.value })}
+            />
+            <input
+              className="ios-input"
+              placeholder="الواجب"
+              value={planForm.homework}
+              onChange={(e) => setPlanForm({ ...planForm, homework: e.target.value })}
+            />
+            <input
+              className="ios-input"
+              placeholder="التربوي"
+              value={planForm.tarbawi}
+              onChange={(e) => setPlanForm({ ...planForm, tarbawi: e.target.value })}
+            />
+            <button className="btn-primary" onClick={() => void savePlan()}>
+              {planEditorMode === 'edit' ? 'تحديث الخطة' : 'إضافة الخطة'}
+            </button>
           </div>
         </Modal>
       ) : null}
