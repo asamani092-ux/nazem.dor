@@ -6,6 +6,7 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import path from 'node:path';
 import fs from 'node:fs';
+import { ZodError } from 'zod';
 import { authRoutes } from './routes/auth.js';
 import { masterRoutes } from './routes/master.js';
 import { managerRoutes } from './routes/manager.js';
@@ -20,6 +21,21 @@ const frontendDist = path.resolve(
 );
 
 const app = Fastify({ logger: true });
+
+// Must be registered before encapsulated route plugins so they inherit it.
+app.setErrorHandler((error, _request, reply) => {
+  app.log.error(error);
+  const err = error as Error & { validation?: unknown; issues?: Array<{ message?: string }> };
+  if (error instanceof ZodError || err.name === 'ZodError' || Array.isArray(err.issues)) {
+    const message = err.issues?.[0]?.message || 'بيانات غير صالحة';
+    return reply.code(400).send({ status: 'error', message });
+  }
+  if (err.validation) {
+    return reply.code(400).send({ status: 'error', message: 'بيانات غير صالحة' });
+  }
+  const message = error instanceof Error ? error.message : 'خطأ غير متوقع';
+  return reply.code(500).send({ status: 'error', message });
+});
 
 await app.register(cors, { origin: true, credentials: true });
 await app.register(jwt, {
@@ -52,20 +68,5 @@ if (fs.existsSync(frontendDist)) {
   });
   app.log.info(`Serving frontend from ${frontendDist}`);
 }
-
-app.setErrorHandler((error, _request, reply) => {
-  app.log.error(error);
-  const err = error as Error & { validation?: unknown; name?: string; issues?: unknown };
-  if (err.name === 'ZodError' || Array.isArray((error as { issues?: unknown }).issues)) {
-    const issues = (error as { issues?: Array<{ message?: string }> }).issues;
-    const message = issues?.[0]?.message || 'بيانات غير صالحة';
-    return reply.code(400).send({ status: 'error', message });
-  }
-  if (err.validation) {
-    return reply.code(400).send({ status: 'error', message: 'بيانات غير صالحة' });
-  }
-  const message = error instanceof Error ? error.message : 'خطأ غير متوقع';
-  return reply.code(500).send({ status: 'error', message });
-});
 
 await app.listen({ port, host: '0.0.0.0' });
