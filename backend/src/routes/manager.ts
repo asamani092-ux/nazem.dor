@@ -66,6 +66,7 @@ export async function managerRoutes(app: FastifyInstance) {
       return reply.code(400).send({ status: 'error', message: 'الجوال مستخدم مسبقاً' });
     }
 
+    // Internal passwordHash for account integrity; login is phone-only
     const password = body.password || phone.slice(-6);
     const cls = await prisma.$transaction(async (tx) => {
       const created = await tx.class.create({
@@ -85,7 +86,7 @@ export async function managerRoutes(app: FastifyInstance) {
           passwordHash: await bcrypt.hash(password, 10),
           darId,
           classId: created.id,
-          mustChangePassword: true,
+          mustChangePassword: false,
         },
       });
       return created;
@@ -93,7 +94,7 @@ export async function managerRoutes(app: FastifyInstance) {
 
     return {
       status: 'success',
-      message: `تمت الإضافة. كلمة مرور المعلمة: ${password}`,
+      message: `تمت الإضافة. الدخول بجوال المعلمة: ${phone}`,
       data: { id: cls.id },
     };
   });

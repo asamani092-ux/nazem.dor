@@ -4,7 +4,7 @@ import { api, getToken, setToken, type AuthUser } from './lib/api';
 type AuthState = {
   user: AuthUser | null;
   loading: boolean;
-  login: (phone: string, password: string) => Promise<void>;
+  login: (phone: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 };
@@ -41,10 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, []);
 
-  async function login(phone: string, password: string) {
+  async function login(phone: string) {
     const res = await api<{ status: string; token: string; user: AuthUser }>('/api/auth/login', {
       method: 'POST',
-      json: { phone, password },
+      json: { phone },
     });
     setToken(res.token);
     setUser(res.user);

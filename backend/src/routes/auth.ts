@@ -45,7 +45,7 @@ export async function authRoutes(app: FastifyInstance) {
     const body = z
       .object({
         phone: z.string().min(9),
-        password: z.string().min(4),
+        password: z.string().optional(), // ignored — phone-only login
       })
       .parse(request.body);
 
@@ -54,14 +54,10 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(400).send({ status: 'error', message: 'رقم الجوال غير صحيح (05XXXXXXXX)' });
     }
 
+    // O(1) lookup via unique phone index
     const user = await prisma.user.findUnique({ where: { phone } });
     if (!user || user.status !== EntityStatus.ACTIVE) {
       return reply.code(401).send({ status: 'error', message: 'الجوال غير مسجل أو الحساب موقوف' });
-    }
-
-    const ok = await bcrypt.compare(body.password, user.passwordHash);
-    if (!ok) {
-      return reply.code(401).send({ status: 'error', message: 'كلمة المرور غير صحيحة' });
     }
 
     if (user.role === 'MANAGER' || user.role === 'TEACHER') {

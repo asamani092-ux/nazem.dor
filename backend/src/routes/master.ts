@@ -77,6 +77,7 @@ export async function masterRoutes(app: FastifyInstance) {
     const phoneTaken = await prisma.user.findUnique({ where: { phone } });
     if (phoneTaken) return reply.code(400).send({ status: 'error', message: 'الجوال مستخدم مسبقاً' });
 
+    // Internal passwordHash for account integrity; login is phone-only
     const password = body.password || phone.slice(-6);
     const dar = await prisma.$transaction(async (tx) => {
       const created = await tx.dar.create({
@@ -95,7 +96,7 @@ export async function masterRoutes(app: FastifyInstance) {
           role: Role.MANAGER,
           passwordHash: await bcrypt.hash(password, 10),
           darId: created.id,
-          mustChangePassword: true,
+          mustChangePassword: false,
         },
       });
       return created;
@@ -103,7 +104,7 @@ export async function masterRoutes(app: FastifyInstance) {
 
     return {
       status: 'success',
-      message: `تم إنشاء الدار. كلمة مرور المديرة الافتراضية: ${password}`,
+      message: `تم إنشاء الدار. الدخول بجوال المديرة: ${phone}`,
       data: { id: dar.id },
     };
   });
@@ -258,6 +259,7 @@ export async function masterRoutes(app: FastifyInstance) {
       return reply.code(400).send({ status: 'error', message: 'الجوال مستخدم' });
     }
 
+    // Internal passwordHash for account integrity; login is phone-only
     const password = body.password || phone.slice(-6);
     const user = await prisma.user.create({
       data: {
@@ -265,13 +267,13 @@ export async function masterRoutes(app: FastifyInstance) {
         phone,
         role: Role.MASTER,
         passwordHash: await bcrypt.hash(password, 10),
-        mustChangePassword: true,
+        mustChangePassword: false,
       },
     });
 
     return {
       status: 'success',
-      message: `كلمة المرور الافتراضية: ${password}`,
+      message: `تم إنشاء المشرفة. الدخول بالجوال: ${phone}`,
       data: { id: user.id },
     };
   });

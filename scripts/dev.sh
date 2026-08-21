@@ -27,5 +27,5 @@ echo "API+UI on http://127.0.0.1:4000  PID $!"
 sleep 2
 curl -s http://127.0.0.1:4000/api/health || true
 echo
-echo "LOGIN: 0555143246 / Nazem@123"
+echo "LOGIN (phone only): 0555143246"
 echo "Forward port 4000 in Cursor Ports"

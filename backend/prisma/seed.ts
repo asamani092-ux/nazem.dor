@@ -24,13 +24,13 @@ async function main() {
         mustChangePassword: false,
       },
     });
-    console.log(`Created SUPER_MASTER ${phone} / ${password}`);
+    console.log(`Created SUPER_MASTER — login with phone only: ${phone}`);
   } else {
     await prisma.user.update({
       where: { phone },
       data: { mustChangePassword: false },
     });
-    console.log('SUPER_MASTER already exists');
+    console.log(`SUPER_MASTER already exists — login with phone only: ${phone}`);
   }
 
   const curriculumPath = path.join(__dirname, 'curriculum.json');

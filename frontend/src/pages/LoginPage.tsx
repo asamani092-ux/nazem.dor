@@ -4,7 +4,6 @@ import { useAuth } from '../auth';
 export function LoginPage() {
   const { login } = useAuth();
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -13,7 +12,7 @@ export function LoginPage() {
     setError('');
     setBusy(true);
     try {
-      await login(phone.trim(), password);
+      await login(phone.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : 'فشل الدخول');
     } finally {
@@ -37,18 +36,6 @@ export function LoginPage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="05XXXXXXXX"
-            required
-          />
-        </div>
-        <div>
-          <label className="mb-2 block text-xs font-bold text-gray-500">كلمة المرور</label>
-          <input
-            type="password"
-            className="ios-input text-left"
-            dir="ltr"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
             required
           />
         </div>
