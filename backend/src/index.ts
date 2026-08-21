@@ -55,10 +55,16 @@ if (fs.existsSync(frontendDist)) {
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
-  const message = error instanceof Error ? error.message : 'خطأ غير متوقع';
-  if (message.includes('ZodError') || (error as { validation?: unknown }).validation) {
+  const err = error as Error & { validation?: unknown; name?: string; issues?: unknown };
+  if (err.name === 'ZodError' || Array.isArray((error as { issues?: unknown }).issues)) {
+    const issues = (error as { issues?: Array<{ message?: string }> }).issues;
+    const message = issues?.[0]?.message || 'بيانات غير صالحة';
+    return reply.code(400).send({ status: 'error', message });
+  }
+  if (err.validation) {
     return reply.code(400).send({ status: 'error', message: 'بيانات غير صالحة' });
   }
+  const message = error instanceof Error ? error.message : 'خطأ غير متوقع';
   return reply.code(500).send({ status: 'error', message });
 });
 
