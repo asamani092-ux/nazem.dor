@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nazem
+      POSTGRES_PASSWORD: nazem_secret
+      POSTGRES_DB: nazem
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nazem -d nazem"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://nazem:nazem_secret@db:5432/nazem?schema=public
+      JWT_SECRET: change-me-in-production-please
+      PORT: "4000"
+      UPLOAD_DIR: /app/uploads
+      PUBLIC_URL: ""
+      SEED_SUPER_PHONE: "0555143246"
+      SEED_SUPER_PASSWORD: "Nazem@123"
+      SEED_SUPER_NAME: "المدير العام"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+
+  web:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  uploads:

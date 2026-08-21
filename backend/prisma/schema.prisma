@@ -1,0 +1,246 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_MASTER
+  MASTER
+  MANAGER
+  TEACHER
+}
+
+enum EntityStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum CurriculumType {
+  TIBYAN
+  QARI
+  BOTH
+}
+
+enum AlertKind {
+  NOTICE
+  VISIT
+}
+
+model User {
+  id           String       @id @default(cuid())
+  phone        String       @unique
+  passwordHash String
+  name         String
+  role         Role
+  status       EntityStatus @default(ACTIVE)
+  darId        String?
+  classId      String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  dar   Dar?   @relation(fields: [darId], references: [id])
+  class Class? @relation(fields: [classId], references: [id])
+
+  @@index([role, status])
+  @@index([darId])
+}
+
+model Dar {
+  id           String         @id @default(cuid())
+  name         String
+  curriculum   CurriculumType
+  managerName  String
+  managerPhone String
+  location     String?
+  status       EntityStatus   @default(ACTIVE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  users         User[]
+  classes       Class[]
+  students      Student[]
+  alerts        Alert[]
+  exams         Exam[]
+  notifications TeacherNotification[]
+  trackings     DailyTracking[]
+  lessonStates  LessonTracked[]
+  examGrades    ExamGrade[]
+  alertReads    AlertRead[]
+
+  @@index([status])
+  @@index([name])
+}
+
+model Class {
+  id           String       @id @default(cuid())
+  darId        String
+  name         String
+  level        String
+  teacherName  String
+  teacherPhone String
+  status       EntityStatus @default(ACTIVE)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  dar           Dar                   @relation(fields: [darId], references: [id])
+  users         User[]
+  students      Student[]
+  notifications TeacherNotification[]
+  trackings     DailyTracking[]
+  lessonStates  LessonTracked[]
+  examGrades    ExamGrade[]
+
+  @@index([darId, status])
+  @@index([teacherPhone])
+}
+
+model Student {
+  id          String       @id @default(cuid())
+  darId       String
+  classId     String
+  name        String
+  parentPhone String
+  status      EntityStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  dar        Dar             @relation(fields: [darId], references: [id])
+  class      Class           @relation(fields: [classId], references: [id])
+  trackings  DailyTracking[]
+  examGrades ExamGrade[]
+
+  @@index([darId, classId, status])
+  @@index([classId, status])
+}
+
+model CurriculumPlan {
+  id           String @id @default(cuid())
+  level        String
+  week         Int
+  day          String
+  educational  String
+  homework     String
+  tarbawi      String @default("")
+
+  @@unique([level, week, day])
+  @@index([level, week])
+}
+
+model Alert {
+  id        String    @id @default(cuid())
+  kind      AlertKind @default(NOTICE)
+  darId     String?
+  title     String
+  content   String
+  createdAt DateTime  @default(now())
+
+  dar Dar? @relation(fields: [darId], references: [id])
+
+  @@index([darId, createdAt])
+}
+
+model AlertRead {
+  id        String   @id @default(cuid())
+  darId     String
+  alertId   String
+  createdAt DateTime @default(now())
+
+  dar Dar @relation(fields: [darId], references: [id])
+
+  @@unique([darId, alertId])
+  @@index([darId])
+}
+
+model Exam {
+  id        String   @id @default(cuid())
+  title     String
+  darId     String?
+  examDate  DateTime
+  link      String
+  notes     String?
+  createdAt DateTime @default(now())
+
+  dar    Dar?        @relation(fields: [darId], references: [id])
+  grades ExamGrade[]
+
+  @@index([darId, examDate])
+}
+
+model TeacherNotification {
+  id        String   @id @default(cuid())
+  darId     String
+  classId   String?
+  title     String
+  content   String
+  createdAt DateTime @default(now())
+
+  dar   Dar    @relation(fields: [darId], references: [id])
+  class Class? @relation(fields: [classId], references: [id])
+
+  @@index([darId, classId, createdAt])
+}
+
+model DailyTracking {
+  id           String   @id @default(cuid())
+  darId        String
+  classId      String
+  studentId    String
+  dateStr      String
+  week         Int
+  day          String
+  attendance   String
+  homework     String
+  educational  String
+  tarbawi      String   @default("-")
+  attachment   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  dar     Dar     @relation(fields: [darId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([classId, studentId, week, day])
+  @@index([darId, classId, week])
+  @@index([studentId])
+}
+
+model LessonTracked {
+  id      String @id @default(cuid())
+  darId   String
+  classId String
+  week    Int
+  day     String
+
+  dar   Dar   @relation(fields: [darId], references: [id])
+  class Class @relation(fields: [classId], references: [id])
+
+  @@unique([classId, week, day])
+  @@index([darId, classId, week])
+}
+
+model ExamGrade {
+  id          String   @id @default(cuid())
+  darId       String
+  classId     String
+  examId      String
+  examTitle   String
+  studentId   String
+  studentName String
+  score       String
+  gradedAt    DateTime @default(now())
+
+  dar     Dar     @relation(fields: [darId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+  exam    Exam    @relation(fields: [examId], references: [id])
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([classId, examId])
+  @@index([studentId])
+  @@unique([classId, examId, studentId])
+}

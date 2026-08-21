@@ -1,0 +1,47 @@
+import 'dotenv/config';
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import jwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+import path from 'node:path';
+import fs from 'node:fs';
+import { authRoutes } from './routes/auth.js';
+import { masterRoutes } from './routes/master.js';
+import { managerRoutes } from './routes/manager.js';
+import { teacherRoutes } from './routes/teacher.js';
+
+const port = Number(process.env.PORT || 4000);
+const uploadDir = path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const app = Fastify({ logger: true });
+
+await app.register(cors, { origin: true, credentials: true });
+await app.register(jwt, {
+  secret: process.env.JWT_SECRET || 'dev-secret-change-me',
+});
+await app.register(multipart, { limits: { fileSize: 20 * 1024 * 1024 } });
+await app.register(fastifyStatic, {
+  root: uploadDir,
+  prefix: '/uploads/',
+  decorateReply: false,
+});
+
+app.get('/api/health', async () => ({ status: 'ok', app: 'ناظم الصغار' }));
+
+await app.register(authRoutes, { prefix: '/api/auth' });
+await app.register(masterRoutes, { prefix: '/api/master' });
+await app.register(managerRoutes, { prefix: '/api/manager' });
+await app.register(teacherRoutes, { prefix: '/api/teacher' });
+
+app.setErrorHandler((error, _request, reply) => {
+  app.log.error(error);
+  const message = error instanceof Error ? error.message : 'خطأ غير متوقع';
+  if (message.includes('ZodError') || (error as { validation?: unknown }).validation) {
+    return reply.code(400).send({ status: 'error', message: 'بيانات غير صالحة' });
+  }
+  return reply.code(500).send({ status: 'error', message });
+});
+
+await app.listen({ port, host: '0.0.0.0' });

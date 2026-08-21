@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --color-burgundy: #7A1F3D;
+  --color-burgundy-light: #9e2a4f;
+  --color-ios-bg: #F2F2F7;
+  --color-ios-text: #1C1C1E;
+  --color-ios-muted: #8E8E93;
+  --color-ios-border: #E5E5EA;
+  --font-sans: "Tajawal", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #E5E5EA;
+  font-family: var(--font-sans);
+  color: var(--color-ios-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-shell {
+  background: var(--color-ios-bg);
+  min-height: 100vh;
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.ios-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.02);
+}
+
+.ios-input {
+  background: #F2F2F7;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  width: 100%;
+  padding: 14px;
+  font-size: 16px;
+}
+
+.ios-input:focus {
+  border-color: #7A1F3D;
+  background: #fff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(122, 31, 61, 0.1);
+}
+
+.btn-primary {
+  background: #7A1F3D;
+  color: #fff;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 14px 16px;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
