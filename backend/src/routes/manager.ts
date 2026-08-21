@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { EntityStatus, Role } from '@prisma/client';
+import { computeRates, isLevelAllowed, levelsForCurriculum } from '../lib/domain.js';
+import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
 
@@ -11,12 +12,120 @@ function statusLabel(s: EntityStatus) {
   return 'محذوف';
 }
 
+function curriculumLabel(c: CurriculumType | string) {
+  if (c === CurriculumType.TIBYAN || c === 'TIBYAN') return 'منهج تبيان';
+  if (c === CurriculumType.QARI || c === 'QARI') return 'منهج قارئ';
+  if (c === CurriculumType.BOTH || c === 'BOTH') return 'كلاهما';
+  return String(c);
+}
+
 export async function managerRoutes(app: FastifyInstance) {
   const guard = { preHandler: requireRoles(Role.MANAGER) };
 
   function darIdOf(request: { user: { darId: string | null } }) {
     return request.user.darId!;
   }
+
+  app.get('/meta', guard, async (request, reply) => {
+    const darId = darIdOf(request);
+    const dar = await prisma.dar.findUnique({ where: { id: darId } });
+    if (!dar) return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
+    return {
+      status: 'success',
+      data: {
+        darId: dar.id,
+        darName: dar.name,
+        curriculum: curriculumLabel(dar.curriculum),
+        allowedLevels: levelsForCurriculum(dar.curriculum),
+      },
+    };
+  });
+
+  app.get('/report', guard, async (request, reply) => {
+    const darId = darIdOf(request);
+    const dar = await prisma.dar.findUnique({ where: { id: darId } });
+    if (!dar) return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
+
+    const classes = await prisma.class.findMany({
+      where: { darId, status: { not: EntityStatus.DELETED } },
+    });
+    const students = await prisma.student.findMany({
+      where: { darId, status: { not: EntityStatus.DELETED } },
+      orderBy: { name: 'asc' },
+    });
+    const trackings = await prisma.dailyTracking.findMany({
+      where: { darId, student: { status: { not: EntityStatus.DELETED } } },
+      select: {
+        studentId: true,
+        classId: true,
+        attendance: true,
+        educational: true,
+        homework: true,
+      },
+    });
+    const examGrades = await prisma.examGrade.findMany({ where: { darId } });
+    const rates = computeRates(trackings);
+    const classMap = Object.fromEntries(classes.map((c) => [c.id, c]));
+
+    const classBreakdown = classes.map((c) => {
+      const rows = trackings.filter((t) => t.classId === c.id);
+      const r = computeRates(rows);
+      return {
+        id: c.id,
+        name: c.name,
+        level: c.level,
+        teacherName: c.teacherName,
+        studentCount: students.filter((s) => s.classId === c.id && s.status === EntityStatus.ACTIVE).length,
+        ...r,
+      };
+    });
+
+    const studentReports = students.map((s) => {
+      const rows = trackings.filter((t) => t.studentId === s.id);
+      const r = computeRates(rows);
+      const grades = examGrades.filter((g) => g.studentId === s.id);
+      let examSum = 0;
+      let examN = 0;
+      for (const g of grades) {
+        const n = parseFloat(g.score);
+        if (!Number.isNaN(n)) {
+          examSum += n;
+          examN++;
+        }
+      }
+      return {
+        id: s.id,
+        name: s.name,
+        className: classMap[s.classId]?.name || '-',
+        level: classMap[s.classId]?.level || '-',
+        status: statusLabel(s.status),
+        parentPhone: s.parentPhone,
+        ...r,
+        examAvg: examN ? Math.round(examSum / examN) : 0,
+        examsCount: examN,
+      };
+    });
+
+    return {
+      status: 'success',
+      data: {
+        generatedAt: new Date().toISOString(),
+        dar: {
+          name: dar.name,
+          curriculum: curriculumLabel(dar.curriculum),
+          allowedLevels: levelsForCurriculum(dar.curriculum),
+        },
+        summary: {
+          totalStudents: students.length,
+          activeStudents: students.filter((s) => s.status === EntityStatus.ACTIVE).length,
+          classesCount: classes.filter((c) => c.status === EntityStatus.ACTIVE).length,
+          ...rates,
+        },
+        classBreakdown,
+        students: studentReports,
+      },
+    };
+  });
 
   app.get('/classes', guard, async (request) => {
     const darId = darIdOf(request);
@@ -62,10 +171,21 @@ export async function managerRoutes(app: FastifyInstance) {
     if (!isValidSaudiMobile(phone)) {
       return reply.code(400).send({ status: 'error', message: 'جوال المعلمة غير صحيح' });
     }
+
+    const dar = await prisma.dar.findUnique({ where: { id: darId } });
+    if (!dar) return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
+    if (!isLevelAllowed(dar.curriculum, body.level)) {
+      return reply.code(400).send({
+        status: 'error',
+        message: `المستوى غير مسموح لمنهج هذه الدار. المسموح: ${levelsForCurriculum(dar.curriculum).join('، ')}`,
+      });
+    }
+
     if (await prisma.user.findUnique({ where: { phone } })) {
       return reply.code(400).send({ status: 'error', message: 'الجوال مستخدم مسبقاً' });
     }
 
+    // Internal passwordHash for account integrity; login is phone-only
     const password = body.password || phone.slice(-6);
     const cls = await prisma.$transaction(async (tx) => {
       const created = await tx.class.create({
@@ -85,6 +205,7 @@ export async function managerRoutes(app: FastifyInstance) {
           passwordHash: await bcrypt.hash(password, 10),
           darId,
           classId: created.id,
+          mustChangePassword: false,
         },
       });
       return created;
@@ -92,7 +213,7 @@ export async function managerRoutes(app: FastifyInstance) {
 
     return {
       status: 'success',
-      message: `تمت الإضافة. كلمة مرور المعلمة: ${password}`,
+      message: `تمت الإضافة. الدخول بجوال المعلمة: ${phone}`,
       data: { id: cls.id },
     };
   });
@@ -113,6 +234,15 @@ export async function managerRoutes(app: FastifyInstance) {
     const cls = await prisma.class.findFirst({ where: { id, darId } });
     if (!cls || cls.status === EntityStatus.DELETED) {
       return reply.code(404).send({ status: 'error', message: 'الفصل غير موجود' });
+    }
+
+    const dar = await prisma.dar.findUnique({ where: { id: darId } });
+    if (!dar) return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
+    if (!isLevelAllowed(dar.curriculum, body.level)) {
+      return reply.code(400).send({
+        status: 'error',
+        message: `المستوى غير مسموح لمنهج هذه الدار. المسموح: ${levelsForCurriculum(dar.curriculum).join('، ')}`,
+      });
     }
 
     await prisma.$transaction(async (tx) => {
@@ -203,18 +333,19 @@ export async function managerRoutes(app: FastifyInstance) {
       where: { darId, classId: id, status: EntityStatus.ACTIVE },
     });
     const trackings = await prisma.dailyTracking.findMany({
-      where: { darId, classId: id },
-      select: { attendance: true, educational: true },
+      where: {
+        darId,
+        classId: id,
+        student: { status: { not: EntityStatus.DELETED } },
+      },
+      select: { attendance: true, educational: true, homework: true },
     });
-    const total = trackings.length;
-    const att = trackings.filter((t) => t.attendance === 'حاضرة').length;
-    const comp = trackings.filter((t) => t.educational === 'أتقنت').length;
+    const rates = computeRates(trackings);
     return {
       status: 'success',
       data: {
         studentCount,
-        attendanceRate: total ? Math.round((att / total) * 100) : 0,
-        completionRate: total ? Math.round((comp / total) * 100) : 0,
+        ...rates,
       },
     };
   });
