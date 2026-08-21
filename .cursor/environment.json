@@ -1,0 +1,14 @@
+{
+  "name": "nazem-dor",
+  "ports": [
+    { "name": "app", "port": 4000 }
+  ],
+  "install": "sudo pg_ctlcluster 16 main start 2>/dev/null || true; cd backend && (test -f .env || cp .env.example .env) && npm install && npx prisma migrate deploy && npm run seed && npm run build && cd ../frontend && npm install && npm run build",
+  "terminals": [
+    {
+      "name": "api",
+      "command": "bash scripts/start.sh && tail -f /tmp/nazem-api.log",
+      "description": "PostgreSQL + API/UI on port 4000"
+    }
+  ]
+}
