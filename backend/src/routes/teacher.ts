@@ -1,0 +1,303 @@
+import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
+import { EntityStatus, Role } from '@prisma/client';
+import { prisma } from '../lib/prisma.js';
+import { requireRoles } from '../middleware/auth.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { randomUUID } from 'node:crypto';
+
+export async function teacherRoutes(app: FastifyInstance) {
+  const guard = { preHandler: requireRoles(Role.TEACHER) };
+
+  app.get('/dashboard', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) {
+      return reply.code(400).send({ status: 'error', message: 'حساب المعلمة غير مكتمل' });
+    }
+
+    const [notifications, students] = await Promise.all([
+      prisma.teacherNotification.findMany({
+        where: {
+          darId,
+          OR: [{ classId: null }, { classId }],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      prisma.student.findMany({
+        where: { darId, classId, status: { not: EntityStatus.DELETED } },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    return {
+      status: 'success',
+      data: {
+        alerts: notifications.map((n) => ({
+          title: n.title,
+          body: n.content,
+          content: n.content,
+          date: n.createdAt.toLocaleDateString('en-GB'),
+        })),
+        students: students.map((s) => ({
+          id: s.id,
+          name: s.name,
+          parentPhone: s.parentPhone,
+        })),
+      },
+    };
+  });
+
+  app.get('/lesson-plan', guard, async (request, reply) => {
+    const q = z
+      .object({
+        level: z.string(),
+        week: z.coerce.number().int().positive(),
+        day: z.string(),
+      })
+      .parse(request.query);
+
+    const cleanLevel = q.level.replace(/أ/g, 'ا').trim();
+    const plans = await prisma.curriculumPlan.findMany({ where: { week: q.week, day: q.day } });
+    const plan = plans.find((p) => p.level.replace(/أ/g, 'ا').trim() === cleanLevel);
+
+    if (!plan) {
+      return reply.code(404).send({ status: 'error', message: 'لم يتم العثور على خطة مسجلة لهذا اليوم.' });
+    }
+
+    return {
+      status: 'success',
+      educational: plan.educational,
+      homework: plan.homework,
+      tarbawi: plan.tarbawi || '',
+    };
+  });
+
+  app.get('/tracked-days', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+    const week = z.coerce.number().parse((request.query as { week?: string }).week);
+
+    const rows = await prisma.lessonTracked.findMany({ where: { darId, classId, week } });
+    return { status: 'success', data: rows.map((r) => r.day) };
+  });
+
+  app.post('/tracking', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+
+    const body = z
+      .object({
+        date: z.string(),
+        week: z.number().int().positive(),
+        day: z.string(),
+        trackingData: z.array(
+          z.object({
+            studentId: z.string(),
+            studentName: z.string(),
+            attendance: z.string(),
+            homework: z.string(),
+            educational: z.string(),
+            tarbawi: z.string().optional(),
+            attachment: z.string().optional(),
+          }),
+        ),
+      })
+      .parse(request.body);
+
+    await prisma.$transaction(async (tx) => {
+      for (const t of body.trackingData) {
+        await tx.dailyTracking.upsert({
+          where: {
+            classId_studentId_week_day: {
+              classId,
+              studentId: t.studentId,
+              week: body.week,
+              day: body.day,
+            },
+          },
+          create: {
+            darId,
+            classId,
+            studentId: t.studentId,
+            dateStr: body.date,
+            week: body.week,
+            day: body.day,
+            attendance: t.attendance,
+            homework: t.homework,
+            educational: t.educational,
+            tarbawi: t.tarbawi || '-',
+            attachment: t.attachment || null,
+          },
+          update: {
+            dateStr: body.date,
+            attendance: t.attendance,
+            homework: t.homework,
+            educational: t.educational,
+            tarbawi: t.tarbawi || '-',
+            attachment: t.attachment || null,
+          },
+        });
+      }
+
+      await tx.lessonTracked.upsert({
+        where: {
+          classId_week_day: { classId, week: body.week, day: body.day },
+        },
+        create: { darId, classId, week: body.week, day: body.day },
+        update: {},
+      });
+    });
+
+    return { status: 'success' };
+  });
+
+  app.post('/upload', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+
+    const file = await request.file();
+    if (!file) return reply.code(400).send({ status: 'error', message: 'لا يوجد ملف' });
+
+    const uploadRoot = path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
+    const dir = path.join(uploadRoot, darId, classId);
+    fs.mkdirSync(dir, { recursive: true });
+
+    const safeName = `${Date.now()}-${randomUUID()}-${file.filename.replace(/[^\w.\-ء-ي]/g, '_')}`;
+    const fullPath = path.join(dir, safeName);
+    const buffer = await file.toBuffer();
+    if (buffer.length > 20 * 1024 * 1024) {
+      return reply.code(400).send({ status: 'error', message: 'حجم الملف يتجاوز 20 ميجابايت' });
+    }
+    fs.writeFileSync(fullPath, buffer);
+
+    const publicBase = process.env.PUBLIC_URL || '';
+    const url = `${publicBase}/uploads/${darId}/${classId}/${safeName}`;
+    return { status: 'success', url };
+  });
+
+  app.get('/exams/pending', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+
+    const graded = await prisma.examGrade.findMany({
+      where: { classId },
+      select: { examId: true },
+      distinct: ['examId'],
+    });
+    const gradedSet = new Set(graded.map((g) => g.examId));
+
+    const exams = await prisma.exam.findMany({
+      where: { OR: [{ darId: null }, { darId }] },
+      orderBy: { examDate: 'desc' },
+    });
+
+    return {
+      status: 'success',
+      data: exams
+        .filter((e) => !gradedSet.has(e.id))
+        .map((e) => ({
+          id: e.id,
+          title: e.title,
+          date: e.examDate.toLocaleDateString('en-GB'),
+          link: e.link,
+        })),
+    };
+  });
+
+  app.post('/exams/:id/grades', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+    const { id } = request.params as { id: string };
+
+    const body = z
+      .object({
+        examTitle: z.string(),
+        gradesData: z.array(
+          z.object({
+            studentId: z.string(),
+            name: z.string(),
+            score: z.string(),
+          }),
+        ),
+      })
+      .parse(request.body);
+
+    const exam = await prisma.exam.findUnique({ where: { id } });
+    if (!exam) return reply.code(404).send({ status: 'error', message: 'الاختبار غير موجود' });
+
+    await prisma.$transaction(
+      body.gradesData.map((g) =>
+        prisma.examGrade.upsert({
+          where: {
+            classId_examId_studentId: {
+              classId,
+              examId: id,
+              studentId: g.studentId,
+            },
+          },
+          create: {
+            darId,
+            classId,
+            examId: id,
+            examTitle: body.examTitle,
+            studentId: g.studentId,
+            studentName: g.name,
+            score: g.score,
+          },
+          update: {
+            score: g.score,
+            studentName: g.name,
+            examTitle: body.examTitle,
+          },
+        }),
+      ),
+    );
+
+    return { status: 'success' };
+  });
+
+  app.get('/students/:studentId/report', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+    const { studentId } = request.params as { studentId: string };
+
+    const student = await prisma.student.findFirst({ where: { id: studentId, darId, classId } });
+    if (!student) return reply.code(404).send({ status: 'error', message: 'الطالبة غير موجودة' });
+
+    const trackings = await prisma.dailyTracking.findMany({ where: { studentId } });
+    let presentDays = 0;
+    let totalTasks = 0;
+    let completedTasks = 0;
+    for (const t of trackings) {
+      if (t.attendance === 'حاضرة') presentDays++;
+      if (t.attendance !== 'غائبة') {
+        totalTasks += 2;
+        if (t.homework === 'أنجزت') completedTasks++;
+        if (t.educational === 'أتقنت') completedTasks++;
+      }
+    }
+
+    const grades = await prisma.examGrade.findMany({ where: { studentId, classId } });
+    let totalExamScore = 0;
+    let examCount = 0;
+    for (const g of grades) {
+      const score = parseFloat(g.score);
+      if (!Number.isNaN(score)) {
+        totalExamScore += score;
+        examCount++;
+      }
+    }
+
+    const totalDays = trackings.length;
+    return {
+      status: 'success',
+      data: {
+        attRate: totalDays ? Math.round((presentDays / totalDays) * 100) : 0,
+        compRate: totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0,
+        examRate: examCount ? Math.round(totalExamScore / examCount) : 0,
+      },
+    };
+  });
+}
