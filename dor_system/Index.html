@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title><?= APP_NAME ?></title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 
+                        burgundy: '#7A1F3D', 
+                        burgundyLight: '#9e2a4f', 
+                        iosBg: '#F2F2F7', 
+                        iosText: '#1C1C1E', 
+                        iosMuted: '#8E8E93', 
+                        iosBorder: '#E5E5EA' 
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #E5E5EA; font-family: 'Tajawal', sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        .app-container { background-color: #F2F2F7; min-height: 100vh; width: 100%; max-width: 42rem; margin: 0 auto; box-shadow: 0 0 40px rgba(0,0,0,0.1); position: relative; }
+        .ios-card { background: #FFFFFF; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.02); }
+        .ios-input { background-color: #F2F2F7; border-radius: 12px; border: 1px solid transparent; width: 100%; padding: 14px; transition: 0.2s; font-size: 16px; }
+        .ios-input:focus { border-color: #7A1F3D; background-color: #FFFFFF; outline: none; box-shadow: 0 0 0 3px rgba(122, 31, 61, 0.1); }
+        .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 10000; justify-content: center; align-items: center; backdrop-filter: blur(6px); }
+        .modal-backdrop.active { display: flex; }
+        .modal-content { transform: scale(0.9); opacity: 0; transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .modal-backdrop.active .modal-content { transform: scale(1); opacity: 1; }
+    </style>
+</head>
+<body class="flex justify-center">
+
+    <div class="app-container">
+        <!-- شاشة التحميل -->
+        <div id="loader" class="fixed inset-0 flex-col justify-center items-center bg-gray-900/60 backdrop-blur-sm z-[99999]" style="display:none;">
+            <div class="animate-spin rounded-full h-16 w-16 border-4 border-gray-400 border-t-white mb-4 shadow-lg"></div>
+            <p class="text-white font-bold text-sm animate-pulse tracking-wide">جاري معالجة الطلب...</p>
+        </div>
+
+        <!-- 1. شاشة تسجيل الدخول -->
+        <div id="screen-login" class="flex flex-col items-center justify-center p-6 min-h-screen">
+            <div class="w-full max-w-sm flex flex-col items-center">
+                <div class="w-20 h-20 bg-white rounded-2xl shadow-lg flex items-center justify-center mb-6">
+                    <i class="ph ph-book-open-text text-4xl text-burgundy"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-burgundy mb-2"><?= APP_NAME ?></h1>
+                <p class="text-iosMuted mb-10 text-center"><?= LABELS.LOGIN_SUBTITLE ?></p>
+                <div class="w-full ios-card p-6">
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">رقم الجوال المسجل</label>
+                    <input type="tel" id="login-phone" placeholder="05XXXXXXXX" class="ios-input mb-6 text-left font-semibold tracking-widest" dir="ltr">
+                    <button onclick="handleLogin()" class="w-full bg-burgundy text-white font-bold text-lg py-4 rounded-xl active:scale-95 transition-all shadow-md"><?= LABELS.BTN_LOGIN ?></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. واجهة المشرفة العامة -->
+        <div id="screen-master" class="hidden flex-col min-h-screen pb-24">
+            <header class="p-4 pt-12 border-b bg-white/90 backdrop-blur-md sticky top-0 z-40">
+                <div class="flex justify-between items-center max-w-2xl mx-auto mb-4">
+                    <h1 class="text-2xl font-bold text-burgundy">الإشراف العام</h1>
+                    <div class="flex gap-2">
+                        <button onclick="openModal('add-dar-modal')" class="bg-green-600 text-white px-4 py-2 rounded-xl text-[11px] font-bold shadow-sm">إضافة دار</button>
+                        <button id="btn-manage-admins" onclick="openModal('manage-admins-modal'); loadSupervisors();" class="hidden bg-iosMuted text-white px-3 py-2 rounded-xl text-[10px] font-bold shadow-sm">إدارة المشرفات</button>
+                        <button onclick="openExamModal('الكل')" class="bg-burgundy text-white px-4 py-2 rounded-xl text-[11px] font-bold shadow-sm">اختبار مركزي</button>
+                        <button onclick="logout()" class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center border border-red-100"><i class="ph-bold ph-sign-out"></i></button>
+                    </div>
+                </div>
+                <div class="max-w-2xl mx-auto">
+                    <input type="text" id="search-dar-input" onkeyup="filterDars()" placeholder="ابحث عن دار..." class="ios-input w-full text-sm">
+                </div>
+            </header>
+            <div id="dar-list-container" class="p-4 space-y-4 max-w-2xl mx-auto w-full"></div>
+        </div>
+
+        <!-- 3. واجهة مديرة الدار -->
+        <div id="screen-manager" class="hidden flex-col min-h-screen pb-24 w-full">
+            <header class="p-4 pt-12 border-b bg-white text-center sticky top-0 z-40">
+                <div class="flex justify-between items-center max-w-md mx-auto">
+                   <div class="text-right">
+                      <p class="text-[10px] text-iosMuted font-bold mb-1">مرحباً بك، أ. <span id="manager-name-display">...</span></p>
+                      <h1 id="manager-dar-name" class="text-xl font-extrabold text-burgundy">تحميل...</h1>
+                     </div>
+                     <button onclick="logout()" class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center"><i class="ph-bold ph-sign-out"></i></button>
+                </div>
+                <div class="max-w-md mx-auto mt-4 px-2">
+                    <div class="bg-gray-200 p-1 rounded-xl flex relative">
+                        <button onclick="switchTab('classes')" id="btn-tab-classes" class="flex-1 py-2.5 text-[11px] font-bold rounded-lg transition-all bg-white shadow-sm text-burgundy">الفصول</button>
+                        <button onclick="switchTab('students')" id="btn-tab-students" class="flex-1 py-2.5 text-[11px] font-bold rounded-lg transition-all text-gray-500">الطالبات</button>
+                        <button onclick="switchTab('alerts')" id="btn-tab-alerts" class="flex-1 py-2.5 text-[11px] font-bold rounded-lg transition-all text-gray-500 relative">التنبيهات
+                            <span id="alert-badge" class="hidden absolute top-1 left-2 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-white">0</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="p-4 space-y-6 max-w-md mx-auto w-full">
+                <!-- تبويب التنبيهات -->
+                <div id="container-alerts" class="hidden space-y-4">
+                    <div id="alerts-list-container" class="space-y-3"></div>
+                </div>
+
+                <!-- تبويب الفصول -->
+                <div id="container-classes" class="space-y-4 block">
+                    <button onclick="openModal('add-class-modal')" class="w-full bg-burgundy text-white font-bold py-3.5 rounded-xl shadow-sm flex justify-center items-center gap-2 text-sm active:scale-95 transition"><i class="ph-bold ph-plus-circle text-lg"></i> إضافة فصل جديد</button>
+                    <div id="teacher-list-container" class="space-y-3 mt-4"></div>
+                </div>
+
+                <!-- تبويب الطالبات -->
+                <div id="container-students" class="hidden space-y-4">
+                    <button onclick="openModal('add-student-modal')" class="w-full bg-burgundy text-white font-bold py-3.5 rounded-xl shadow-sm flex justify-center items-center gap-2 text-sm active:scale-95 transition">
+                        <i class="ph-bold ph-users text-lg"></i> تسجيل طالبات للفصول
+                    </button>
+                    <div class="ios-card p-4 border border-gray-200 shadow-sm bg-white">
+                        <label class="text-[10px] text-gray-500 font-bold mb-2 block"><i class="ph-fill ph-funnel"></i> استعراض سجلات الطالبات:</label>
+                        <select id="filter-student-class" onchange="fetchStudentsByClass()" class="ios-input font-bold text-burgundy text-sm border-gray-100"></select>
+                        <div id="search-student-box" class="relative mt-3 hidden">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400"><i class="ph-bold ph-magnifying-glass"></i></div>
+                            <input type="text" id="search-student-input" onkeyup="filterLocalStudents()" placeholder="ابحثي بالاسم داخل الفصل..." class="ios-input pl-4 pr-10 text-xs w-full bg-gray-50">
+                        </div>
+                    </div>
+                    <div id="students-loader" class="hidden text-center py-6">
+                        <div class="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-burgundy mx-auto mb-2"></div>
+                        <p class="text-[10px] text-gray-400 font-bold">جاري جلب السجلات...</p>
+                    </div>
+                    <div id="students-list-container" class="space-y-3">
+                        <div class="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                            <i class="ph-fill ph-student text-3xl text-gray-300 mb-2"></i>
+                            <p class="text-xs text-gray-500 font-bold">الرجاء اختيار الفصل من القائمة أعلاه لعرض الطالبات.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. واجهة المعلمة -->
+        <div id="screen-teacher" class="hidden flex-col min-h-screen pb-24 w-full">
+            <header class="p-4 pt-12 border-b bg-white text-center sticky top-0 z-40">
+                <div class="flex justify-between items-center max-w-md mx-auto">
+                    <div class="text-right">
+                        <p class="text-[10px] text-iosMuted font-bold mb-1">المعلمة: أ. <span id="teacher-name">...</span> | <span id="teacher-level">...</span></p>
+                        <h1 id="teacher-class" class="text-xl font-extrabold text-burgundy">تحميل...</h1>
+                    </div>
+                    <button onclick="logout()" class="w-9 h-9 rounded-full bg-red-50 text-red-500 flex items-center justify-center"><i class="ph-bold ph-sign-out"></i></button>
+                </div>
+            </header>
+
+            <div class="p-4 space-y-5 max-w-md mx-auto w-full">
+                <!-- الإشعارات ومركز الاختبارات -->
+                <div id="teacher-alerts-container" class="space-y-3 mb-4"></div>
+                <button onclick="openExamsCenter()" class="w-full mb-4 bg-gray-50 border border-gray-200 text-gray-700 py-3 rounded-2xl font-bold text-sm flex justify-center items-center gap-2 shadow-sm transition active:scale-95">
+                    <i class="ph-fill ph-exam text-burgundy text-lg"></i> مركز الاختبارات
+                </button>
+
+                <!-- بطاقة تحديد خطة الرصد -->
+                <div class="ios-card p-5 border border-gray-100 shadow-sm bg-white">
+                    <h3 class="font-bold text-gray-800 text-sm mb-4"><i class="ph-fill ph-calendar-check text-burgundy"></i> خطة الرصد</h3>
+                    <div class="mb-4">
+                        <label class="text-[10px] text-gray-500 font-bold mb-1 block">رقم الأسبوع</label>
+                        <select id="tracking-week" class="ios-input py-2 px-3 text-xs bg-gray-50 appearance-none"></select>
+                    </div>
+                    <label class="text-[10px] text-gray-500 font-bold mb-2 block">اليوم الدراسي</label>
+                    <div class="flex justify-between gap-2 mb-4" id="days-container">
+                        <button onclick="selectDay(this, 'الأحد')" class="day-btn w-12 h-12 flex items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-600 transition">الأحد</button>
+                        <button onclick="selectDay(this, 'الاثنين')" class="day-btn w-12 h-12 flex items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-600 transition">الاثنين</button>
+                        <button onclick="selectDay(this, 'الثلاثاء')" class="day-btn w-12 h-12 flex items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-600 transition">الثلاثاء</button>
+                        <button onclick="selectDay(this, 'الأربعاء')" class="day-btn w-12 h-12 flex items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-600 transition">الأربعاء</button>
+                        <button onclick="selectDay(this, 'الخميس')" class="day-btn w-12 h-12 flex items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-600 transition">الخميس</button>
+                    </div>
+                    <button id="btn-fetch-plan" onclick="fetchLessonPlan()" class="w-full bg-burgundy text-white font-bold text-sm py-3 rounded-xl transition">جلب المقرر للرصد</button>
+                </div>
+
+                <!-- حاوية مقرر اليوم والمرفقات -->
+                <div id="lesson-plan-display" class="hidden mt-4 space-y-4">
+                    <div class="ios-card p-4 bg-gray-50 border border-gray-100 shadow-sm">
+                        <h3 class="font-bold text-xs text-burgundy mb-2"><i class="ph-bold ph-book-open"></i> مقرر اليوم المعتمد</h3>
+                        <p class="text-[11px] font-bold text-gray-600">الدرس: <span id="display-edu" class="text-gray-900">...</span></p>
+                        <p class="text-[11px] font-bold text-gray-600 mt-1">الواجب: <span id="display-hw" class="text-gray-900">...</span></p>
+                        <p id="display-tarbawi-container" class="text-[11px] font-bold text-gray-600 mt-1 hidden">تربوي: <span id="display-tarbawi" class="text-gray-900">...</span></p>
+                    </div>
+                    <div class="ios-card p-4 bg-white border border-gray-100 shadow-sm">
+                        <h3 class="font-bold text-xs text-burgundy mb-2"><i class="ph-bold ph-upload-simple"></i> إرفاق شواهد الدرس (اختياري)</h3>
+                        <p class="text-[9px] text-gray-500 mb-2">تُحفظ تلقائياً مع الرصد. الحد الأقصى 20 ميجابايت.</p>
+                        <input type="file" id="lesson-file-input" class="ios-input py-2 px-3 text-xs bg-gray-50 w-full" accept="image/*,video/*,audio/*,.doc,.docx,.pdf,.xls,.xlsx">
+                    </div>
+                </div>
+
+                <div id="student-list-container" class="space-y-3"></div>
+                <button id="btn-submit-tracking" onclick="submitDailyTracking()" class="hidden w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg active:scale-95 shadow-lg flex justify-center items-center gap-2 mt-4">
+                    <i class="ph-bold ph-check-circle text-xl"></i> اعتماد وحفظ الرصد
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- النوافذ المنبثقة (Modals) -->
+        <!-- ========================================== -->
+        
+        <div id="alert-modal" class="modal-backdrop hidden px-6" style="z-index: 99990;">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl text-center border border-gray-100">
+                <div id="alert-icon" class="mb-4 text-5xl drop-shadow-sm"><i class="ph-fill ph-warning-circle"></i></div>
+                <h3 id="alert-title" class="text-lg font-extrabold text-gray-800 mb-2">تنبيه</h3>
+                <p id="alert-text" class="text-sm text-gray-500 mb-6 leading-relaxed">رسالة الخطأ تظهر هنا</p>
+                <button onclick="closeModal('alert-modal')" class="w-full bg-gray-100 text-gray-800 font-bold py-3.5 rounded-xl hover:bg-gray-200 active:scale-95 transition-all">موافق</button>
+            </div>
+        </div>
+
+        <!-- نافذة مركز الاختبارات -->
+        <div id="exams-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex flex-col justify-end transition-opacity">
+            <div class="bg-white w-full rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+                <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h2 class="font-bold text-gray-800" id="exams-modal-title">الاختبارات المتاحة</h2>
+                    <button onclick="closeExamsModal()" class="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-bold">X</button>
+                </div>
+                <div id="exams-modal-content" class="p-4 overflow-y-auto flex-1 bg-white"></div>
+            </div>
+        </div>
+
+        <div id="add-dar-modal" class="modal-backdrop hidden px-6">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-burgundy mb-4">إضافة دار جديدة للنظام</h3>
+                <div class="space-y-3">
+                    <input type="text" id="new-dar-name" placeholder="اسم الدار" class="ios-input">
+                    <select id="new-dar-curriculum" class="ios-input">
+                        <option value="" disabled selected>منهج الدار...</option>
+                        <option value="منهج تبيان">منهج تبيان</option>
+                        <option value="منهج قارئ">منهج قارئ</option>
+                        <option value="كلاهما">كلاهما</option>
+                    </select>
+                    <input type="text" id="new-dar-manager" placeholder="اسم المديرة" class="ios-input">
+                    <input type="tel" id="new-dar-phone" placeholder="جوال المديرة 05XXXXXXXX" class="ios-input text-left" dir="ltr">
+                    <input type="url" id="new-dar-loc" placeholder="رابط الموقع (خرائط) اختياري" class="ios-input text-left" dir="ltr">
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="closeModal('add-dar-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                        <button onclick="saveNewDar()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl">حفظ الدار</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="edit-dar-modal" class="modal-backdrop hidden px-6">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                <h3 class="text-lg font-bold text-burgundy mb-4">تعديل بيانات الدار</h3>
+                <div class="space-y-3">
+                    <input type="hidden" id="edit-dar-id">
+                    <label class="text-[10px] text-gray-500 font-bold">اسم الدار</label>
+                    <input type="text" id="edit-dar-name" class="ios-input">
+                    <label class="text-[10px] text-gray-500 font-bold">المنهج</label>
+                    <select id="edit-dar-curriculum" class="ios-input">
+                        <option value="منهج تبيان">منهج تبيان</option>
+                        <option value="منهج قارئ">منهج قارئ</option>
+                        <option value="كلاهما">كلاهما</option>
+                    </select>
+                    <label class="text-[10px] text-gray-500 font-bold">اسم المديرة</label>
+                    <input type="text" id="edit-dar-manager" class="ios-input">
+                    <label class="text-[10px] text-gray-500 font-bold">جوال المديرة</label>
+                    <input type="tel" id="edit-dar-phone" class="ios-input text-left" dir="ltr">
+                    <label class="text-[10px] text-gray-500 font-bold">موقع الخرائط</label>
+                    <input type="url" id="edit-dar-loc" class="ios-input text-left" dir="ltr">
+                    <label class="text-[10px] text-gray-500 font-bold">حالة الدار</label>
+                    <select id="edit-dar-status" class="ios-input text-burgundy font-bold" onchange="toggleDeleteDarBtn()">
+                        <option value="نشط">نشط</option>
+                        <option value="معلق">معلق (إيقاف مؤقت)</option>
+                    </select>
+                    <button id="btn-delete-dar" onclick="confirmDeleteDar()" class="hidden w-full bg-red-50 text-red-600 border border-red-100 font-bold py-3 rounded-xl mt-2 transition active:scale-95">حذف الدار نهائياً</button>
+                    <div class="flex gap-2 pt-2 border-t border-gray-100 mt-2">
+                        <button onclick="closeModal('edit-dar-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                        <button onclick="submitEditDarFull()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl">حفظ التعديلات</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="exam-modal" class="modal-backdrop hidden px-6">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">إرسال اختبار</h3>
+                <div class="space-y-4">
+                    <label class="text-[10px] text-gray-500 font-bold block mb-1">الجهة المستهدفة:</label>
+                    <select id="exam-target-dar" class="ios-input w-full bg-gray-50 font-bold text-burgundy">
+                        <option value="الكل">إرسال مركزي (لجميع الدور)</option>
+                    </select>
+                    <input type="date" id="exam-date" class="ios-input w-full">
+                    <input type="url" id="exam-url" placeholder="رابط جوجل فورم https://..." dir="ltr" class="ios-input w-fultext-left">
+                    <div class="flex gap-2">
+                        <button onclick="closeModal('exam-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                        <button onclick="saveExam()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl">إرسال واعتماد</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="msg-modal" class="modal-backdrop hidden px-6">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-gray-100">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">إرسال إشعار للدار</h3>
+                <div class="space-y-3">
+                    <input type="hidden" id="msg-dar-id">
+                    <label class="text-[10px] font-bold text-gray-500">نوع الإشعار:</label>
+                    <select id="msg-type" class="ios-input font-bold text-burgundy bg-gray-50">
+                        <option value="تنبيه">🔔 تنبيه عام</option>
+                        <option value="زيارة">📍 إشعار بزيارة ميدانية</option>
+                    </select>
+                    <input type="text" id="msg-title" placeholder="عنوان الإشعار (مثال: زيارة تقييمية)" class="ios-input">
+                    <textarea id="msg-content" placeholder="اكتب تفاصيل الإشعار أو الزيارة هنا..." class="ios-input h-24 resize-none"></textarea>
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="closeModal('msg-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition">إلغاء</button>
+                        <button onclick="sendAlert()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl hover:opacity-90 transition">إرسال واعتماد</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="manage-admins-modal" class="modal-backdrop hidden px-6">
+            <div class="modal-content bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">إدارة فريق الإشراف</h3>
+                    <button onclick="closeModal('manage-admins-modal')" class="text-gray-400 text-2xl">&times;</button>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-2xl mb-4 border border-gray-100">
+                    <p class="text-[10px] font-bold text-gray-500 mb-2">إضافة مشرفة جديدة:</p>
+                    <div class="space-y-2">
+                        <input type="text" id="new-admin-name" placeholder="اسم المشرفة" class="ios-input py-2">
+                        <input type="tel" id="new-admin-phone" placeholder="جوال المشرفة 05xxxxxxxx" class="ios-input py-2">
+                        <button onclick="addSupervisor()" class="w-full bg-burgundy text-white font-bold py-2 rounded-xl text-xs">إضافة مشرفة</button>
+                    </div>
+                </div>
+                <div id="supervisors-list" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <div id="add-class-modal" class="modal-backdrop hidden px-6" style="z-index: 9998;">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-burgundy mb-4">إضافة فصل جديد</h3>
+                <div class="space-y-3">
+                    <input type="text" id="new-class-name" placeholder="اسم الفصل" class="ios-input">
+                    <select id="new-class-level" class="ios-input">
+                        <option value="تمهيدي 1">تمهيدي 1</option>
+                        <option value="تمهيدي 2">تمهيدي 2</option>
+                        <option value="صفوف أولية 1">صفوف أولية 1</option>
+                        <option value="صفوف أولية 2">صفوف أولية 2</option>
+                        <option value="صفوف أولية 3">صفوف أولية 3</option>
+                    </select>
+                    <input type="text" id="new-class-teacher" placeholder="اسم المعلمة" class="ios-input">
+                    <input type="tel" id="new-class-phone" placeholder="جوال المعلمة" class="ios-input text-left" dir="ltr">
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="closeModal('add-class-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                        <button onclick="saveNewClass()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl">حفظ الفصل</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="edit-class-modal" class="modal-backdrop hidden px-6" style="z-index: 9998;">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-burgundy mb-4">تعديل بيانات الفصل</h3>
+                <div class="space-y-3">
+                    <input type="hidden" id="edit-class-id">
+                    <input type="text" id="edit-class-name" placeholder="اسم الفصل" class="ios-input">
+                    <select id="edit-class-level" class="ios-input">
+                        <option value="تمهيدي 1">تمهيدي 1</option>
+                        <option value="تمهيدي 2">تمهيدي 2</option>
+                        <option value="صفوف أولية 1">صفوف أولية 1</option>
+                        <option value="صفوف أولية 2">صفوف أولية 2</option>
+                        <option value="صفوف أولية 3">صفوف أولية 3</option>
+                    </select>
+                    <input type="text" id="edit-class-teacher" placeholder="اسم المعلمة" class="ios-input">
+                    <input type="tel" id="edit-class-phone" placeholder="جوال المعلمة" class="ios-input text-left" dir="ltr">
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="closeModal('edit-class-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                        <button onclick="submitEditClass()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl">حفظ التعديل</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="add-student-modal" class="modal-backdrop hidden px-6" style="z-index: 9998;">
+            <div class="modal-content bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                <h3 class="text-lg font-bold text-burgundy mb-4">تسجيل طالبات للفصل</h3>
+                <div class="space-y-3">
+                    <select id="student-class-select" class="ios-input font-bold text-burgundy mb-2"></select>
+                    <div id="dynamic-students-container" class="space-y-2">
+                     <div class="flex gap-2 student-row">
+                        <input type="text" placeholder="اسم الطالبة" class="ios-input w-2/3 py-2 text-sm stu-name">
+                         <input type="tel" placeholder="جوال ولي الأمر" class="ios-input w-1/3 py-2 text-sm text-left stu-phone" dir="ltr">
+                       </div>
+                     </div>
+                    <button onclick="addStudentRow()" id="btn-add-stu-row" class="w-full bg-blue-50 text-blue-600 font-bold py-2.5 rounded-xl text-xs border border-blue-100 mt-2">+ إضافة طالبة أخرى (بحد أقصى 10)</button>
+                    <div class="flex gap-2 pt-4 border-t mt-4">
+                        <button onclick="closeModal('add-student-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                        <button onclick="saveDynamicStudents()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl">تسجيل الطالبات</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="delete-class-modal" class="modal-backdrop hidden px-6" style="z-index: 9999;">
+            <div class="modal-content bg-white w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl">
+                <div class="mb-4 text-red-500 text-5xl"><i class="ph-fill ph-trash"></i></div>
+                <h3 class="text-lg font-bold text-gray-800 mb-2">تأكيد الحذف</h3>
+                <p class="text-sm text-gray-500 mb-6">هل أنتِ متأكدة من حذف هذا الفصل نهائياً؟ سيتم مسح بياناته.</p>
+                <input type="hidden" id="delete-class-id">
+                <div class="flex gap-3">
+                    <button onclick="closeModal('delete-class-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                    <button onclick="executeDeleteClass()" class="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl">نعم، احذفي</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="forward-alert-modal" class="modal-backdrop hidden px-6" style="z-index: 9999;">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-burgundy mb-4">تمرير للمعلمات</h3>
+                <p class="text-xs text-gray-500 mb-4">اختاري الجهة التي ترغبين بتوجيه هذا الإشعار / الاختبار إليها:</p>
+                <div class="space-y-3">
+                    <input type="hidden" id="forward-title">
+                    <input type="hidden" id="forward-content">
+                    <select id="forward-target-class" class="ios-input font-bold text-burgundy"></select>
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="closeModal('forward-alert-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                        <button onclick="executeForwardAlert()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl">اعتماد التوجيه</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="edit-student-modal" class="modal-backdrop hidden px-6" style="z-index: 9998;">
+            <div class="modal-content bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                <h3 class="text-lg font-bold text-burgundy mb-4">تعديل بيانات الطالبة</h3>
+                <div class="space-y-3">
+                    <input type="hidden" id="edit-student-id">
+                    <input type="text" id="edit-student-name" placeholder="اسم الطالبة" class="ios-input">
+                    <select id="edit-student-class" class="ios-input font-bold text-burgundy"></select>
+                    <input type="tel" id="edit-student-phone" placeholder="جوال ولي الأمر" class="ios-input text-left" dir="ltr">
+                    <div class="flex gap-2 pt-2">
+                        <button onclick="closeModal('edit-student-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                        <button onclick="submitEditStudent()" class="flex-2 w-2/3 bg-burgundy text-white font-bold py-3 rounded-xl">حفظ التعديل</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="delete-student-modal" class="modal-backdrop hidden px-6" style="z-index: 9999;">
+            <div class="modal-content bg-white w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl">
+                <div class="mb-4 text-red-500 text-5xl"><i class="ph-fill ph-trash"></i></div>
+                <h3 class="text-lg font-bold text-gray-800 mb-2">حذف الطالبة</h3>
+                <p class="text-sm text-gray-500 mb-6">هل أنتِ متأكدة من حذف الطالبة نهائياً من هذا الفصل؟</p>
+                <input type="hidden" id="delete-student-id">
+                <div class="flex gap-3">
+                    <button onclick="closeModal('delete-student-modal')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl">إلغاء</button>
+                    <button onclick="executeDeleteStudent()" class="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl">حذف</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    window.currentDarId = null;
+    window.currentClassId = null;
+    window.currentClassLevel = null;
+    window.currentLessonPlan = null; 
+    window.currentStudents = [];
+    window.selectedDay = null;
+    window.currentAllStudents = [];
+    window.trackedDaysList = [];
+    let deleteConfirmLevel = 0;
+    let currentPendingExams = [];
+
+    function navigate(screenId) {
+        const screens = ['screen-login', 'screen-master', 'screen-manager', 'screen-teacher'];
+        screens.forEach(function(id) {
+            const el = document.getElementById(id);
+            if (id === screenId) { 
+                el.classList.remove('hidden'); el.classList.add('flex'); 
+            } else { 
+                el.classList.add('hidden'); el.classList.remove('flex'); 
+            }
+        });
+        window.scrollTo(0, 0);
+    }
+    
+    function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+    function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+    function openModal(id) { document.getElementById(id).classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    
+    function esc(str) {
+        return String(str || '').replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    }
+
+    function getWaLink(phone) {
+        let p = String(phone).trim();
+        if(p.startsWith('0')) p = p.substring(1);
+        return 'https://wa.me/966' + p;
+    }
+    
+    function showAlert(title, message, type) {
+        type = type || 'warning';
+        document.getElementById('alert-title').innerText = title;
+        document.getElementById('alert-text').innerText = message;
+        const icon = document.getElementById('alert-icon');
+        icon.className = "mb-4 text-4xl " + (type === 'success' ? 'text-green-500' : 'text-amber-500');
+        icon.innerHTML = type === 'success' ? '<i class="ph-fill ph-check-circle"></i>' : '<i class="ph-fill ph-warning-circle"></i>';
+        openModal('alert-modal');
+    }
+    
+    function clearForms() {
+        document.querySelectorAll('.ios-input').forEach(function(input) {
+            if (input.tagName === 'SELECT') input.selectedIndex = 0; else input.value = '';
+        });
+    }
+    
+    function logout() {
+        localStorage.removeItem('tbyan_user_phone');
+        window.currentDarId = null;
+        window.currentClassId = null;
+        window.currentClassLevel = null;
+        navigate('screen-login');
+    }
+
+    window.onload = function() { 
+        const savedPhone = localStorage.getItem('tbyan_user_phone');
+        if (savedPhone) {
+            document.getElementById('login-phone').value = savedPhone;
+            handleLogin(); 
+        } else {
+            hideLoader(); 
+        }
+    };
+
+    window.addEventListener('load', function() {
+        checkSavedSession();
+    });
+
+    function checkSavedSession() {
+        const savedPhone = localStorage.getItem('tbyan_user_phone');
+        if (savedPhone) {
+            showLoader();
+            google.script.run.withSuccessHandler(res => {
+                hideLoader();
+                if (res.status === 'success') {
+                    if (res.role === 'super_master' || res.role === 'master') {
+                        navigate('screen-master'); loadMasterDashboard(); 
+                        if(document.getElementById('btn-manage-admins')) document.getElementById('btn-manage-admins').style.display = (res.role === 'super_master') ? 'block' : 'none';
+                    }
+                    else if (res.role === 'manager') {
+                        window.currentDarId = res.darId;
+                        document.getElementById('manager-name-display').innerText = res.managerName;
+                        document.getElementById('manager-dar-name').innerText = res.darName;
+                        navigate('screen-manager'); loadManagerData();
+                    }
+                    else if (res.role === 'teacher') {
+                        window.currentDarId = res.darId; window.currentClassId = res.classId; window.currentClassLevel = res.classLevel; 
+                        document.getElementById('teacher-name').innerText = res.teacherName;
+                        document.getElementById('teacher-class').innerText = res.className;
+                        document.getElementById('teacher-level').innerText = window.currentClassLevel || 'غير محدد';
+                        navigate('screen-teacher'); loadTeacherDashboard();
+                    }
+                } else {
+                    localStorage.removeItem('tbyan_user_phone');
+                }
+            }).withFailureHandler(e => {
+                hideLoader();
+            }).verifyUserLogin(savedPhone);
+        }
+    }
+
+    function handleLogin() {
+        const phone = document.getElementById('login-phone').value.trim();
+        if (!phone || phone.length !== 10 || !phone.startsWith('05')) return showAlert("تنبيه", "يرجى كتابة الجوال بشكل صحيح (10 أرقام).");
+        showLoader();
+        google.script.run.withSuccessHandler(res => {
+            hideLoader();
+            if (res.status === 'success') {
+                localStorage.setItem('tbyan_user_phone', phone);
+                if (res.role === 'super_master' || res.role === 'master') {
+                    navigate('screen-master'); loadMasterDashboard(); 
+                    if(document.getElementById('btn-manage-admins')) document.getElementById('btn-manage-admins').style.display = (res.role === 'super_master') ? 'block' : 'none';
+                }
+                else if (res.role === 'manager') {
+                    window.currentDarId = res.darId;
+                    document.getElementById('manager-name-display').innerText = res.managerName;
+                    document.getElementById('manager-dar-name').innerText = res.darName;
+                    navigate('screen-manager'); loadManagerData();
+                }
+                else if (res.role === 'teacher') {
+                    window.currentDarId = res.darId; window.currentClassId = res.classId; window.currentClassLevel = res.classLevel; 
+                    document.getElementById('teacher-name').innerText = res.teacherName;
+                    document.getElementById('teacher-class').innerText = res.className;
+                    document.getElementById('teacher-level').innerText = window.currentClassLevel || 'غير محدد';
+                    navigate('screen-teacher'); loadTeacherDashboard();
+                }
+            } else {
+                localStorage.removeItem('tbyan_user_phone'); 
+                showAlert("غير مسجل", "الجوال غير مسجل في النظام.");
+            }
+        }).verifyUserLogin(phone);
+    }
+
+    function loadMasterDashboard() {
+        showLoader();
+        google.script.run
+            .withSuccessHandler(function(response) {
+                hideLoader();
+                if (response.status === 'success') {
+                    renderDarsForMaster(response.data);
+                } else {
+                    showAlert("خطأ", response.message);
+                }
+            })
+            .withFailureHandler(function(e) { hideLoader(); showAlert("خطأ", e.message); })
+            .getDarsForMaster();
+    }
+
+    function renderDarsForMaster(dars) {
+        const container = document.getElementById('dar-list-container');
+        container.innerHTML = ''; 
+        const examSelect = document.getElementById('exam-target-dar');
+        if(examSelect) {
+            examSelect.innerHTML = '<option value="الكل">إرسال مركزي (لجميع الدور)</option>';
+            dars.forEach(function(d) { 
+                if(d.status !== 'معلق') {
+                    examSelect.innerHTML += '<option value="' + d.id + '">' + d.name + '</option>'; 
+                }
+            });
+        }
+        if(dars.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500 mt-10">لا توجد دور مسجلة حالياً.</p>'; 
+            return;
+        }
+        
+        dars.forEach(function(dar) {
+            let badgeColor = dar.curriculum.indexOf('تبيان') !== -1 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-green-50 text-green-700 border-green-200';
+            let isSuspended = dar.status === 'معلق';
+            let cardStyle = isSuspended ? 'bg-gray-100 border-gray-300 opacity-90 grayscale-[0.2]' : 'bg-white border-iosBorder';
+            let statusBadge = isSuspended ? '<span class="bg-red-500 text-white text-[9px] font-bold px-2 py-1 rounded-full absolute -top-2 -right-2 shadow-sm animate-pulse">معلق مؤقتاً</span>' : '';
+            let editOnClick = "openEditDarModal('" + esc(dar.id) + "', '" + esc(dar.name) + "', '" + esc(dar.curriculum) + "', '" + esc(dar.managerName) + "', '" + esc(dar.managerPhone) + "', '" + esc(dar.location) + "', '" + esc(dar.status) + "')";
+
+            const cardHTML = 
+                '<div class="ios-card p-5 dar-card relative ' + cardStyle + '" id="dar-' + dar.id + '">' +
+                    statusBadge +
+                    '<div class="flex justify-between items-start mb-4">' +
+                        '<div>' +
+                            '<h2 class="text-xl font-bold text-gray-800">' + dar.name + '</h2>' +
+                            '<p class="text-sm text-iosMuted mt-1"><i class="ph-fill ph-user-circle"></i> المديرة: ' + dar.managerName + '</p>' +
+                        '</div>' +
+                        '<span class="border text-[10px] font-bold px-2 py-1 rounded-md ' + badgeColor + '">' + dar.curriculum + '</span>' +
+                    '</div>' +
+                    '<div class="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-gray-200/60">' +
+                        '<button onclick="showDarStats(\'' + dar.id + '\')" class="flex flex-col items-center gap-1 text-gray-600 hover:opacity-70 transition">' +
+                            '<div class="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center border border-gray-200 shadow-sm"><i class="ph-fill ph-chart-pie-slice text-lg"></i></div><span class="text-[9px] font-bold text-center">إحصائيات</span>' +
+                        '</button>' +
+                        '<a href="' + getWaLink(dar.managerPhone) + '" target="_blank" class="flex flex-col items-center gap-1 text-green-600 hover:opacity-70 transition">' +
+                            '<div class="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center border border-green-100 shadow-sm"><i class="ph-fill ph-whatsapp-logo text-lg"></i></div><span class="text-[9px] font-bold text-center leading-tight">تواصل مع<br>المديرة</span>' +
+                        '</a>' +
+                        '<button onclick="openMsgModal(\'' + dar.id + '\')" class="flex flex-col items-center gap-1 text-blue-500 hover:opacity-70 transition">' +
+                            '<div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 shadow-sm"><i class="ph-fill ph-bell-ringing text-lg"></i></div><span class="text-[9px] font-bold text-center">إشعار الدار</span>' +
+                        '</button>' +
+                        '<button onclick="' + editOnClick + '" class="flex flex-col items-center gap-1 text-burgundy hover:opacity-70 transition">' +
+                            '<div class="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center border border-red-100 shadow-sm"><i class="ph-fill ph-pencil-simple text-lg"></i></div><span class="text-[9px] font-bold text-center">تعديل</span>' +
+                        '</button>' +
+                    '</div>' +
+                '</div>';
+            container.insertAdjacentHTML('beforeend', cardHTML);
+        });
+    }
+
+    function filterDars() {
+        const queryInput = document.getElementById('search-dar-input');
+        const query = queryInput ? queryInput.value.toLowerCase() : '';
+        document.querySelectorAll('.dar-card').forEach(function(card) {
+            const name = card.querySelector('h2').innerText.toLowerCase();
+            card.style.display = name.indexOf(query) !== -1 ? 'block' : 'none';
+        });
+    }
+
+    function showDarStats(darId) {
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader();
+            if(res.status === 'success') {
+                const d = res.data;
+                const msgText = 
+                    "👥 إجمالي الطالبات: " + d.totalStudents + "\n" +
+                    "🟢 الطالبات النشطات: " + d.activeStudents + "\n" +
+                    "🏫 الفصول النشطة: " + d.classesCount + "\n" +
+                    "📈 متوسط نسبة التحضير: %" + d.attendanceRate + "\n" +
+                    "🏆 متوسط نسبة الإنجاز: %" + d.completionRate + "\n\n" +
+                    "⭐ النسبة العامة للدار: %" + d.overallRate;
+                showAlert("الإحصائيات العامة للدار", msgText, "success");
+            } else { showAlert("تنبيه", res.message); }
+        }).getAdvancedDarStats(darId);
+    }
+
+    function saveNewDar() {
+        const name = document.getElementById('new-dar-name').value;
+        const curr = document.getElementById('new-dar-curriculum').value;
+        const manager = document.getElementById('new-dar-manager').value;
+        const phone = document.getElementById('new-dar-phone').value;
+        const locElement = document.getElementById('new-dar-loc');
+        const loc = locElement ? locElement.value : '';
+        
+        if(!name || !manager || !phone || !curr) {
+            showAlert("تنبيه", "تأكد من تعبئة كافة الحقول الأساسية");
+            return;
+        }
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader(); 
+            if(res.status === 'success') { 
+                closeModal('add-dar-modal'); clearForms(); 
+                showAlert("نجاح", res.message, "success"); 
+                loadMasterDashboard(); 
+            } else { showAlert("تنبيه", res.message); }
+        }).addNewDarToDb(name, curr, manager, phone, loc);
+    }
+
+    function openEditDarModal(id, name, curr, manager, phone, loc, status) {
+        document.getElementById('edit-dar-id').value = id;
+        document.getElementById('edit-dar-name').value = name;
+        document.getElementById('edit-dar-curriculum').value = curr;
+        document.getElementById('edit-dar-manager').value = manager;
+        document.getElementById('edit-dar-phone').value = phone;
+        document.getElementById('edit-dar-loc').value = (loc !== 'undefined' && loc) ? loc : '';
+        document.getElementById('edit-dar-status').value = status || 'نشط';
+        toggleDeleteDarBtn(); 
+        openModal('edit-dar-modal');
+    }
+
+    function submitEditDarFull() {
+        const id = document.getElementById('edit-dar-id').value;
+        const name = document.getElementById('edit-dar-name').value;
+        const curr = document.getElementById('edit-dar-curriculum').value;
+        const manager = document.getElementById('edit-dar-manager').value;
+        const phone = document.getElementById('edit-dar-phone').value;
+        const loc = document.getElementById('edit-dar-loc').value;
+        const status = document.getElementById('edit-dar-status').value;
+        
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader(); closeModal('edit-dar-modal');
+            if(res.status === 'success') { 
+                showAlert('نجاح', 'تم التحديث بنجاح', 'success'); 
+                loadMasterDashboard(); 
+            } else { showAlert('خطأ', res.message); }
+        }).updateDarInfoFull(id, name, curr, manager, phone, loc, status);
+    }
+
+    function toggleDeleteDarBtn() {
+        const status = document.getElementById('edit-dar-status').value;
+        const btn = document.getElementById('btn-delete-dar');
+        if(status === 'معلق') {
+            btn.classList.remove('hidden'); deleteConfirmLevel = 0;
+            btn.innerText = "حذف الدار نهائياً";
+            btn.classList.add('bg-red-50', 'text-red-600'); 
+            btn.classList.remove('bg-red-500', 'text-white');
+        } else { btn.classList.add('hidden'); }
+    }
+
+    function confirmDeleteDar() {
+        const btn = document.getElementById('btn-delete-dar');
+        if(deleteConfirmLevel === 0) {
+            btn.innerText = "هل أنت متأكد؟ (الضغط مجدداً يحذف)";
+            btn.classList.replace('bg-red-50', 'bg-red-500'); 
+            btn.classList.replace('text-red-600', 'text-white');
+            deleteConfirmLevel = 1;
+        } else if(deleteConfirmLevel === 1) {
+            btn.innerText = "جاري الحذف...";
+            const darId = document.getElementById('edit-dar-id').value;
+            showLoader();
+            google.script.run.withSuccessHandler(function(res) {
+                hideLoader(); closeModal('edit-dar-modal');
+                if(res.status === 'success'){ 
+                    showAlert("تم الحذف", "حذفت الدار نهائياً.", "success"); 
+                    loadMasterDashboard(); 
+                } else { showAlert("خطأ", res.message); }
+            }).deleteDarFromDb(darId);
+        }
+    }
+
+    function openExamModal(darId) { 
+        if(!darId) darId = 'الكل';
+        const select = document.getElementById('exam-target-dar');
+        if(select) select.value = darId;
+        openModal('exam-modal'); 
+    }
+
+    function saveExam() {
+        const targetDar = document.getElementById('exam-target-dar').value; 
+        const date = document.getElementById('exam-date').value;
+        const url = document.getElementById('exam-url').value;
+        
+        if(!date || !url) return showAlert("تنبيه", "أكمل بيانات الاختبار");
+        
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader(); closeModal('exam-modal'); clearForms();
+            showAlert("نجاح", "تم نشر الاختبار بنجاح", "success");
+        }).saveExamToDb(targetDar, date, url);
+    }
+
+    function openMsgModal(darId) { 
+        document.getElementById('msg-dar-id').value = darId; 
+        openModal('msg-modal'); 
+    }
+
+    function sendAlert() {
+        const darId = document.getElementById('msg-dar-id').value;
+        const type = document.getElementById('msg-type').value;
+        const title = document.getElementById('msg-title').value;
+        const content = document.getElementById('msg-content').value;
+        
+        if(!title || !content) return showAlert("تنبيه", "يرجى إكمال عنوان وتفاصيل الإشعار.");
+        const finalTitle = (type === 'زيارة' ? '📍 زيارة ميدانية: ' : '🔔 تنبيه: ') + title;
+        
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader(); closeModal('msg-modal'); clearForms();
+            showAlert("نجاح", "تم إرسال الإشعار للدار بنجاح", "success");
+        }).saveAlertToDb(darId, finalTitle, content);
+    } 
+
+    function loadSupervisors() {
+        const list = document.getElementById('supervisors-list');
+        list.innerHTML = '<p class="text-center text-xs text-gray-400">جاري التحميل...</p>';
+        google.script.run.withSuccessHandler(function(res) {
+            if(res.status === 'success') renderSupervisors(res.data);
+        }).getSupervisors();
+    }
+
+    function renderSupervisors(data) {
+        const list = document.getElementById('supervisors-list');
+        list.innerHTML = '';
+        data.forEach(function(admin) {
+            list.insertAdjacentHTML('beforeend', `
+                <div class="flex items-center justify-between p-3 border border-gray-100 rounded-2xl bg-white shadow-sm mb-2">
+                    <div>
+                        <p class="text-xs font-bold text-gray-800">${admin.name}</p>
+                        <p class="text-[10px] text-gray-500">${admin.phone}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="toggleAdminStatus('${esc(admin.id)}', '${esc(admin.name)}', '${esc(admin.phone)}', '${admin.status === 'نشط' ? 'معلق' : 'نشط'}')" class="text-[9px] font-bold ${admin.status === 'نشط' ? 'text-amber-500' : 'text-green-500'}">${admin.status === 'نشط' ? 'تعليق' : 'تنشيط'}</button>
+
+<button onclick="toggleAdminStatus('${esc(admin.id)}', '${esc(admin.name)}', '${esc(admin.phone)}', 'محذوف')" class="text-[9px] font-bold text-red-500">حذف</button>
+                    </div>
+                </div>
+            `);
+        });
+    }
+
+    function addSupervisor() {
+        const name = document.getElementById('new-admin-name').value;
+        const phone = document.getElementById('new-admin-phone').value;
+        if(!name || !phone) return showAlert("تنبيه", "أكمل البيانات");
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader();
+            if(res.status === 'success') {
+                document.getElementById('new-admin-name').value = '';
+                document.getElementById('new-admin-phone').value = '';
+                loadSupervisors();
+            }
+        }).saveSupervisorToDb(name, phone);
+    }
+
+    function toggleAdminStatus(id, name, phone, status) {
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader(); loadSupervisors();
+        }).updateSupervisorInDb(id, name, phone, status);
+    }
+
+    // ==========================================
+    // واجهة مديرة الدار
+    // ==========================================
+    function switchTab(tab) {
+        document.getElementById('container-classes').classList.toggle('hidden', tab !== 'classes');
+        document.getElementById('container-students').classList.toggle('hidden', tab !== 'students');
+        document.getElementById('container-alerts').classList.toggle('hidden', tab !== 'alerts');
+        
+        document.getElementById('btn-tab-classes').className = tab === 'classes' ? "flex-1 py-2.5 text-[11px] font-bold rounded-lg bg-white shadow-sm text-burgundy transition-all" : "flex-1 py-2.5 text-[11px] font-bold rounded-lg text-gray-500 transition-all";
+        document.getElementById('btn-tab-students').className = tab === 'students' ? "flex-1 py-2.5 text-[11px] font-bold rounded-lg bg-white shadow-sm text-burgundy transition-all" : "flex-1 py-2.5 text-[11px] font-bold rounded-lg text-gray-500 transition-all";
+        document.getElementById('btn-tab-alerts').className = tab === 'alerts' ? "flex-1 py-2.5 text-[11px] font-bold rounded-lg bg-white shadow-sm text-burgundy relative transition-all" : "flex-1 py-2.5 text-[11px] font-bold rounded-lg text-gray-500 relative transition-all";
+    }
+
+    function loadManagerData() {
+        showLoader();
+        google.script.run.withSuccessHandler(classRes => {
+            if (classRes && classRes.status === 'success') {
+                renderClassesList(classRes.data);
+                const stuSelect = document.getElementById('student-class-select');
+                const fwSelect = document.getElementById('forward-target-class');
+                const filterSelect = document.getElementById('filter-student-class'); 
+                
+                if(stuSelect) stuSelect.innerHTML = '<option value="" disabled selected>اختر الفصل للإضافة...</option>';
+                if(fwSelect) fwSelect.innerHTML = '<option value="الكل">جميع الفصول (كافة المعلمات)</option>';
+                if(filterSelect) filterSelect.innerHTML = '<option value="" disabled selected>اختاري الفصل لعرض طالباته...</option>'; 
+                
+                classRes.data.forEach(cls => { 
+                    if(cls.status !== 'موقوف') {
+                        let opt = `<option value="${cls.id}">${cls.name} (أ. ${cls.teacherName})</option>`;
+                        if(stuSelect) stuSelect.innerHTML += opt; 
+                        if(fwSelect) fwSelect.innerHTML += `<option value="${cls.id}">فصل: ${cls.name} (أ. ${cls.teacherName})</option>`;
+                        if(filterSelect) filterSelect.innerHTML += opt; 
+                    }
+                });
+                
+                google.script.run.withSuccessHandler(alertRes => {
+                    hideLoader();
+                    if (!alertRes) return showAlert("تنبيه", "فشل السيرفر في جلب التنبيهات.");
+                    if (alertRes.status === 'success') renderAlertsList(alertRes.data);
+                    else showAlert("مشكلة", alertRes.message);
+                }).withFailureHandler(e => { hideLoader(); showAlert("خطأ", e.message); }).getAdminAlertsForDar(window.currentDarId);
+                
+            } else { hideLoader(); showAlert("خطأ", classRes ? classRes.message : "خطأ مجهول"); }
+        }).getClassesForManager(window.currentDarId);
+    }
+
+    function renderAlertsList(data) {
+        const container = document.getElementById('alerts-list-container');
+        const badge = document.getElementById('alert-badge');
+        if(!container) return;
+        
+        container.innerHTML = '';
+        if(!data || data.length === 0) { 
+            container.innerHTML = '<p class="text-center text-gray-400 py-10 text-xs">لا توجد تنبيهات</p>'; 
+            if(badge) badge.classList.add('hidden'); 
+            return; 
+        }
+        
+        let unreadCount = data.filter(item => !item.isRead).length;
+        if(badge) { 
+            if (unreadCount > 0) { badge.classList.remove('hidden'); badge.innerText = unreadCount; } 
+            else { badge.classList.add('hidden'); }
+        }
+        
+        data.forEach(item => {
+            let isRead = item.isRead;
+            let cardStyle = isRead ? "opacity-70 bg-gray-50 border-transparent grayscale-[0.3]" : "bg-white border-burgundy/20 shadow-md";
+            let titleColor = isRead ? "text-gray-600" : "text-burgundy";
+            let fwTitle = esc(item.title);
+            let fwContent = esc(item.content || item.link || '');
+            
+            container.insertAdjacentHTML('beforeend', `
+                <div class="ios-card p-4 transition-all duration-300 mb-3 ${cardStyle}" id="alert-card-${item.id}">
+                    <div class="flex justify-between items-start mb-1">
+                        <h4 class="font-bold text-xs ${titleColor}">${item.title}</h4>
+                        <span class="text-[8px] text-gray-400 font-bold">${item.date}</span>
+                    </div>
+                    <p class="text-[10px] text-gray-500 leading-relaxed mb-3">${item.content || 'الضغط لفتح الرابط المرفق'}</p>
+                    <div class="flex gap-2 border-t border-gray-100 pt-3">
+                        ${!isRead ? `<button onclick="markAsRead('${item.id}')" class="bg-gray-100 text-gray-600 text-[9px] font-bold px-3 py-1.5 rounded-full"><i class="ph-bold ph-check"></i> تحديد كمقروء</button>` : `<span class="text-[9px] text-gray-400 font-bold flex items-center gap-1"><i class="ph-bold ph-checks"></i> مقروء</span>`}
+                        ${item.link ? `<a href="${item.link}" target="_blank" class="bg-blue-50 text-blue-600 text-[9px] font-bold px-3 py-1.5 rounded-full">فتح الرابط 🔗</a>` : ''}
+                        <button onclick="openForwardModal('${fwTitle}', '${fwContent}')" class="bg-green-50 text-green-700 text-[9px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1 ml-auto"><i class="ph-bold ph-share-network"></i> توجيه للمعلمات</button>
+                    </div>
+                </div>`);
+        });
+    }
+
+    function forwardAlert(text) {
+  const encoded = encodeURIComponent("📌 إشعار من الإدارة:\n" + text);
+  window.open("https://wa.me/?text=" + encoded, "_blank");
+}
+
+    function renderClassesList(data) {
+        const container = document.getElementById('teacher-list-container');
+        if(!container) return;
+        container.innerHTML = '';
+        
+        if(data.length === 0) { 
+            container.innerHTML = '<p class="text-center text-gray-400 py-4 text-xs">لا توجد فصول مسجلة حالياً.</p>'; 
+            return; 
+        }
+        
+        data.forEach(function(cls) {
+            let isM = cls.status === 'موقوف';
+            let cardStyle = isM ? 'bg-red-50/30 opacity-80' : 'bg-white shadow-sm';
+            
+            let actionBtnHTML = isM
+                ? `<div class="flex flex-col items-center gap-1 w-12"><button onclick="executeActivateClass('${cls.id}')" class="text-blue-600 bg-blue-50 w-8 h-8 rounded-full flex items-center justify-center border border-blue-100"><i class="ph-bold ph-play-circle text-lg"></i></button><span class="text-[7px] font-bold text-blue-600">تنشيط</span></div>`
+                : `<div class="flex flex-col items-center gap-1 w-12"><button onclick="executeSuspendClass('${cls.id}')" class="text-red-500 bg-red-50 w-8 h-8 rounded-full flex items-center justify-center border border-red-100"><i class="ph-bold ph-pause-circle text-lg"></i></button><span class="text-[7px] font-bold text-red-500">تعطيل</span></div>`;
+            
+            let deleteBtnHTML = isM 
+                ? `<div class="flex flex-col items-center gap-1 w-12"><button onclick="confirmDeleteClassModal('${cls.id}')" class="text-red-600 bg-red-50 w-8 h-8 rounded-full flex items-center justify-center border border-red-100"><i class="ph-bold ph-trash text-lg"></i></button><span class="text-[7px] font-bold text-red-600">حذف</span></div>`
+                : ``;
+
+            let editOnClick = `openEditClassModal('${cls.id}', '${esc(cls.name)}', '${cls.level}', '${esc(cls.teacherName)}', '${cls.teacherPhone}')`;
+
+            container.insertAdjacentHTML('beforeend', `
+                <div class="flex flex-col border border-gray-100 p-3 rounded-2xl mb-3 ${cardStyle}">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex-1 min-w-0 pr-1">
+                            <h4 class="font-extrabold text-gray-900 text-sm truncate">أ. ${cls.teacherName}</h4>
+                            <p class="text-[9px] text-gray-500 font-bold mt-0.5 truncate">${cls.name} | ${cls.level}</p>
+                        </div>
+                        <div class="flex flex-col items-center gap-1 w-12">
+                            <div class="bg-gray-50 text-burgundy w-8 h-8 rounded-full flex items-center justify-center border border-gray-200"><span class="text-sm font-black">${cls.studentCount}</span></div>
+                            <span class="text-[7px] font-bold text-gray-400">طالبات</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 border-t border-gray-100 pt-3 justify-between items-center">
+                        <div class="flex gap-2">
+                            <button onclick="showClassStats('${cls.id}')" class="flex flex-col items-center gap-1 w-12"><div class="bg-blue-50 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center border border-blue-100"><i class="ph-bold ph-chart-pie text-lg"></i></div><span class="text-[7px] font-bold text-blue-600">إحصائيات</span></button>
+                            <button onclick="${editOnClick}" class="flex flex-col items-center gap-1 w-12"><div class="bg-gray-50 text-gray-600 w-8 h-8 rounded-full flex items-center justify-center border border-gray-200"><i class="ph-bold ph-pencil-simple text-lg"></i></div><span class="text-[7px] font-bold text-gray-500">تعديل</span></button>
+                            <a href="${getWaLink(cls.teacherPhone)}" target="_blank" class="flex flex-col items-center gap-1 w-12"><div class="bg-green-50 text-green-600 w-8 h-8 rounded-full flex items-center justify-center border border-green-200"><i class="ph-bold ph-whatsapp-logo text-lg"></i></div><span class="text-[7px] font-bold text-green-600">تواصل</span></a>
+                        </div>
+                        <div class="flex gap-2">
+                            ${actionBtnHTML}
+                            ${deleteBtnHTML}
+                        </div>
+                    </div>
+                </div>`);
+        });
+    }
+
+    function showClassStats(classId) {
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader();
+            if(res.status === 'success') {
+                showAlert("إحصائيات الفصل", `الطالبات النشطات: ${res.data.studentCount}\nمتوسط الحضور: %${res.data.attendanceRate}\nمتوسط الإنجاز: %${res.data.completionRate}`, "success");
+            } else {
+                showAlert("خطأ", res.message);
+            }
+        }).getClassStatsFromDb(window.currentDarId, classId);
+    }
+
+    function saveNewClass() {
+        const name = document.getElementById('new-class-name').value.trim();
+        const level = document.getElementById('new-class-level').value; 
+        const teacher = document.getElementById('new-class-teacher').value.trim();
+        const phone = document.getElementById('new-class-phone').value.trim();
+        
+        if (!name || !level || !teacher || !phone) return showAlert("تنبيه", "تأكد من تعبئة جميع الحقول.");
+        
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            if(res.status === 'success') { 
+                closeModal('add-class-modal'); clearForms(); 
+                showAlert("نجاح", "تمت الإضافة", "success"); loadManagerData(); 
+            } else { hideLoader(); showAlert("خطأ", res.message); }
+        }).saveClassToDb(window.currentDarId, name, level, teacher, phone);
+    }
+
+    function openEditClassModal(id, name, level, teacher, phone) {
+        document.getElementById('edit-class-id').value = id;
+        document.getElementById('edit-class-name').value = name;
+        document.getElementById('edit-class-level').value = level;
+        document.getElementById('edit-class-teacher').value = teacher;
+        document.getElementById('edit-class-phone').value = phone;
+        openModal('edit-class-modal');
+    }
+
+    function submitEditClass() {
+        const id = document.getElementById('edit-class-id').value;
+        const name = document.getElementById('edit-class-name').value.trim();
+        const level = document.getElementById('edit-class-level').value;
+        const teacher = document.getElementById('edit-class-teacher').value.trim();
+        const phone = document.getElementById('edit-class-phone').value.trim();
+        
+        if(!name || !level || !teacher || !phone) return showAlert("تنبيه", "إكمال كافة البيانات");
+        
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader(); closeModal('edit-class-modal');
+            if(res.status === 'success') { showAlert("نجاح", "تم تعديل الفصل", "success"); loadManagerData(); }
+            else { showAlert("خطأ", res.message); }
+        }).updateClassInDb(window.currentDarId, id, name, level, teacher, phone);
+    }
+
+    function executeSuspendClass(classId) {
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            if(res.status === 'success') { showAlert("نجاح", "تم التعطيل", "success"); loadManagerData(); }
+            else { hideLoader(); showAlert("خطأ", res.message); }
+        }).suspendClassInDb(window.currentDarId, classId);
+    }
+    
+    function executeActivateClass(classId) {
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            if(res.status === 'success') { showAlert("نجاح", "تم التنشيط", "success"); loadManagerData(); }
+            else { hideLoader(); showAlert("خطأ", res.message); }
+        }).activateClassInDb(window.currentDarId, classId);
+    }
+
+    function confirmDeleteClassModal(classId) {
+        document.getElementById('delete-class-id').value = classId;
+        openModal('delete-class-modal');
+    }
+    
+    function executeDeleteClass() {
+        const classId = document.getElementById('delete-class-id').value;
+        closeModal('delete-class-modal');
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            if(res.status === 'success') { showAlert("نجاح", "تم حذف الفصل", "success"); loadManagerData(); }
+            else { hideLoader(); showAlert("خطأ", res.message); }
+        }).deleteClassFromDb(window.currentDarId, classId);
+    }
+
+    function addStudentRow() {
+        const container = document.getElementById('dynamic-students-container');
+        if(container.children.length >= 10) return showAlert("تنبيه", "الحد الأقصى للإضافة 10 طالبات في المرة الواحدة");
+        
+        container.insertAdjacentHTML('beforeend', `
+            <div class="flex gap-2 student-row mt-2 items-center">
+                <div class="w-3/5"><input type="text" placeholder="اسم الطالبة" class="ios-input py-2 text-sm stu-name" style="width: 100%;"></div>
+                <div class="w-2/5 relative">
+                    <input type="tel" placeholder="رقم الجوال" class="ios-input py-2 text-sm text-left stu-phone" dir="ltr" style="width: 100%; padding-left: 28px;">
+                </div>
+                <button onclick="this.parentElement.remove()" class="text-red-500 font-bold px-1 text-2xl leading-none">&times;</button>
+            </div>
+        `);
+    }
+
+    function saveDynamicStudents() {
+        const classId = document.getElementById('student-class-select').value;
+        if(!classId) return showAlert("تنبيه", "الرجاء اختيار الفصل أولاً");
+        
+        const rows = document.querySelectorAll('.student-row');
+        let validStudents = [];
+        
+        rows.forEach(function(row) {
+            let name = row.querySelector('.stu-name').value.trim();
+            let phone = row.querySelector('.stu-phone').value.trim();
+            if(name && phone) { validStudents.push({name: name, phone: phone}); }
+        });
+
+        if(validStudents.length === 0) return showAlert("تنبيه", "يجب إدخال بيانات طالبة واحدة على الأقل (الاسم والجوال)");
+
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader(); 
+            if(res.status === 'success') {
+                closeModal('add-student-modal');
+                document.getElementById('dynamic-students-container').innerHTML = `
+                    <div class="flex gap-2 student-row items-center">
+                        <div class="w-3/5"><input type="text" placeholder="اسم الطالبة" class="ios-input py-2 text-sm stu-name" style="width: 100%;"></div>
+                        <div class="w-2/5"><input type="tel" placeholder="رقم الجوال" class="ios-input py-2 text-sm text-left stu-phone" dir="ltr" style="width: 100%;"></div>
+                    </div>`;
+                showAlert("نجاح", "تم تسجيل " + validStudents.length + " طالبة", "success");
+                const currentFilterClass = document.getElementById('filter-student-class').value;
+                if(currentFilterClass === classId) { fetchStudentsByClass(); }
+            } else { showAlert("خطأ", res.message); }
+        }).saveDynamicStudentsToDb(window.currentDarId, classId, validStudents);
+    }
+
+    // ==========================================
+    // واجهة المعلمة
+    // ==========================================
+    function markAsRead(alertId) {
+        document.getElementById(`alert-card-${alertId}`).className = "ios-card p-4 transition-all duration-300 mb-3 opacity-70 bg-gray-50 border-transparent grayscale-[0.3]";
+        google.script.run.withSuccessHandler(() => loadManagerData()).markAlertAsRead(window.currentDarId, alertId);
+    }
+
+    function openForwardModal(title, content) {
+        document.getElementById('forward-title').value = title;
+        document.getElementById('forward-content').value = content;
+        openModal('forward-alert-modal');
+    }
+
+    function executeForwardAlert() {
+        const title = document.getElementById('forward-title').value;
+        const content = document.getElementById('forward-content').value;
+        const targetClass = document.getElementById('forward-target-class').value;
+        showLoader();
+        closeModal('forward-alert-modal');
+        google.script.run.withSuccessHandler(res => {
+            hideLoader();
+            if(res.status === 'success') showAlert("نجاح", "تم تمرير الإشعار بنجاح", "success");
+            else showAlert("خطأ", res.message);
+        }).forwardAlertToTeachers(window.currentDarId, title, content, targetClass);
+    }
+
+    function loadTeacherDashboard() {
+        window.currentLessonPlan = null; 
+        window.currentStudents = []; 
+        window.selectedDay = null; 
+        window.trackedDaysList = [];
+        
+        document.getElementById('btn-fetch-plan').innerText = 'اختيار اليوم لسحب المقرر';
+        const isTamheedi = String(window.currentClassLevel).indexOf('تمهيدي') !== -1;
+        const weekSelect = document.getElementById('tracking-week');
+        weekSelect.innerHTML = '<option value="" disabled selected>اختيار الأسبوع...</option>';
+        for(let i=1; i<=(isTamheedi ? 15 : 10); i++) weekSelect.innerHTML += `<option value="${i}">الأسبوع ${i}</option>`;
+        
+        weekSelect.setAttribute('onchange', 'checkWeekTrackedDays()');
+        document.querySelectorAll('.day-btn').forEach(btn => btn.className = "day-btn w-12 h-12 flex items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-600 transition");
+        
+        showLoader();
+        google.script.run.withSuccessHandler(res => {
+            hideLoader();
+            if(res.status === 'success') {
+                if(res.data.alerts && res.data.alerts.length > 0) renderTeacherAlerts(res.data.alerts);
+                if(res.data.students) window.currentStudents = res.data.students;
+            } else {
+                showAlert("خطأ في التحميل", res.message);
+            }
+        }).withFailureHandler(e => {
+            hideLoader(); showAlert("خطأ بالاتصال", e.message);
+        }).getTeacherDashboardData(window.currentDarId, window.currentClassId);
+    }
+
+    function selectDay(btn, day) {
+        window.selectedDay = day;
+        document.querySelectorAll('.day-btn').forEach(function(b) {
+            const dName = b.innerText.trim();
+            if(window.trackedDaysList && window.trackedDaysList.includes(dName)) {
+                b.className = "day-btn w-12 h-12 flex items-center justify-center rounded-full border border-green-500 bg-green-50 text-[10px] font-bold text-green-700 transition shadow-sm";
+            } else {
+                b.className = "day-btn w-12 h-12 flex items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-600 transition";
+            }
+        });
+
+        btn.className = "day-btn w-12 h-12 flex items-center justify-center rounded-full border border-burgundy bg-burgundy text-[10px] font-bold text-white transition transform scale-105 shadow-md";
+
+        if(window.trackedDaysList && window.trackedDaysList.includes(day)) {
+            showAlert("تنبيه", "لقد تم رصد هذا اليوم مسبقاً.\nمتابعة الرصد ستقوم بتحديث البيانات الحالية للطالبات.");
+        }
+        document.getElementById('btn-fetch-plan').innerText = 'جلب المقرر للرصد';
+    }
+
+    function fetchLessonPlan() {
+        const week = document.getElementById('tracking-week').value;
+        const level = window.currentClassLevel;
+        
+        if (!week || !window.selectedDay) return showAlert("تنبيه", "يرجى التأكد من اختيار الأسبوع واليوم");
+        if (!window.currentStudents || window.currentStudents.length === 0) return showAlert("تنبيه", "لا توجد طالبات في هذا الفصل.");
+        
+        showLoader();
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader();
+            if (res.status === 'success') {
+                window.currentLessonPlan = res;
+                document.getElementById('display-edu').innerText = res.educational || 'لا يوجد';
+                document.getElementById('display-hw').innerText = res.homework || 'لا يوجد';
+                const tarbawiContainer = document.getElementById('display-tarbawi-container');
+                const isAwwalia = String(level).replace('أ','ا').indexOf('اولي') !== -1;
+                
+                if (isAwwalia && res.tarbawi) { 
+                    tarbawiContainer.classList.remove('hidden'); 
+                    document.getElementById('display-tarbawi').innerText = res.tarbawi; 
+                } else { 
+                    tarbawiContainer.classList.add('hidden'); 
+                }
+                
+                document.getElementById('lesson-plan-display').classList.remove('hidden');
+                renderStudentCardsForTracking(level);
+            } else { showAlert("تنبيه", res.message); }
+        }).getDailyLessonPlan(level, week, window.selectedDay);
+    }
+
+    function selectOption(btn, type, status) {
+        const container = btn.parentElement;
+        container.setAttribute('data-selected', status);
+        container.querySelectorAll('button').forEach(function(b) {
+            b.className = "flex-1 py-2 text-[10px] font-bold rounded-full bg-gray-100 text-gray-500 transition";
+        });
+        let activeClass = (status === 'غائبة' || status === 'لم تتقن' || status === 'لم تنجز') ? "bg-gray-800 text-white shadow-sm" : "bg-burgundy text-white shadow-sm";
+        btn.className = "flex-1 py-2 text-[10px] font-bold rounded-full transition " + activeClass;
+    }
+
+    function setAllOptions(type, status) {
+        document.querySelectorAll('.' + type + '-group').forEach(function(group) {
+            const btns = Array.from(group.querySelectorAll('button'));
+            for(let i=0; i<btns.length; i++){
+                if(btns[i].innerText.indexOf(status) !== -1) {
+                    selectOption(btns[i], type, status);
+                    break;
+                }
+            }
+        });
+    }
+
+    function renderTeacherAlerts(alerts) {
+        const container = document.getElementById('teacher-alerts-container');
+        if(!container) return;
+        container.innerHTML = '';
+        if(alerts.length > 0) {
+            alerts.forEach(item => {
+                let isLink = String(item.content).startsWith('http');
+                let contentHtml = isLink 
+                    ? `<a href="${item.content}" target="_blank" class="inline-block mt-2 bg-blue-50 text-blue-600 text-[10px] font-bold px-4 py-2 rounded-lg border border-blue-100">🔗 الضغط لفتح الرابط / الاختبار</a>`
+                    : `<p class="text-[11px] text-gray-600 mt-1 leading-relaxed">${item.content}</p>`;
+                    
+                container.insertAdjacentHTML('beforeend', `
+                    <div class="bg-blue-50/50 border-r-4 border-blue-500 p-3 rounded-xl mb-2 relative overflow-hidden">
+                        <div class="absolute -right-2 -top-2 opacity-10"><i class="ph-fill ph-bell-ringing text-4xl text-blue-500"></i></div>
+                        <div class="flex justify-between items-center"><h4 class="text-xs font-bold text-blue-800">${item.title}</h4><span class="text-[8px] text-blue-400 font-bold">${item.date}</span></div>
+                        ${contentHtml}
+                    </div>
+                `);
+            });
+        }
+    }
+
+    function renderStudentsList(data) {
+        const container = document.getElementById('students-list-container');
+        container.innerHTML = '';
+        if(data.length === 0) { 
+            container.innerHTML = '<p class="text-center text-gray-400 py-6 text-xs bg-white rounded-xl border border-gray-100 shadow-sm">لا توجد طالبات في هذا الفصل.</p>'; 
+            return; 
+        }
+        
+        const selectEl = document.getElementById('filter-student-class');
+        const classNameText = selectEl.options[selectEl.selectedIndex].text;
+
+        data.forEach(stu => {
+            let isM = stu.status === 'موقوف';
+            let editFn = `openEditStudentModal('${stu.id}', '${esc(stu.name)}', '${stu.classId}', '${stu.phone}')`;
+            
+            container.insertAdjacentHTML('beforeend', `
+                <div class="student-card ios-card p-3 mb-2 border border-gray-100 shadow-sm ${isM ? 'opacity-60 bg-gray-50 grayscale' : 'bg-white'}">
+                    <div class="flex justify-between items-center">
+                        <div class="flex-1 min-w-0 pr-1">
+                            <h4 class="font-extrabold text-gray-900 text-sm truncate stu-search-name">${stu.name}</h4>
+                            <p class="text-[9px] text-gray-500 font-bold mt-0.5 truncate">${classNameText}</p>
+                        </div>
+                        <div class="flex gap-1">
+                            <button onclick="${editFn}" class="w-8 h-8 bg-gray-50 text-gray-600 rounded-full flex items-center justify-center border border-gray-200"><i class="ph-bold ph-pencil-simple text-sm"></i></button>
+                            <button onclick="toggleStudentStatus('${stu.id}', '${isM ? 'نشط' : 'موقوف'}')" class="w-8 h-8 rounded-full flex items-center justify-center border ${isM?'text-blue-600 bg-blue-50':'text-amber-500 bg-amber-50'}"><i class="ph-bold ph-${isM?'play':'pause'} text-sm"></i></button>
+                            ${isM ? `<button onclick="confirmDeleteStudent('${stu.id}')" class="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center border border-red-100"><i class="ph-bold ph-trash text-sm"></i></button>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `);
+        });
+    }
+
+    function filterStudents() {
+        const q = document.getElementById('search-student-input').value.toLowerCase();
+        document.querySelectorAll('.student-card').forEach(card => {
+            const name = card.querySelector('.stu-search-name').innerText.toLowerCase();
+            card.style.display = name.includes(q) ? 'block' : 'none';
+        });
+    }
+
+    function openEditStudentModal(id, name, classId, phone) {
+        document.getElementById('edit-student-id').value = id;
+        document.getElementById('edit-student-name').value = name;
+        document.getElementById('edit-student-phone').value = phone;
+        const classesHtml = document.getElementById('student-class-select').innerHTML;
+        document.getElementById('edit-student-class').innerHTML = classesHtml;
+        document.getElementById('edit-student-class').value = classId;
+        openModal('edit-student-modal');
+    }
+
+    function submitEditStudent() {
+        const id = document.getElementById('edit-student-id').value;
+        const name = document.getElementById('edit-student-name').value.trim();
+        const classId = document.getElementById('edit-student-class').value;
+        const phone = document.getElementById('edit-student-phone').value.trim();
+        
+        if(!name || !classId || !phone) return showAlert("تنبيه", "إكمال كافة البيانات");
+        
+        showLoader();
+        google.script.run.withSuccessHandler(res => {
+            hideLoader(); 
+            closeModal('edit-student-modal');
+            if(res.status === 'success') { 
+                showAlert("نجاح", "تم تعديل بيانات الطالبة", "success"); 
+                fetchStudentsByClass(); 
+            }
+            else { showAlert("خطأ", res.message); }
+        }).updateStudentInDb(window.currentDarId, id, classId, name, phone);
+    }
+
+    function toggleStudentStatus(id, status) {
+        showLoader();
+        google.script.run.withSuccessHandler(res => {
+            hideLoader(); 
+            if(res.status === 'success') { fetchStudentsByClass(); } 
+            else { showAlert("خطأ", res.message); }
+        }).toggleStudentStatusInDb(window.currentDarId, id, status);
+    }
+
+    function confirmDeleteStudent(id) {
+        document.getElementById('delete-student-id').value = id;
+        openModal('delete-student-modal');
+    }
+
+    function executeDeleteStudent() {
+        const id = document.getElementById('delete-student-id').value;
+        closeModal('delete-student-modal');
+        showLoader();
+        google.script.run.withSuccessHandler(res => {
+            hideLoader(); 
+            if(res.status === 'success') { showAlert("نجاح", "تم حذف الطالبة", "success"); fetchStudentsByClass(); } 
+            else { showAlert("خطأ", res.message); }
+        }).deleteStudentFromDb(window.currentDarId, id);
+    }
+
+    function fetchStudentsByClass() {
+        const classId = document.getElementById('filter-student-class').value;
+        if(!classId) return;
+        
+        document.getElementById('students-list-container').innerHTML = '';
+        document.getElementById('search-student-box').classList.add('hidden');
+        document.getElementById('students-loader').classList.remove('hidden');
+
+        google.script.run.withSuccessHandler(res => {
+            document.getElementById('students-loader').classList.add('hidden');
+            if(res.status === 'success') {
+                window.currentAllStudents = res.data; 
+                renderStudentsList(res.data);
+                if(res.data.length > 0) document.getElementById('search-student-box').classList.remove('hidden');
+            } else showAlert("خطأ", res.message);
+        }).getStudentsByClassForManager(window.currentDarId, classId);
+    }
+
+    function filterLocalStudents() {
+        const q = document.getElementById('search-student-input').value.toLowerCase();
+        document.querySelectorAll('.student-card').forEach(card => {
+            const name = card.querySelector('.stu-search-name').innerText.toLowerCase();
+            card.style.display = name.includes(q) ? 'block' : 'none';
+        });
+    }
+
+    function renderStudentCardsForTracking(level) {
+        const container = document.getElementById('student-list-container');
+        container.innerHTML = '';
+        const isAwwalia = String(level).replace('أ','ا').indexOf('اولي') !== -1;
+        
+        window.currentStudents.forEach(function(student, index) {
+            let phoneStr = String(student.parentPhone || '').trim();
+            if(phoneStr.startsWith('0')) phoneStr = phoneStr.substring(1);
+            
+            let buttonsHTML = '';
+            if (isAwwalia) {
+                buttonsHTML = 
+                '<div class="grid grid-cols-2 gap-2 mt-1">' +
+                    '<button onclick="toggleState(this, \'att\')" data-value="حاضرة" class="att-btn py-1.5 text-[10px] font-bold rounded-full bg-green-500 text-white shadow-sm transition-all duration-300">الحضور: حاضرة</button>' +
+                    '<button onclick="toggleState(this, \'edu\')" data-value="أتقنت" class="edu-btn py-1.5 text-[10px] font-bold rounded-full bg-green-500 text-white shadow-sm transition-all duration-300">التعليمي: أتقنت</button>' +
+                    '<button onclick="toggleState(this, \'hw\')" data-value="أنجزت" class="hw-btn py-1.5 text-[10px] font-bold rounded-full bg-green-500 text-white shadow-sm transition-all duration-300">الواجب: أنجزت</button>' +
+                    '<button onclick="toggleState(this, \'tarbawi\')" data-value="أتقنت" class="tarbawi-btn py-1.5 text-[10px] font-bold rounded-full bg-green-500 text-white shadow-sm transition-all duration-300">التربوي: أتقنت</button>' +
+                '</div>';
+            } else {
+                buttonsHTML = 
+                '<div class="flex justify-between gap-1.5">' +
+                    '<button onclick="toggleState(this, \'att\')" data-value="حاضرة" class="att-btn flex-1 py-1.5 text-[10px] font-bold rounded-full bg-green-500 text-white shadow-sm transition-all duration-300">حاضرة</button>' +
+                    '<button onclick="toggleState(this, \'edu\')" data-value="أتقنت" class="edu-btn flex-1 py-1.5 text-[10px] font-bold rounded-full bg-green-500 text-white shadow-sm transition-all duration-300">أتقنت</button>' +
+                    '<button onclick="toggleState(this, \'hw\')" data-value="أنجزت" class="hw-btn flex-1 py-1.5 text-[10px] font-bold rounded-full bg-green-500 text-white shadow-sm transition-all duration-300">أنجزت</button>' +
+                '</div>';
+            }
+                
+            const cardHTML = 
+                '<div class="bg-white p-3 border border-gray-100 rounded-2xl tracking-card mb-2 shadow-sm" data-student-id="' + student.id + '" data-student-name="' + student.name + '">' +
+                    '<div class="flex justify-between items-center mb-2">' +
+                        '<h3 class="font-extrabold text-gray-800 text-xs">' + (index + 1) + '. ' + student.name + '</h3>' +
+                        '<div class="flex gap-2">' +
+                            '<button onclick="sendComprehensiveReport(this, \'' + phoneStr + '\', \'' + student.name + '\', \'' + document.getElementById('teacher-class').innerText + '\')" class="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-sm transition active:scale-95" title="إرسال تقرير شامل عبر الواتساب"><i class="ph-fill ph-chart-bar text-sm"></i></button>' +
+                            '<a href="https://wa.me/966' + phoneStr + '" target="_blank" class="w-7 h-7 rounded-full bg-green-50   text-green-600 flex items-center justify-center border border-green-100 shadow-sm transition active:scale-95" title="مراسلة سريعة"><i class="ph-fill ph-whatsapp-logo text-sm"></i></a>' +
+                        '</div>' +
+                    '</div>' +
+                    buttonsHTML +
+                '</div>';
+            container.insertAdjacentHTML('beforeend', cardHTML);
+        });
+        document.getElementById('btn-submit-tracking').classList.remove('hidden');
+    }
+
+    function toggleState(btn, type) {
+        const card = btn.closest('.tracking-card');
+        const currentValue = btn.getAttribute('data-value');
+        let newValue = "";
+
+        const eduBtn = card.querySelector('.edu-btn');
+        const hwBtn = card.querySelector('.hw-btn');
+        const tarbawiBtn = card.querySelector('.tarbawi-btn');
+        const isGrid = !!tarbawiBtn; 
+
+        if (type === 'att') {
+            newValue = currentValue === 'حاضرة' ? 'غائبة' : 'حاضرة';
+            if (newValue === 'غائبة') {
+                [eduBtn, hwBtn, tarbawiBtn].forEach(b => {
+                    if (b) {
+                        b.setAttribute('data-value', '-');
+                        b.innerText = '-';
+                        b.className = b.className.replace(/bg-green-500|bg-red-500/g, 'bg-gray-300');
+                        b.disabled = true;
+                    }
+                });
+            } else {
+                if (eduBtn) { eduBtn.setAttribute('data-value', 'أتقنت'); eduBtn.innerText = isGrid ? 'التعليمي: أتقنت' : 'أتقنت'; eduBtn.className = eduBtn.className.replace('bg-gray-300', 'bg-green-500'); eduBtn.disabled = false; }
+                if (hwBtn) { hwBtn.setAttribute('data-value', 'أنجزت'); hwBtn.innerText = isGrid ? 'الواجب: أنجزت' : 'أنجزت'; hwBtn.className = hwBtn.className.replace('bg-gray-300', 'bg-green-500'); hwBtn.disabled = false; }
+                if (tarbawiBtn) { tarbawiBtn.setAttribute('data-value', 'أتقنت'); tarbawiBtn.innerText = 'التربوي: أتقنت'; tarbawiBtn.className = tarbawiBtn.className.replace('bg-gray-300', 'bg-green-500'); tarbawiBtn.disabled = false; }
+            }
+        } else {
+            newValue = currentValue === 'أتقنت' ? 'لم تتقن' : (currentValue === 'لم تتقن' ? 'أتقنت' : (currentValue === 'أنجزت' ? 'لم تنجز' : 'أنجزت'));
+        }
+
+        btn.setAttribute('data-value', newValue);
+        
+        if (type === 'tarbawi') { btn.innerText = 'التربوي: ' + newValue; } 
+        else if (type === 'hw' && isGrid) { btn.innerText = 'الواجب: ' + newValue; } 
+        else if (type === 'edu' && isGrid) { btn.innerText = 'التعليمي: ' + newValue; } 
+        else if (type === 'att' && isGrid) { btn.innerText = 'الحضور: ' + newValue; } 
+        else { btn.innerText = newValue; }
+
+        const baseClasses = isGrid ? 
+            `${type}-btn py-1.5 text-[10px] font-bold rounded-full shadow-sm transition-all duration-300 ` : 
+            `${type}-btn flex-1 py-1.5 text-[10px] font-bold rounded-full shadow-sm transition-all duration-300 `;
+        
+        if (newValue === 'حاضرة' || newValue === 'أتقنت' || newValue === 'أنجزت') {
+            btn.className = baseClasses + "bg-green-500 text-white";
+        } else if (newValue === 'غائبة' || newValue === 'لم تتقن' || newValue === 'لم تنجز') {
+            btn.className = baseClasses + "bg-red-500 text-white";
+        }
+    }
+
+    function submitDailyTracking() {
+        const weekSelect = document.getElementById('tracking-week');
+        if(!weekSelect || !weekSelect.value) return showAlert("تنبيه", "التأكد من اختيار رقم الأسبوع");
+        const week = weekSelect.value;
+        const autoDate = new Date().toLocaleDateString('en-GB');
+        const fileInput = document.getElementById('lesson-file-input');
+        const file = fileInput && fileInput.files.length > 0 ? fileInput.files[0] : null;
+
+        if (!window.currentLessonPlan) return showAlert("تنبيه", "يجب جلب الخطة أولاً");
+
+        showLoader();
+
+        if (file) {
+            if (file.size > 20 * 1024 * 1024) {
+                hideLoader();
+                return showAlert("تنبيه", "حجم الملف يتجاوز 20 ميجابايت.");
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Data = e.target.result.split(',')[1];
+                const mimeType = file.type;
+                const fileName = file.name;
+                const className = document.getElementById('teacher-class').innerText;
+                const lessonName = document.getElementById('display-edu').innerText;
+
+                google.script.run.withSuccessHandler(function(uploadRes) {
+                    if (uploadRes.status === 'success') {
+                        finalizeTrackingSubmission(autoDate, week, uploadRes.url);
+                    } else {
+                        hideLoader();
+                        showAlert("خطأ في رفع الملف", uploadRes.message);
+                    }
+                }).withFailureHandler(function(e) { hideLoader(); showAlert("خطأ تقني", e.message); })
+                .uploadFileAndGetUrl(window.currentDarId, className, lessonName, fileName, base64Data, mimeType);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            finalizeTrackingSubmission(autoDate, week, "");
+        }
+    }
+
+    function finalizeTrackingSubmission(date, week, attachmentUrl) {
+        const cards = document.querySelectorAll('.tracking-card');
+        const trackingData = [];
+        const isAwwalia = String(window.currentClassLevel).replace('أ','ا').indexOf('اولي') !== -1;
+        
+        try {
+            cards.forEach(function(card) {
+                let attBtn = card.querySelector('.att-btn');
+                let eduBtn = card.querySelector('.edu-btn');
+                let hwBtn = card.querySelector('.hw-btn');
+                let tarbawiBtn = card.querySelector('.tarbawi-btn');
+
+                trackingData.push({
+                    studentId: card.getAttribute('data-student-id'),
+                    studentName: card.getAttribute('data-student-name'),
+                    attendance: attBtn ? attBtn.getAttribute('data-value') : "حاضرة",
+                    homework: hwBtn ? hwBtn.getAttribute('data-value') : "أنجزت",
+                    educational: eduBtn ? eduBtn.getAttribute('data-value') : "أتقنت",
+                    tarbawi: (isAwwalia && tarbawiBtn) ? tarbawiBtn.getAttribute('data-value') : "-",
+                    attachment: attachmentUrl
+                });
+            });
+        } catch (err) {
+            hideLoader();
+            return showAlert("خطأ", err.message);
+        }
+
+        google.script.run.withSuccessHandler(function(res) {
+            hideLoader();
+            if(res.status === 'success') {
+                showAlert("تم الاعتماد", "تم حفظ الرصد بنجاح", "success");
+                document.getElementById('lesson-plan-display').classList.add('hidden');
+                document.getElementById('student-list-container').innerHTML = '';
+                document.getElementById('btn-submit-tracking').classList.add('hidden');
+                if (document.getElementById('lesson-file-input')) document.getElementById('lesson-file-input').value = ""; 
+                window.currentLessonPlan = null;
+                checkWeekTrackedDays();
+            } else { showAlert("خطأ", res.message); }
+        }).withFailureHandler(function(e) { hideLoader(); showAlert("خطأ", e.message); })
+        .saveDailyTrackingToDb(window.currentDarId, window.currentClassId, date, week, window.selectedDay, trackingData);
+    }
+
+    function checkWeekTrackedDays() {
+        const week = document.getElementById('tracking-week').value;
+        if(!week) return;
+
+        document.querySelectorAll('.day-btn').forEach(btn => {
+            btn.className = "day-btn w-12 h-12 flex items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-[10px] font-bold text-gray-600 transition";
+        });
+        window.selectedDay = null;
+        document.getElementById('btn-fetch-plan').innerText = 'اختيار اليوم لسحب المقرر';
+
+        google.script.run.withSuccessHandler(res => {
+            if(res.status === 'success') {
+                window.trackedDaysList = res.data;
+                document.querySelectorAll('.day-btn').forEach(btn => {
+                    const dayName = btn.innerText.trim();
+                    if(window.trackedDaysList.includes(dayName)) {
+                        btn.className = "day-btn w-12 h-12 flex items-center justify-center rounded-full border border-green-500 bg-green-50 text-[10px] font-bold text-green-700 transition shadow-sm";
+                    }
+                });
+            }
+        }).getTrackedDaysForWeek(window.currentDarId, window.currentClassId, week);
+    }
+
+function sendComprehensiveReport(btn, phone, studentName, className) {
+  if (!phone) return showAlert("تنبيه", "رقم ولي الأمر غير متوفر لهذه الطالبة.");
+  
+  var originalHtml = btn.innerHTML;
+  btn.innerHTML = '<i class="ph-fill ph-spinner animate-spin text-sm"></i>';
+  btn.disabled = true;
+
+  google.script.run.withSuccessHandler(function(res) {
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+    
+    if (res.status === 'success') {
+      var date = new Date().toLocaleDateString('en-GB');
+      
+      // بناء الرسالة في سطر واحد لتجنب انكسار الـ Parser
+      var msg = "السلام عليكم ورحمة الله وبركاته\n" +
+                "📝 *تقرير الطالبة:* " + studentName + "\n" +
+                "🏫 *الفصل:* " + className + "\n" +
+                "📅 *تاريخ التقرير:* " + date + "\n\n" +
+                "📊 *مؤشرات الأداء والمتابعة:*\n" +
+                "🔸 نسبة الحضور: %" + res.data.attRate + "\n" +
+                "🔸 نسبة الإنجاز: %" + res.data.compRate + "\n" +
+                "🔸 متوسط الاختبارات: %" + res.data.examRate + "\n\n" +
+                "نسأل الله لها التوفيق والسداد 🌸";
+
+      var encodedMsg = encodeURIComponent(msg);
+      var waUrl = "https://wa.me/966" + phone + "?text=" + encodedMsg;
+      
+      // تنفيذ الفتح المباشر
+      window.open(waUrl, '_blank');
+    } else {
+      showAlert("خطأ", res.message);
+    }
+  }).withFailureHandler(function(e) {
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+    showAlert("خطأ بالاتصال", e.message);
+  }).generateStudentReportData(window.currentDarId, window.currentClassId, studentName);
+}
+
+    function openExamsCenter() {
+        document.getElementById('exams-modal').classList.remove('hidden');
+        document.getElementById('exams-modal-content').innerHTML = '<div class="text-center text-gray-500 py-10 text-sm">جاري جلب الاختبارات...</div>';
+        document.getElementById('exams-modal-title').innerText = 'الاختبارات المتاحة';
+        
+        google.script.run.withSuccessHandler(res => {
+            if(res.status === 'success') {
+                currentPendingExams = res.data;
+                renderExamsList();
+            } else {
+                document.getElementById('exams-modal-content').innerHTML = `<div class="text-red-500 text-center py-4 text-xs">${res.message}</div>`;
+            }
+        }).getPendingExams(window.currentDarId, window.currentClassId);
+    }
+
+    function closeExamsModal() {
+        document.getElementById('exams-modal').classList.add('hidden');
+    }
+
+    function renderExamsList() {
+        const content = document.getElementById('exams-modal-content');
+        if (currentPendingExams.length === 0) {
+            content.innerHTML = '<div class="text-center text-gray-500 py-10 text-sm"><i class="ph-fill ph-check-circle text-4xl text-green-200 mb-2 block"></i>لا توجد اختبارات معلقة حالياً</div>';
+            return;
+        }
+
+        let html = '<div class="space-y-3">';
+        currentPendingExams.forEach(ex => {
+            html += `
+                <div class="p-4 border border-gray-200 rounded-xl flex justify-between items-center bg-white shadow-sm">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800">${ex.title}</h4>
+                        <p class="text-[10px] text-gray-400 mt-1">تاريخ الجدولة: ${ex.date}</p>
+                    </div>
+                    <button onclick="startGradingExam('${ex.id}', '${ex.title}')" class="px-4 py-2 bg-burgundy text-white font-bold text-[10px] rounded-full shadow-sm">رصد الدرجات</button>
+                </div>
+            `;
+        });
+        html += '</div>';
+        content.innerHTML = html;
+    }
+
+    function startGradingExam(examId, examTitle) {
+        document.getElementById('exams-modal-title').innerText = 'رصد: ' + examTitle;
+        const content = document.getElementById('exams-modal-content');
+        
+        if(!window.currentStudents || window.currentStudents.length === 0) {
+            content.innerHTML = '<div class="text-center text-red-500 text-sm py-4">يرجى التأكد من وجود طالبات في هذا الفصل.</div>';
+            return;
+        }
+
+        let html = `<div class="space-y-2 mb-4" id="grading-list">`;
+        window.currentStudents.forEach(stu => {
+            html += `
+                <div class="flex justify-between items-center p-3 border-b border-gray-100 bg-gray-50 rounded-lg student-grade-row" data-name="${stu.name}">
+                    <span class="text-xs font-bold text-gray-700">${stu.name}</span>
+                    <input type="number" placeholder="الدرجة" class="w-20 text-center p-1 border border-gray-300 rounded-md text-xs grade-input" min="0" max="100">
+                </div>
+            `;
+        });
+        html += `</div>
+                 <button onclick="submitExamGrades('${examId}', '${examTitle}')" class="w-full bg-green-500 text-white font-bold py-3 rounded-xl shadow-md">حفظ الاعتماد</button>`;
+        content.innerHTML = html;
+    }
+
+    function submitExamGrades(examId, examTitle) {
+        const rows = document.querySelectorAll('.student-grade-row');
+        let gradesData = [];
+        let hasEmpty = false;
+
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name');
+            const score = row.querySelector('.grade-input').value;
+            if (score === "") hasEmpty = true;
+            gradesData.push({ name: name, score: score || "غائبة" });
+        });
+
+        if (hasEmpty) {
+            if(!confirm("تنبيه: توجد حقول فارغة (سيتم تسجيلها كـ 'غائبة'). هل ترغب في المتابعة؟")) return;
+        }
+
+        showLoader();
+        google.script.run.withSuccessHandler(res => {
+            hideLoader();
+            if(res.status === 'success') {
+                showAlert("نجاح", "تم حفظ درجات الاختبار بنجاح.", "success");
+                openExamsCenter(); 
+            } else {
+                showAlert("خطأ", res.message);
+            }
+        }).saveExamGrades(window.currentDarId, window.currentClassId, examId, examTitle, gradesData);
+    }
+</script>
+</body>
+</html>
