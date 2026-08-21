@@ -35,12 +35,34 @@ export async function api<T = unknown>(
     headers.set('Content-Type', 'application/json');
     body = JSON.stringify(options.json);
   }
-  const res = await fetch(path, { ...options, headers, body });
-  const data = await res.json().catch(() => ({ status: 'error', message: 'استجابة غير صالحة' }));
-  if (!res.ok) {
-    throw new Error(data.message || 'فشل الطلب');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const res = await fetch(path, {
+      ...options,
+      headers,
+      body,
+      signal: controller.signal,
+    });
+    const data = (await res.json().catch(() => ({
+      status: 'error',
+      message: 'استجابة غير صالحة من السيرفر',
+    }))) as { status?: string; message?: string } & T;
+
+    if (!res.ok) {
+      throw new Error((data as { message?: string }).message || `فشل الطلب (${res.status})`);
+    }
+    return data as T;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('انتهت مهلة الاتصال بالسيرفر');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  return data as T;
 }
 
 export function waLink(phone: string) {

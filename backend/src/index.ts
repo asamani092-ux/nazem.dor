@@ -15,6 +15,10 @@ const port = Number(process.env.PORT || 4000);
 const uploadDir = path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
 fs.mkdirSync(uploadDir, { recursive: true });
 
+const frontendDist = path.resolve(
+  process.env.FRONTEND_DIST || path.join(process.cwd(), '../frontend/dist'),
+);
+
 const app = Fastify({ logger: true });
 
 await app.register(cors, { origin: true, credentials: true });
@@ -34,6 +38,20 @@ await app.register(authRoutes, { prefix: '/api/auth' });
 await app.register(masterRoutes, { prefix: '/api/master' });
 await app.register(managerRoutes, { prefix: '/api/manager' });
 await app.register(teacherRoutes, { prefix: '/api/teacher' });
+
+if (fs.existsSync(frontendDist)) {
+  await app.register(fastifyStatic, {
+    root: frontendDist,
+    prefix: '/',
+  });
+  app.setNotFoundHandler((request, reply) => {
+    if (request.url.startsWith('/api/') || request.url.startsWith('/uploads/')) {
+      return reply.code(404).send({ status: 'error', message: 'غير موجود' });
+    }
+    return reply.sendFile('index.html');
+  });
+  app.log.info(`Serving frontend from ${frontendDist}`);
+}
 
 app.setErrorHandler((error, _request, reply) => {
   app.log.error(error);
