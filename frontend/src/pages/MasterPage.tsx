@@ -14,7 +14,6 @@ type Dar = {
   status: string;
 };
 
-type Supervisor = { id: string; name: string; phone: string; status: string };
 type Indicators = {
   darsTotal: number;
   darsActive: number;
@@ -72,8 +71,27 @@ type WeekSlot = {
   plan: CurriculumRow | null;
 };
 
-type Tab = 'dars' | 'indicators' | 'curriculum';
+type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts';
 type PlanViewMode = 'table' | 'cards';
+type AccountFilter = 'ALL' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
+
+type AccountRow = {
+  id: string;
+  kind: 'USER' | 'STUDENT';
+  type: string;
+  typeLabel: string;
+  name: string;
+  phone: string;
+  status: string;
+  darId: string | null;
+  darName: string;
+  classId: string | null;
+  className: string;
+};
+
+type UsersMeta = {
+  dars: Array<{ id: string; name: string; classes: Array<{ id: string; name: string; level: string; darId: string }> }>;
+};
 
 const CURRICULUM_LEVELS = ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'] as const;
 const WEEK_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'] as const;
@@ -96,7 +114,6 @@ export function MasterPage() {
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editDar, setEditDar] = useState<Dar | null>(null);
-  const [showAdmins, setShowAdmins] = useState(false);
   const [showExam, setShowExam] = useState(false);
   const [report, setReport] = useState<DarReport | null>(null);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
@@ -107,7 +124,22 @@ export function MasterPage() {
   const [planMenuDay, setPlanMenuDay] = useState<string | null>(null);
   const [showPlanEditor, setShowPlanEditor] = useState(false);
   const [planEditorMode, setPlanEditorMode] = useState<'add' | 'edit'>('add');
-  const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
+  const [accounts, setAccounts] = useState<AccountRow[]>([]);
+  const [accountFilter, setAccountFilter] = useState<AccountFilter>('ALL');
+  const [accountSearch, setAccountSearch] = useState('');
+  const [usersMeta, setUsersMeta] = useState<UsersMeta | null>(null);
+  const [accountMenuId, setAccountMenuId] = useState<string | null>(null);
+  const [showAccountEditor, setShowAccountEditor] = useState(false);
+  const [accountEditorMode, setAccountEditorMode] = useState<'add' | 'edit'>('add');
+  const [accountForm, setAccountForm] = useState({
+    kind: 'USER' as 'USER' | 'STUDENT',
+    type: 'MASTER' as 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT',
+    id: '',
+    name: '',
+    phone: '',
+    darId: '',
+    classId: '',
+  });
   const [form, setForm] = useState({
     name: '',
     curriculum: 'منهج تبيان',
@@ -116,7 +148,6 @@ export function MasterPage() {
     location: '',
   });
   const [exam, setExam] = useState({ targetDarId: 'الكل', date: '', link: '', title: '' });
-  const [adminForm, setAdminForm] = useState({ name: '', phone: '' });
   const [alertForm, setAlertForm] = useState({ darId: '', title: '', content: '', kind: 'NOTICE' });
   const [planForm, setPlanForm] = useState({
     level: 'تمهيدي 1',
@@ -170,7 +201,30 @@ export function MasterPage() {
   useEffect(() => {
     if (tab === 'indicators') void loadIndicators().catch((e) => setMsg(e.message));
     if (tab === 'curriculum') void loadCurriculum().catch((e) => setMsg(e.message));
-  }, [tab]);
+    if (tab === 'accounts' && user?.role === 'SUPER_MASTER') {
+      void loadUsersMeta().catch((e) => setMsg(e.message));
+    }
+  }, [tab, user?.role]);
+
+  useEffect(() => {
+    if (tab !== 'accounts' || user?.role !== 'SUPER_MASTER') return;
+    const t = setTimeout(() => {
+      void loadAccounts().catch((e) => setMsg(e.message));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [tab, accountFilter, accountSearch, user?.role]);
+
+  async function loadAccounts() {
+    const params = new URLSearchParams({ type: accountFilter });
+    if (accountSearch.trim()) params.set('search', accountSearch.trim());
+    const res = await api<{ data: AccountRow[] }>(`/api/master/users?${params}`);
+    setAccounts(res.data);
+  }
+
+  async function loadUsersMeta() {
+    const res = await api<{ data: UsersMeta }>('/api/master/users/meta');
+    setUsersMeta(res.data);
+  }
 
   async function addDar() {
     setBusy(true);
@@ -271,26 +325,92 @@ export function MasterPage() {
     setMsg('تم إرسال الإشعار');
   }
 
-  async function loadSupervisors() {
-    const res = await api<{ data: Supervisor[] }>('/api/master/supervisors');
-    setSupervisors(res.data);
-    setShowAdmins(true);
-  }
-
-  async function addSupervisor() {
-    const res = await api<{ message: string }>('/api/master/supervisors', { method: 'POST', json: adminForm });
-    setMsg(res.message || 'تمت الإضافة');
-    setAdminForm({ name: '', phone: '' });
-    await loadSupervisors();
-  }
-
-  async function toggleSupervisor(s: Supervisor, status: string) {
-    await api(`/api/master/supervisors/${s.id}`, {
-      method: 'PUT',
-      json: { name: s.name, phone: s.phone, status },
+  function openAddAccount(type: 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT' = 'MASTER') {
+    setAccountEditorMode('add');
+    setAccountForm({
+      kind: type === 'STUDENT' ? 'STUDENT' : 'USER',
+      type,
+      id: '',
+      name: '',
+      phone: '',
+      darId: usersMeta?.dars[0]?.id || '',
+      classId: usersMeta?.dars[0]?.classes[0]?.id || '',
     });
-    await loadSupervisors();
+    setAccountMenuId(null);
+    setShowAccountEditor(true);
   }
+
+  function openEditAccount(row: AccountRow) {
+    setAccountEditorMode('edit');
+    setAccountForm({
+      kind: row.kind,
+      type: (row.type === 'STUDENT' ? 'STUDENT' : row.type) as 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT',
+      id: row.id,
+      name: row.name,
+      phone: row.phone,
+      darId: row.darId || '',
+      classId: row.classId || '',
+    });
+    setAccountMenuId(null);
+    setShowAccountEditor(true);
+  }
+
+  async function saveAccount() {
+    if (!accountForm.name.trim() || !accountForm.phone.trim()) {
+      setMsg('الاسم والجوال مطلوبان');
+      return;
+    }
+    if (accountEditorMode === 'add') {
+      const res = await api<{ message: string }>('/api/master/users', {
+        method: 'POST',
+        json: {
+          type: accountForm.type,
+          name: accountForm.name,
+          phone: accountForm.phone,
+          darId: accountForm.darId || undefined,
+          classId: accountForm.classId || undefined,
+        },
+      });
+      setMsg(res.message || 'تمت الإضافة');
+    } else {
+      await api(`/api/master/users/${accountForm.id}`, {
+        method: 'PUT',
+        json: {
+          kind: accountForm.kind,
+          name: accountForm.name,
+          phone: accountForm.phone,
+          darId: accountForm.darId || undefined,
+          classId: accountForm.classId || undefined,
+        },
+      });
+      setMsg('تم تحديث الحساب');
+    }
+    setShowAccountEditor(false);
+    await loadAccounts();
+  }
+
+  async function setAccountStatus(row: AccountRow, status: 'نشط' | 'معلق') {
+    await api(`/api/master/users/${row.id}/status`, {
+      method: 'POST',
+      json: { kind: row.kind, status },
+    });
+    setAccountMenuId(null);
+    await loadAccounts();
+  }
+
+  async function deleteAccount(row: AccountRow) {
+    if (row.type === 'SUPER_MASTER') return setMsg('لا يمكن حذف مدير النظام');
+    if (!confirm(`حذف ${row.typeLabel}: ${row.name}؟`)) return;
+    await api(`/api/master/users/${row.id}?kind=${row.kind}`, { method: 'DELETE' });
+    setAccountMenuId(null);
+    setMsg('تم الحذف');
+    await loadAccounts();
+  }
+
+  const allClasses = useMemo(
+    () => usersMeta?.dars.flatMap((d) => d.classes.map((c) => ({ ...c, darName: d.name }))) || [],
+    [usersMeta],
+  );
 
   async function savePlan() {
     if (!planForm.educational.trim()) {
@@ -407,12 +527,13 @@ export function MasterPage() {
               ['dars', 'الدور'],
               ['indicators', 'المؤشرات'],
               ['curriculum', 'المناهج'],
-            ] as const
+              ...(user?.role === 'SUPER_MASTER' ? ([['accounts', 'الحسابات']] as const) : []),
+            ] as Array<readonly [Tab, string]>
           ).map(([k, label]) => (
             <button
               key={k}
               onClick={() => setTab(k)}
-              className={`flex-1 rounded-lg py-2 text-[11px] font-bold ${tab === k ? 'bg-white text-[#7A1F3D] shadow-sm' : 'text-gray-500'}`}
+              className={`flex-1 rounded-lg py-2 text-[10px] font-bold ${tab === k ? 'bg-white text-[#7A1F3D] shadow-sm' : 'text-gray-500'}`}
             >
               {label}
             </button>
@@ -424,11 +545,6 @@ export function MasterPage() {
               <button className="rounded-xl bg-green-600 px-3 py-2 text-xs font-bold text-white" onClick={() => setShowAdd(true)}>
                 إضافة دار
               </button>
-              {user?.role === 'SUPER_MASTER' ? (
-                <button className="rounded-xl bg-gray-500 px-3 py-2 text-xs font-bold text-white" onClick={() => void loadSupervisors()}>
-                  المشرفات
-                </button>
-              ) : null}
               <button className="rounded-xl bg-[#7A1F3D] px-3 py-2 text-xs font-bold text-white" onClick={() => setShowExam(true)}>
                 اختبار مركزي
               </button>
@@ -651,6 +767,93 @@ export function MasterPage() {
               ))}
             </div>
           )}
+        </div>
+      ) : null}
+
+      {tab === 'accounts' && user?.role === 'SUPER_MASTER' ? (
+        <div className="space-y-4 p-4">
+          <div className="ios-card space-y-3 p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-[#7A1F3D]">إدارة الحسابات</h3>
+              <button type="button" className="rounded-lg bg-[#7A1F3D] px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddAccount('MASTER')}>
+                إضافة
+              </button>
+            </div>
+            <Field label="العرض">
+              <select
+                className="ios-input py-2 text-sm"
+                value={accountFilter}
+                onChange={(e) => setAccountFilter(e.target.value as AccountFilter)}
+              >
+                <option value="ALL">الكل</option>
+                <option value="MASTER">مشرفة</option>
+                <option value="MANAGER">مديرة</option>
+                <option value="TEACHER">معلمة</option>
+                <option value="STUDENT">طالبة</option>
+              </select>
+            </Field>
+            <Field label="بحث">
+              <input
+                className="ios-input py-2 text-sm"
+                placeholder="اسم أو جوال"
+                value={accountSearch}
+                onChange={(e) => setAccountSearch(e.target.value)}
+              />
+            </Field>
+            <p className="text-[10px] font-bold text-gray-500">{accounts.length} نتيجة</p>
+          </div>
+
+          <div className="space-y-2">
+            {accounts.map((row) => (
+              <div key={`${row.kind}-${row.id}`} className={`ios-card p-3 ${row.status === 'معلق' ? 'opacity-70' : ''}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-extrabold">{row.name}</p>
+                    <p className="text-[10px] font-bold text-gray-500" dir="ltr">
+                      {row.phone}
+                    </p>
+                    <p className="mt-1 text-[9px] font-bold text-gray-400">
+                      {row.typeLabel}
+                      {row.darName ? ` · ${row.darName}` : ''}
+                      {row.className ? ` · ${row.className}` : ''}
+                      {` · ${row.status}`}
+                    </p>
+                  </div>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      className="rounded-lg border px-2 py-1 text-[10px] font-bold text-[#7A1F3D]"
+                      onClick={() => setAccountMenuId(accountMenuId === row.id ? null : row.id)}
+                    >
+                      إجراءات
+                    </button>
+                    {accountMenuId === row.id ? (
+                      <div className="absolute left-0 z-20 mt-1 min-w-[7.5rem] rounded-xl border bg-white py-1 shadow-lg">
+                        <button type="button" className="block w-full px-3 py-2 text-right text-[11px] font-bold hover:bg-gray-50" onClick={() => openEditAccount(row)}>
+                          تعديل
+                        </button>
+                        {row.type !== 'SUPER_MASTER' ? (
+                          <>
+                            <button
+                              type="button"
+                              className="block w-full px-3 py-2 text-right text-[11px] font-bold hover:bg-gray-50"
+                              onClick={() => void setAccountStatus(row, row.status === 'معلق' ? 'نشط' : 'معلق')}
+                            >
+                              {row.status === 'معلق' ? 'تنشيط' : 'تعليق'}
+                            </button>
+                            <button type="button" className="block w-full px-3 py-2 text-right text-[11px] font-bold text-red-600 hover:bg-red-50" onClick={() => void deleteAccount(row)}>
+                              حذف
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {!accounts.length ? <p className="py-8 text-center text-sm text-gray-400">لا توجد نتائج</p> : null}
+          </div>
         </div>
       ) : null}
 
@@ -930,36 +1133,71 @@ export function MasterPage() {
         </Modal>
       ) : null}
 
-      {showAdmins ? (
-        <Modal title="إدارة المشرفات" onClose={() => setShowAdmins(false)}>
-          <div className="mb-4 space-y-3 rounded-2xl bg-gray-50 p-3">
-            <Field label="اسم المشرفة">
-              <input className="ios-input" placeholder="الاسم" value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} />
+      {showAccountEditor ? (
+        <Modal title={accountEditorMode === 'edit' ? 'تعديل حساب' : 'إضافة حساب'} onClose={() => setShowAccountEditor(false)}>
+          <div className="space-y-3">
+            {accountEditorMode === 'add' ? (
+              <Field label="النوع">
+                <select
+                  className="ios-input"
+                  value={accountForm.type}
+                  onChange={(e) => {
+                    const type = e.target.value as typeof accountForm.type;
+                    setAccountForm({
+                      ...accountForm,
+                      type,
+                      kind: type === 'STUDENT' ? 'STUDENT' : 'USER',
+                    });
+                  }}
+                >
+                  <option value="MASTER">مشرفة</option>
+                  <option value="MANAGER">مديرة</option>
+                  <option value="TEACHER">معلمة</option>
+                  <option value="STUDENT">طالبة</option>
+                </select>
+              </Field>
+            ) : (
+              <p className="text-[10px] font-bold text-gray-500">{accountForm.type === 'STUDENT' ? 'طالبة' : accountForm.type}</p>
+            )}
+            <Field label="الاسم">
+              <input className="ios-input" value={accountForm.name} onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })} />
             </Field>
-            <Field label="جوال المشرفة">
-              <input className="ios-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={adminForm.phone} onChange={(e) => setAdminForm({ ...adminForm, phone: e.target.value })} />
+            <Field label={accountForm.type === 'STUDENT' ? 'جوال ولي الأمر' : 'الجوال'}>
+              <input
+                className="ios-input text-left"
+                dir="ltr"
+                placeholder="05XXXXXXXX"
+                value={accountForm.phone}
+                onChange={(e) => setAccountForm({ ...accountForm, phone: e.target.value })}
+              />
             </Field>
-            <button className="btn-primary" onClick={() => void addSupervisor()}>
-              إضافة
+            {accountForm.type === 'MANAGER' ? (
+              <Field label="الدار">
+                <select className="ios-input" value={accountForm.darId} onChange={(e) => setAccountForm({ ...accountForm, darId: e.target.value })}>
+                  <option value="">اختاري الدار</option>
+                  {(usersMeta?.dars || []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+            {accountForm.type === 'TEACHER' || accountForm.type === 'STUDENT' ? (
+              <Field label="الفصل">
+                <select className="ios-input" value={accountForm.classId} onChange={(e) => setAccountForm({ ...accountForm, classId: e.target.value })}>
+                  <option value="">اختاري الفصل</option>
+                  {allClasses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.darName} — {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+            <button className="btn-primary" onClick={() => void saveAccount().catch((e) => setMsg(e.message))}>
+              {accountEditorMode === 'edit' ? 'حفظ التعديل' : 'إضافة'}
             </button>
-          </div>
-          <div className="space-y-2">
-            {supervisors.map((s) => (
-              <div key={s.id} className="flex items-center justify-between rounded-xl border p-3 text-sm">
-                <div>
-                  <p className="font-bold">{s.name}</p>
-                  <p className="text-xs text-gray-500">{s.phone}</p>
-                </div>
-                <div className="flex gap-2 text-[10px] font-bold">
-                  <button onClick={() => void toggleSupervisor(s, s.status === 'نشط' ? 'معلق' : 'نشط')}>
-                    {s.status === 'نشط' ? 'تعليق' : 'تنشيط'}
-                  </button>
-                  <button className="text-red-500" onClick={() => void toggleSupervisor(s, 'محذوف')}>
-                    حذف
-                  </button>
-                </div>
-              </div>
-            ))}
           </div>
         </Modal>
       ) : null}

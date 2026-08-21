@@ -11,6 +11,7 @@ import { authRoutes } from './routes/auth.js';
 import { masterRoutes } from './routes/master.js';
 import { managerRoutes } from './routes/manager.js';
 import { teacherRoutes } from './routes/teacher.js';
+import { usersAdminRoutes } from './routes/users-admin.js';
 
 const port = Number(process.env.PORT || 4000);
 const uploadDir = path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
@@ -52,6 +53,7 @@ app.get('/api/health', async () => ({ status: 'ok', app: 'ناظم الصغار'
 
 await app.register(authRoutes, { prefix: '/api/auth' });
 await app.register(masterRoutes, { prefix: '/api/master' });
+await app.register(usersAdminRoutes, { prefix: '/api/master/users' });
 await app.register(managerRoutes, { prefix: '/api/manager' });
 await app.register(teacherRoutes, { prefix: '/api/teacher' });
 
