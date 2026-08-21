@@ -450,7 +450,14 @@ export async function usersAdminRoutes(app: FastifyInstance) {
 
   app.delete('/:id', guard, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const kind = z.enum(['USER', 'STUDENT']).parse((request.query as { kind?: string }).kind);
+    const qKind = (request.query as { kind?: string }).kind;
+    let kind: 'USER' | 'STUDENT' | undefined = qKind === 'USER' || qKind === 'STUDENT' ? qKind : undefined;
+    if (!kind && request.body && typeof request.body === 'object' && 'kind' in (request.body as object)) {
+      kind = z.enum(['USER', 'STUDENT']).parse((request.body as { kind: string }).kind);
+    }
+    if (!kind) {
+      return reply.code(400).send({ status: 'error', message: 'kind مطلوب (USER أو STUDENT)' });
+    }
 
     if (kind === 'USER' && request.user.id === id) {
       return reply.code(400).send({ status: 'error', message: 'لا يمكن حذف حسابك الحالي' });

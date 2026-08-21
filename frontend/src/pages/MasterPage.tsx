@@ -401,7 +401,10 @@ export function MasterPage() {
   async function deleteAccount(row: AccountRow) {
     if (row.type === 'SUPER_MASTER') return setMsg('لا يمكن حذف مدير النظام');
     if (!confirm(`حذف ${row.typeLabel}: ${row.name}؟`)) return;
-    await api(`/api/master/users/${row.id}?kind=${row.kind}`, { method: 'DELETE' });
+    await api(`/api/master/users/${row.id}?kind=${row.kind}`, {
+      method: 'DELETE',
+      json: { kind: row.kind },
+    });
     setAccountMenuId(null);
     setMsg('تم الحذف');
     await loadAccounts();
