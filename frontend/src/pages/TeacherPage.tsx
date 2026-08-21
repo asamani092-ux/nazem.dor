@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
+import { Field } from '../components/Field';
 
 type Student = { id: string; name: string; parentPhone: string };
 type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
@@ -250,34 +251,40 @@ export function TeacherPage() {
 
         <div className="ios-card space-y-3 p-5">
           <h3 className="text-sm font-bold">خطة الرصد</h3>
-          <select className="ios-input" value={week} onChange={(e) => void loadTracked(e.target.value)}>
-            <option value="">اختيار الأسبوع...</option>
-            {Array.from({ length: weekCount }, (_, i) => i + 1).map((w) => (
-              <option key={w} value={w}>
-                الأسبوع {w}
-              </option>
-            ))}
-          </select>
-          <div className="flex justify-between gap-2">
-            {DAYS.map((d) => {
-              const done = tracked.includes(d);
-              const selected = day === d;
-              return (
-                <button
-                  key={d}
-                  onClick={() => setDay(d)}
-                  className={`h-12 w-12 rounded-full text-[10px] font-bold ${
-                    selected
-                      ? 'bg-burgundy text-white'
-                      : done
-                        ? 'border border-green-500 bg-green-50 text-green-700'
-                        : 'border border-gray-200 bg-gray-50 text-gray-600'
-                  }`}
-                >
-                  {d}
-                </button>
-              );
-            })}
+          <Field label="الأسبوع">
+            <select className="ios-input" value={week} onChange={(e) => void loadTracked(e.target.value)}>
+              <option value="">اختيار الأسبوع...</option>
+              {Array.from({ length: weekCount }, (_, i) => i + 1).map((w) => (
+                <option key={w} value={w}>
+                  الأسبوع {w}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <div>
+            <p className="mb-1 text-[10px] font-bold text-gray-500">اليوم</p>
+            <div className="flex justify-between gap-2">
+              {DAYS.map((d) => {
+                const done = tracked.includes(d);
+                const selected = day === d;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setDay(d)}
+                    className={`h-12 w-12 rounded-full text-[10px] font-bold ${
+                      selected
+                        ? 'bg-burgundy text-white'
+                        : done
+                          ? 'border border-green-500 bg-green-50 text-green-700'
+                          : 'border border-gray-200 bg-gray-50 text-gray-600'
+                    }`}
+                  >
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <button className="btn-primary" onClick={() => void fetchPlan()}>
             جلب المقرر للرصد
@@ -298,7 +305,9 @@ export function TeacherPage() {
                   تربوي: <span className="text-gray-900">{plan.tarbawi}</span>
                 </p>
               ) : null}
-              <input type="file" className="ios-input mt-2" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <Field label="مرفق (اختياري)">
+                <input type="file" className="ios-input mt-1" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              </Field>
             </div>
 
             {students.map((s, idx) => {
@@ -317,6 +326,12 @@ export function TeacherPage() {
                         واتساب
                       </a>
                     </div>
+                  </div>
+                  <div className={`mb-1 grid gap-2 text-center text-[8px] font-bold text-gray-400 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                    <span>الحضور</span>
+                    <span>الإنجاز</span>
+                    <span>الواجب</span>
+                    {isAwwalia ? <span>التربوي</span> : null}
                   </div>
                   <div className={`grid gap-2 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
                     <TrackBtn label={st.attendance} onClick={() => toggle(s.id, 'attendance')} />
@@ -364,12 +379,18 @@ export function TeacherPage() {
                 )
               ) : (
                 <div className="space-y-2">
+                  <div className="mb-2 flex justify-between text-[10px] font-bold text-gray-400">
+                    <span>الطالبة</span>
+                    <span>الدرجة</span>
+                  </div>
                   {students.map((s) => (
                     <div key={s.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
                       <span className="text-xs font-bold">{s.name}</span>
                       <input
                         type="number"
                         className="w-20 rounded border p-1 text-center text-xs"
+                        aria-label={`درجة ${s.name}`}
+                        placeholder="0"
                         value={scores[s.id] || ''}
                         onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
                       />

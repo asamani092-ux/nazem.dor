@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { downloadCsv, LEVELS_BY_CURRICULUM } from '../lib/reports';
+import { Field } from '../components/Field';
 
 type Cls = {
   id: string;
@@ -258,16 +259,18 @@ export function ManagerPage() {
             <button className="btn-primary" onClick={() => setShowStudents(true)}>
               تسجيل طالبات
             </button>
-            <select className="ios-input font-bold text-[#7A1F3D]" value={filterClass} onChange={(e) => void loadStudents(e.target.value)}>
-              <option value="">اختاري الفصل...</option>
-              {classes
-                .filter((c) => c.status !== 'موقوف')
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} (أ. {c.teacherName})
-                  </option>
-                ))}
-            </select>
+            <Field label="الفصل">
+              <select className="ios-input font-bold text-[#7A1F3D]" value={filterClass} onChange={(e) => void loadStudents(e.target.value)}>
+                <option value="">اختاري الفصل...</option>
+                {classes
+                  .filter((c) => c.status !== 'موقوف')
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (أ. {c.teacherName})
+                    </option>
+                  ))}
+              </select>
+            </Field>
             {students.map((s) => (
               <div key={s.id} className="ios-card flex items-center justify-between p-3">
                 <div>
@@ -397,15 +400,23 @@ export function ManagerPage() {
 
       {showClass ? (
         <Modal title="إضافة فصل" onClose={() => setShowClass(false)}>
-          <div className="space-y-2">
-            <input className="ios-input" placeholder="اسم الفصل" value={classForm.name} onChange={(e) => setClassForm({ ...classForm, name: e.target.value })} />
-            <select className="ios-input" value={classForm.level} onChange={(e) => setClassForm({ ...classForm, level: e.target.value })}>
-              {levels.map((l) => (
-                <option key={l}>{l}</option>
-              ))}
-            </select>
-            <input className="ios-input" placeholder="اسم المعلمة" value={classForm.teacherName} onChange={(e) => setClassForm({ ...classForm, teacherName: e.target.value })} />
-            <input className="ios-input text-left" dir="ltr" placeholder="جوال المعلمة" value={classForm.teacherPhone} onChange={(e) => setClassForm({ ...classForm, teacherPhone: e.target.value })} />
+          <div className="space-y-3">
+            <Field label="اسم الفصل">
+              <input className="ios-input" placeholder="مثال: تمهيدي 1 أ" value={classForm.name} onChange={(e) => setClassForm({ ...classForm, name: e.target.value })} />
+            </Field>
+            <Field label="المستوى">
+              <select className="ios-input" value={classForm.level} onChange={(e) => setClassForm({ ...classForm, level: e.target.value })}>
+                {levels.map((l) => (
+                  <option key={l}>{l}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="اسم المعلمة">
+              <input className="ios-input" placeholder="اسم المعلمة" value={classForm.teacherName} onChange={(e) => setClassForm({ ...classForm, teacherName: e.target.value })} />
+            </Field>
+            <Field label="جوال المعلمة">
+              <input className="ios-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={classForm.teacherPhone} onChange={(e) => setClassForm({ ...classForm, teacherPhone: e.target.value })} />
+            </Field>
             <button className="btn-primary" onClick={() => void saveClass().catch((e) => setMsg(e.message))}>
               حفظ
             </button>
@@ -415,15 +426,23 @@ export function ManagerPage() {
 
       {editClass ? (
         <Modal title="تعديل الفصل" onClose={() => setEditClass(null)}>
-          <div className="space-y-2">
-            <input className="ios-input" value={editClass.name} onChange={(e) => setEditClass({ ...editClass, name: e.target.value })} />
-            <select className="ios-input" value={editClass.level} onChange={(e) => setEditClass({ ...editClass, level: e.target.value })}>
-              {levels.map((l) => (
-                <option key={l}>{l}</option>
-              ))}
-            </select>
-            <input className="ios-input" value={editClass.teacherName} onChange={(e) => setEditClass({ ...editClass, teacherName: e.target.value })} />
-            <input className="ios-input text-left" dir="ltr" value={editClass.teacherPhone} onChange={(e) => setEditClass({ ...editClass, teacherPhone: e.target.value })} />
+          <div className="space-y-3">
+            <Field label="اسم الفصل">
+              <input className="ios-input" value={editClass.name} onChange={(e) => setEditClass({ ...editClass, name: e.target.value })} />
+            </Field>
+            <Field label="المستوى">
+              <select className="ios-input" value={editClass.level} onChange={(e) => setEditClass({ ...editClass, level: e.target.value })}>
+                {levels.map((l) => (
+                  <option key={l}>{l}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="اسم المعلمة">
+              <input className="ios-input" value={editClass.teacherName} onChange={(e) => setEditClass({ ...editClass, teacherName: e.target.value })} />
+            </Field>
+            <Field label="جوال المعلمة">
+              <input className="ios-input text-left" dir="ltr" value={editClass.teacherPhone} onChange={(e) => setEditClass({ ...editClass, teacherPhone: e.target.value })} />
+            </Field>
             <button className="btn-primary" onClick={() => void saveEditClass().catch((e) => setMsg(e.message))}>
               حفظ
             </button>
@@ -433,18 +452,24 @@ export function ManagerPage() {
 
       {editStudent ? (
         <Modal title="تعديل الطالبة" onClose={() => setEditStudent(null)}>
-          <div className="space-y-2">
-            <input className="ios-input" value={editStudent.name} onChange={(e) => setEditStudent({ ...editStudent, name: e.target.value })} />
-            <select className="ios-input" value={editStudent.classId} onChange={(e) => setEditStudent({ ...editStudent, classId: e.target.value })}>
-              {classes
-                .filter((c) => c.status !== 'موقوف')
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-            </select>
-            <input className="ios-input text-left" dir="ltr" value={editStudent.phone} onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })} />
+          <div className="space-y-3">
+            <Field label="اسم الطالبة">
+              <input className="ios-input" value={editStudent.name} onChange={(e) => setEditStudent({ ...editStudent, name: e.target.value })} />
+            </Field>
+            <Field label="الفصل">
+              <select className="ios-input" value={editStudent.classId} onChange={(e) => setEditStudent({ ...editStudent, classId: e.target.value })}>
+                {classes
+                  .filter((c) => c.status !== 'موقوف')
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field label="جوال ولي الأمر">
+              <input className="ios-input text-left" dir="ltr" value={editStudent.phone} onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })} />
+            </Field>
             <button className="btn-primary" onClick={() => void saveEditStudent().catch((e) => setMsg(e.message))}>
               حفظ
             </button>
@@ -454,22 +479,29 @@ export function ManagerPage() {
 
       {showStudents ? (
         <Modal title="تسجيل طالبات" onClose={() => setShowStudents(false)}>
-          <div className="space-y-2">
-            <select className="ios-input" value={stuClassId} onChange={(e) => setStuClassId(e.target.value)}>
-              <option value="">اختر الفصل</option>
-              {classes
-                .filter((c) => c.status !== 'موقوف')
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-            </select>
+          <div className="space-y-3">
+            <Field label="الفصل">
+              <select className="ios-input" value={stuClassId} onChange={(e) => setStuClassId(e.target.value)}>
+                <option value="">اختر الفصل</option>
+                {classes
+                  .filter((c) => c.status !== 'موقوف')
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <div className="grid grid-cols-2 gap-2 text-[9px] font-bold text-gray-400">
+              <span>اسم الطالبة</span>
+              <span>جوال ولي الأمر</span>
+            </div>
             {stuRows.map((row, i) => (
               <div key={i} className="flex gap-2">
                 <input
                   className="ios-input"
-                  placeholder="اسم الطالبة"
+                  placeholder="الاسم"
+                  aria-label={`اسم الطالبة ${i + 1}`}
                   value={row.name}
                   onChange={(e) => {
                     const next = [...stuRows];
@@ -480,7 +512,8 @@ export function ManagerPage() {
                 <input
                   className="ios-input text-left"
                   dir="ltr"
-                  placeholder="جوال"
+                  placeholder="05XXXXXXXX"
+                  aria-label={`جوال ولي الأمر ${i + 1}`}
                   value={row.phone}
                   onChange={(e) => {
                     const next = [...stuRows];
@@ -504,26 +537,30 @@ export function ManagerPage() {
 
       {forward ? (
         <Modal title="تمرير للمعلمات" onClose={() => setForward(null)}>
-          <select className="ios-input mb-3" value={forward.targetClassId} onChange={(e) => setForward({ ...forward, targetClassId: e.target.value })}>
-            <option value="الكل">جميع الفصول</option>
-            {classes
-              .filter((c) => c.status !== 'موقوف')
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </select>
-          <button
-            className="btn-primary"
-            onClick={async () => {
-              await api('/api/manager/alerts/forward', { method: 'POST', json: forward });
-              setForward(null);
-              setMsg('تم تمرير الإشعار');
-            }}
-          >
-            اعتماد التوجيه
-          </button>
+          <div className="space-y-3">
+            <Field label="الفصل المستهدف">
+              <select className="ios-input" value={forward.targetClassId} onChange={(e) => setForward({ ...forward, targetClassId: e.target.value })}>
+                <option value="الكل">جميع الفصول</option>
+                {classes
+                  .filter((c) => c.status !== 'موقوف')
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <button
+              className="btn-primary"
+              onClick={async () => {
+                await api('/api/manager/alerts/forward', { method: 'POST', json: forward });
+                setForward(null);
+                setMsg('تم تمرير الإشعار');
+              }}
+            >
+              اعتماد التوجيه
+            </button>
+          </div>
         </Modal>
       ) : null}
     </div>

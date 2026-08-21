@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { downloadCsv } from '../lib/reports';
+import { Field } from '../components/Field';
 
 type Dar = {
   id: string;
@@ -432,7 +433,7 @@ export function MasterPage() {
                 اختبار مركزي
               </button>
             </div>
-            <input className="ios-input text-sm" placeholder="ابحث عن دار..." value={q} onChange={(e) => setQ(e.target.value)} />
+            <input className="ios-input text-sm" placeholder="ابحث عن دار..." aria-label="بحث عن دار" value={q} onChange={(e) => setQ(e.target.value)} />
           </>
         ) : null}
       </header>
@@ -695,16 +696,26 @@ export function MasterPage() {
 
       {showAdd ? (
         <Modal title="إضافة دار" onClose={() => setShowAdd(false)}>
-          <div className="space-y-2">
-            <input className="ios-input" placeholder="اسم الدار" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <select className="ios-input" value={form.curriculum} onChange={(e) => setForm({ ...form, curriculum: e.target.value })}>
-              <option>منهج تبيان</option>
-              <option>منهج قارئ</option>
-              <option>كلاهما</option>
-            </select>
-            <input className="ios-input" placeholder="اسم المديرة" value={form.managerName} onChange={(e) => setForm({ ...form, managerName: e.target.value })} />
-            <input className="ios-input text-left" dir="ltr" placeholder="جوال المديرة" value={form.managerPhone} onChange={(e) => setForm({ ...form, managerPhone: e.target.value })} />
-            <input className="ios-input" placeholder="رابط الموقع" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+          <div className="space-y-3">
+            <Field label="اسم الدار">
+              <input className="ios-input" placeholder="مثال: دار النور" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            </Field>
+            <Field label="المنهج">
+              <select className="ios-input" value={form.curriculum} onChange={(e) => setForm({ ...form, curriculum: e.target.value })}>
+                <option>منهج تبيان</option>
+                <option>منهج قارئ</option>
+                <option>كلاهما</option>
+              </select>
+            </Field>
+            <Field label="اسم المديرة">
+              <input className="ios-input" placeholder="اسم المديرة" value={form.managerName} onChange={(e) => setForm({ ...form, managerName: e.target.value })} />
+            </Field>
+            <Field label="جوال المديرة">
+              <input className="ios-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={form.managerPhone} onChange={(e) => setForm({ ...form, managerPhone: e.target.value })} />
+            </Field>
+            <Field label="الموقع / الرابط">
+              <input className="ios-input" placeholder="رابط أو وصف الموقع" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+            </Field>
             <button className="btn-primary" onClick={() => void addDar()}>
               حفظ
             </button>
@@ -714,20 +725,32 @@ export function MasterPage() {
 
       {editDar ? (
         <Modal title="تعديل الدار" onClose={() => setEditDar(null)}>
-          <div className="space-y-2">
-            <input className="ios-input" value={editDar.name} onChange={(e) => setEditDar({ ...editDar, name: e.target.value })} />
-            <select className="ios-input" value={editDar.curriculum} onChange={(e) => setEditDar({ ...editDar, curriculum: e.target.value })}>
-              <option>منهج تبيان</option>
-              <option>منهج قارئ</option>
-              <option>كلاهما</option>
-            </select>
-            <input className="ios-input" value={editDar.managerName} onChange={(e) => setEditDar({ ...editDar, managerName: e.target.value })} />
-            <input className="ios-input text-left" dir="ltr" value={editDar.managerPhone} onChange={(e) => setEditDar({ ...editDar, managerPhone: e.target.value })} />
-            <input className="ios-input" value={editDar.location} onChange={(e) => setEditDar({ ...editDar, location: e.target.value })} />
-            <select className="ios-input" value={editDar.status === 'معلق' ? 'معلق' : 'نشط'} onChange={(e) => setEditDar({ ...editDar, status: e.target.value })}>
-              <option value="نشط">نشط</option>
-              <option value="معلق">معلق</option>
-            </select>
+          <div className="space-y-3">
+            <Field label="اسم الدار">
+              <input className="ios-input" value={editDar.name} onChange={(e) => setEditDar({ ...editDar, name: e.target.value })} />
+            </Field>
+            <Field label="المنهج">
+              <select className="ios-input" value={editDar.curriculum} onChange={(e) => setEditDar({ ...editDar, curriculum: e.target.value })}>
+                <option>منهج تبيان</option>
+                <option>منهج قارئ</option>
+                <option>كلاهما</option>
+              </select>
+            </Field>
+            <Field label="اسم المديرة">
+              <input className="ios-input" value={editDar.managerName} onChange={(e) => setEditDar({ ...editDar, managerName: e.target.value })} />
+            </Field>
+            <Field label="جوال المديرة">
+              <input className="ios-input text-left" dir="ltr" value={editDar.managerPhone} onChange={(e) => setEditDar({ ...editDar, managerPhone: e.target.value })} />
+            </Field>
+            <Field label="الموقع / الرابط">
+              <input className="ios-input" value={editDar.location} onChange={(e) => setEditDar({ ...editDar, location: e.target.value })} />
+            </Field>
+            <Field label="الحالة">
+              <select className="ios-input" value={editDar.status === 'معلق' ? 'معلق' : 'نشط'} onChange={(e) => setEditDar({ ...editDar, status: e.target.value })}>
+                <option value="نشط">نشط</option>
+                <option value="معلق">معلق</option>
+              </select>
+            </Field>
             <button className="btn-primary" onClick={() => void saveEditDar()}>
               حفظ التعديلات
             </button>
@@ -790,53 +813,65 @@ export function MasterPage() {
           title={planEditorMode === 'edit' ? 'تحديث خطة يوم' : 'إضافة خطة يوم'}
           onClose={() => setShowPlanEditor(false)}
         >
-          <div className="space-y-2">
-            <select
-              className="ios-input"
-              value={planForm.level}
-              onChange={(e) => setPlanForm({ ...planForm, level: e.target.value })}
-              disabled={planEditorMode === 'edit'}
-            >
-              {CURRICULUM_LEVELS.map((l) => (
-                <option key={l}>{l}</option>
-              ))}
-            </select>
-            <input
-              className="ios-input"
-              type="number"
-              min={1}
-              value={planForm.week}
-              onChange={(e) => setPlanForm({ ...planForm, week: Number(e.target.value) })}
-              disabled={planEditorMode === 'edit'}
-            />
-            <select
-              className="ios-input"
-              value={planForm.day}
-              onChange={(e) => setPlanForm({ ...planForm, day: e.target.value })}
-              disabled={planEditorMode === 'edit'}
-            >
-              {WEEK_DAYS.map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
-            <input
-              className="ios-input"
-              placeholder="الدرس التعليمي"
-              value={planForm.educational}
-              onChange={(e) => setPlanForm({ ...planForm, educational: e.target.value })}
-            />
-            <input
-              className="ios-input"
-              placeholder="الواجب"
-              value={planForm.homework}
-              onChange={(e) => setPlanForm({ ...planForm, homework: e.target.value })}
-            />
-            <input
-              className="ios-input"
-              placeholder="التربوي"
-              value={planForm.tarbawi}
-              onChange={(e) => setPlanForm({ ...planForm, tarbawi: e.target.value })}
-            />
+          <div className="space-y-3">
+            <Field label="المستوى">
+              <select
+                className="ios-input"
+                value={planForm.level}
+                onChange={(e) => setPlanForm({ ...planForm, level: e.target.value })}
+                disabled={planEditorMode === 'edit'}
+              >
+                {CURRICULUM_LEVELS.map((l) => (
+                  <option key={l}>{l}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="الأسبوع">
+              <input
+                className="ios-input"
+                type="number"
+                min={1}
+                value={planForm.week}
+                onChange={(e) => setPlanForm({ ...planForm, week: Number(e.target.value) })}
+                disabled={planEditorMode === 'edit'}
+              />
+            </Field>
+            <Field label="اليوم">
+              <select
+                className="ios-input"
+                value={planForm.day}
+                onChange={(e) => setPlanForm({ ...planForm, day: e.target.value })}
+                disabled={planEditorMode === 'edit'}
+              >
+                {WEEK_DAYS.map((d) => (
+                  <option key={d}>{d}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="الدرس التعليمي">
+              <input
+                className="ios-input"
+                placeholder="نص الدرس"
+                value={planForm.educational}
+                onChange={(e) => setPlanForm({ ...planForm, educational: e.target.value })}
+              />
+            </Field>
+            <Field label="الواجب">
+              <input
+                className="ios-input"
+                placeholder="نص الواجب"
+                value={planForm.homework}
+                onChange={(e) => setPlanForm({ ...planForm, homework: e.target.value })}
+              />
+            </Field>
+            <Field label="التربوي">
+              <input
+                className="ios-input"
+                placeholder="اختياري"
+                value={planForm.tarbawi}
+                onChange={(e) => setPlanForm({ ...planForm, tarbawi: e.target.value })}
+              />
+            </Field>
             <button className="btn-primary" onClick={() => void savePlan()}>
               {planEditorMode === 'edit' ? 'تحديث الخطة' : 'إضافة الخطة'}
             </button>
@@ -846,18 +881,26 @@ export function MasterPage() {
 
       {showExam ? (
         <Modal title="إرسال اختبار" onClose={() => setShowExam(false)}>
-          <div className="space-y-2">
-            <select className="ios-input" value={exam.targetDarId} onChange={(e) => setExam({ ...exam, targetDarId: e.target.value })}>
-              <option value="الكل">مركزي لجميع الدور</option>
-              {dars.filter((d) => d.status !== 'معلق').map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-            <input className="ios-input" placeholder="عنوان الاختبار" value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} />
-            <input className="ios-input" type="date" value={exam.date} onChange={(e) => setExam({ ...exam, date: e.target.value })} />
-            <input className="ios-input text-left" dir="ltr" placeholder="رابط الاختبار" value={exam.link} onChange={(e) => setExam({ ...exam, link: e.target.value })} />
+          <div className="space-y-3">
+            <Field label="الدار المستهدفة">
+              <select className="ios-input" value={exam.targetDarId} onChange={(e) => setExam({ ...exam, targetDarId: e.target.value })}>
+                <option value="الكل">مركزي لجميع الدور</option>
+                {dars.filter((d) => d.status !== 'معلق').map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="عنوان الاختبار">
+              <input className="ios-input" placeholder="عنوان واضح" value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} />
+            </Field>
+            <Field label="تاريخ الاختبار">
+              <input className="ios-input" type="date" value={exam.date} onChange={(e) => setExam({ ...exam, date: e.target.value })} />
+            </Field>
+            <Field label="رابط الاختبار">
+              <input className="ios-input text-left" dir="ltr" placeholder="https://..." value={exam.link} onChange={(e) => setExam({ ...exam, link: e.target.value })} />
+            </Field>
             <button className="btn-primary" onClick={() => void saveExam()}>
               إرسال
             </button>
@@ -867,13 +910,19 @@ export function MasterPage() {
 
       {alertForm.darId ? (
         <Modal title="إشعار للدار" onClose={() => setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE' })}>
-          <div className="space-y-2">
-            <select className="ios-input" value={alertForm.kind} onChange={(e) => setAlertForm({ ...alertForm, kind: e.target.value })}>
-              <option value="NOTICE">تنبيه عام</option>
-              <option value="VISIT">زيارة ميدانية</option>
-            </select>
-            <input className="ios-input" placeholder="العنوان" value={alertForm.title} onChange={(e) => setAlertForm({ ...alertForm, title: e.target.value })} />
-            <textarea className="ios-input h-24" placeholder="التفاصيل" value={alertForm.content} onChange={(e) => setAlertForm({ ...alertForm, content: e.target.value })} />
+          <div className="space-y-3">
+            <Field label="نوع الإشعار">
+              <select className="ios-input" value={alertForm.kind} onChange={(e) => setAlertForm({ ...alertForm, kind: e.target.value })}>
+                <option value="NOTICE">تنبيه عام</option>
+                <option value="VISIT">زيارة ميدانية</option>
+              </select>
+            </Field>
+            <Field label="العنوان">
+              <input className="ios-input" placeholder="عنوان الإشعار" value={alertForm.title} onChange={(e) => setAlertForm({ ...alertForm, title: e.target.value })} />
+            </Field>
+            <Field label="التفاصيل">
+              <textarea className="ios-input h-24" placeholder="نص الإشعار" value={alertForm.content} onChange={(e) => setAlertForm({ ...alertForm, content: e.target.value })} />
+            </Field>
             <button className="btn-primary" onClick={() => void sendAlert()}>
               إرسال
             </button>
@@ -883,9 +932,13 @@ export function MasterPage() {
 
       {showAdmins ? (
         <Modal title="إدارة المشرفات" onClose={() => setShowAdmins(false)}>
-          <div className="mb-4 space-y-2 rounded-2xl bg-gray-50 p-3">
-            <input className="ios-input" placeholder="اسم المشرفة" value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} />
-            <input className="ios-input text-left" dir="ltr" placeholder="الجوال" value={adminForm.phone} onChange={(e) => setAdminForm({ ...adminForm, phone: e.target.value })} />
+          <div className="mb-4 space-y-3 rounded-2xl bg-gray-50 p-3">
+            <Field label="اسم المشرفة">
+              <input className="ios-input" placeholder="الاسم" value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} />
+            </Field>
+            <Field label="جوال المشرفة">
+              <input className="ios-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={adminForm.phone} onChange={(e) => setAdminForm({ ...adminForm, phone: e.target.value })} />
+            </Field>
             <button className="btn-primary" onClick={() => void addSupervisor()}>
               إضافة
             </button>
