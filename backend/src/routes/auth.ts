@@ -41,7 +41,17 @@ async function enrichUser(user: {
 }
 
 export async function authRoutes(app: FastifyInstance) {
-  app.post('/login', async (request, reply) => {
+  app.post(
+    '/login',
+    {
+      config: {
+        rateLimit: {
+          max: 8,
+          timeWindow: '1 minute',
+        },
+      },
+    },
+    async (request, reply) => {
     const body = z
       .object({
         phone: z.string().min(9),
@@ -77,14 +87,17 @@ export async function authRoutes(app: FastifyInstance) {
       }
     }
 
-    const token = app.jwt.sign({
-      id: user.id,
-      phone: user.phone,
-      name: user.name,
-      role: user.role,
-      darId: user.darId,
-      classId: user.classId,
-    });
+    const token = app.jwt.sign(
+      {
+        id: user.id,
+        phone: user.phone,
+        name: user.name,
+        role: user.role,
+        darId: user.darId,
+        classId: user.classId,
+      },
+      { expiresIn: process.env.JWT_EXPIRES_IN || '12h' },
+    );
 
     return {
       status: 'success',
@@ -94,9 +107,11 @@ export async function authRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/me', { preHandler: authenticate }, async (request) => {
+  app.get('/me', { preHandler: authenticate }, async (request, reply) => {
     const user = await prisma.user.findUnique({ where: { id: request.user.id } });
-    if (!user) return { status: 'error', message: 'المستخدم غير موجود' };
+    if (!user || user.status !== EntityStatus.ACTIVE) {
+      return reply.code(401).send({ status: 'error', message: 'الجلسة غير صالحة' });
+    }
     return { status: 'success', user: await enrichUser(user) };
   });
 

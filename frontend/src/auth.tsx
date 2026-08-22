@@ -13,15 +13,15 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(() => Boolean(getToken()));
+  /** التحميل الكامل للواجهة فقط عند التحقق الأولي من الجلسة — لا يُفرّغ الصفحة لاحقاً */
+  const [booting, setBooting] = useState(() => Boolean(getToken()));
 
   async function refresh() {
     if (!getToken()) {
       setUser(null);
-      setLoading(false);
+      setBooting(false);
       return;
     }
-    setLoading(true);
     try {
       const res = await api<{ status: string; user: AuthUser }>('/api/auth/me');
       if (res.status === 'success' && res.user) setUser(res.user);
@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null);
       setUser(null);
     } finally {
-      setLoading(false);
+      setBooting(false);
     }
   }
 
@@ -48,17 +48,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     setToken(res.token);
     setUser(res.user);
-    setLoading(false);
+    setBooting(false);
   }
 
   function logout() {
     setToken(null);
     setUser(null);
-    setLoading(false);
+    setBooting(false);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading: booting, login, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

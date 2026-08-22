@@ -118,6 +118,8 @@ export function MasterPage() {
   const [report, setReport] = useState<DarReport | null>(null);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
   const [curriculum, setCurriculum] = useState<CurriculumRow[]>([]);
+  const [curriculumLoaded, setCurriculumLoaded] = useState(false);
+  const [indicatorsLoaded, setIndicatorsLoaded] = useState(false);
   const [planViewLevel, setPlanViewLevel] = useState<string>('تمهيدي 1');
   const [planViewWeek, setPlanViewWeek] = useState(1);
   const [planViewMode, setPlanViewMode] = useState<PlanViewMode>('table');
@@ -184,14 +186,18 @@ export function MasterPage() {
     }
   }
 
-  async function loadIndicators() {
+  async function loadIndicators(force = false) {
+    if (indicatorsLoaded && !force) return;
     const res = await api<{ data: Indicators }>('/api/master/indicators');
     setIndicators(res.data);
+    setIndicatorsLoaded(true);
   }
 
-  async function loadCurriculum() {
+  async function loadCurriculum(force = false) {
+    if (curriculumLoaded && !force) return;
     const res = await api<{ data: CurriculumRow[] }>('/api/master/curriculum');
     setCurriculum(res.data);
+    setCurriculumLoaded(true);
   }
 
   useEffect(() => {
@@ -210,8 +216,9 @@ export function MasterPage() {
     if (tab !== 'accounts' || user?.role !== 'SUPER_MASTER') return;
     const t = setTimeout(() => {
       void loadAccounts().catch((e) => setMsg(e.message));
-    }, 250);
+    }, 300);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- بحث مؤجّل فقط
   }, [tab, accountFilter, accountSearch, user?.role]);
 
   async function loadAccounts() {
@@ -429,7 +436,8 @@ export function MasterPage() {
     setPlanMenuDay(null);
     setPlanViewLevel(planForm.level);
     setPlanViewWeek(Number(planForm.week));
-    await loadCurriculum();
+    setCurriculumLoaded(false);
+    await loadCurriculum(true);
   }
 
   function openAddPlan(day?: string) {
@@ -465,7 +473,8 @@ export function MasterPage() {
     await api(`/api/master/curriculum/${plan.id}`, { method: 'DELETE' });
     setMsg('تم حذف الخطة');
     setPlanMenuDay(null);
-    await loadCurriculum();
+    setCurriculumLoaded(false);
+    await loadCurriculum(true);
   }
 
   function PlanActions({ slot }: { slot: WeekSlot }) {

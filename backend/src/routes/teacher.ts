@@ -230,15 +230,39 @@ export async function teacherRoutes(app: FastifyInstance) {
     const file = await request.file();
     if (!file) return reply.code(400).send({ status: 'error', message: 'لا يوجد ملف' });
 
+    const allowed = new Set([
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+      'application/pdf',
+    ]);
+    const mime = String(file.mimetype || '').toLowerCase();
+    if (!allowed.has(mime)) {
+      return reply.code(400).send({ status: 'error', message: 'نوع الملف غير مسموح (صور أو PDF فقط)' });
+    }
+
     const uploadRoot = path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
     const dir = path.join(uploadRoot, darId, classId);
-    fs.mkdirSync(dir, { recursive: true });
+    const resolvedDir = path.resolve(dir);
+    if (!resolvedDir.startsWith(uploadRoot + path.sep) && resolvedDir !== uploadRoot) {
+      return reply.code(400).send({ status: 'error', message: 'مسار غير صالح' });
+    }
+    fs.mkdirSync(resolvedDir, { recursive: true });
 
-    const safeName = `${Date.now()}-${randomUUID()}-${file.filename.replace(/[^\w.\-ء-ي]/g, '_')}`;
-    const fullPath = path.join(dir, safeName);
+    const ext =
+      mime === 'application/pdf'
+        ? '.pdf'
+        : mime === 'image/png'
+          ? '.png'
+          : mime === 'image/webp'
+            ? '.webp'
+            : '.jpg';
+    const safeName = `${Date.now()}-${randomUUID()}${ext}`;
+    const fullPath = path.join(resolvedDir, safeName);
     const buffer = await file.toBuffer();
-    if (buffer.length > 20 * 1024 * 1024) {
-      return reply.code(400).send({ status: 'error', message: 'حجم الملف يتجاوز 20 ميجابايت' });
+    if (buffer.length > 10 * 1024 * 1024) {
+      return reply.code(400).send({ status: 'error', message: 'حجم الملف يتجاوز 10 ميجابايت' });
     }
     fs.writeFileSync(fullPath, buffer);
 

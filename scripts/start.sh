@@ -9,7 +9,7 @@ fi
 
 cd "$ROOT/backend"
 test -f .env || cp .env.example .env
-test -f dist/index.js || npm run build
+npx tsc
 test -d "$ROOT/frontend/dist" || (cd "$ROOT/frontend" && npm run build)
 
 # أوقف نسخة قديمة على 4000 إن وُجدت
