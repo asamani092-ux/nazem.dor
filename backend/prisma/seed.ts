@@ -45,7 +45,15 @@ async function main() {
     }>;
 
     let upserted = 0;
+    const cleanHomework = (v: string) => {
+      const t = String(v ?? '').trim();
+      if (!/^-?\d+(\.\d+)?$/.test(t)) return t;
+      const n = Number(t);
+      if (!Number.isFinite(n)) return t;
+      return Number.isInteger(n) ? String(n) : String(n);
+    };
     for (const row of rows) {
+      const homework = cleanHomework(String(row.homework));
       await prisma.curriculumPlan.upsert({
         where: {
           level_week_day: { level: row.level, week: row.week, day: row.day },
@@ -55,12 +63,12 @@ async function main() {
           week: row.week,
           day: row.day,
           educational: row.educational,
-          homework: String(row.homework),
+          homework,
           tarbawi: row.tarbawi || '',
         },
         update: {
           educational: row.educational,
-          homework: String(row.homework),
+          homework,
           tarbawi: row.tarbawi || '',
         },
       });

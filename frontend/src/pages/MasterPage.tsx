@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api, waLink } from '../lib/api';
+import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
 import { downloadCsv } from '../lib/reports';
 import { Field } from '../components/Field';
@@ -430,7 +431,10 @@ export function MasterPage() {
     const existed = curriculum.some(
       (p) => p.level === planForm.level && p.week === Number(planForm.week) && p.day === planForm.day,
     );
-    await api('/api/master/curriculum', { method: 'POST', json: { ...planForm, week: Number(planForm.week) } });
+    await api('/api/master/curriculum', {
+      method: 'POST',
+      json: { ...planForm, week: Number(planForm.week), homework: formatHomework(planForm.homework) },
+    });
     setMsg(existed || planEditorMode === 'edit' ? 'تم تحديث الخطة' : 'تمت إضافة الخطة');
     setShowPlanEditor(false);
     setPlanMenuDay(null);
@@ -461,7 +465,7 @@ export function MasterPage() {
       week: plan.week,
       day: plan.day,
       educational: plan.educational,
-      homework: plan.homework,
+      homework: formatHomework(plan.homework),
       tarbawi: plan.tarbawi || '',
     });
     setPlanMenuDay(null);
@@ -727,7 +731,7 @@ export function MasterPage() {
                         {slot.plan ? (
                           <>
                             <td className="p-2 font-bold text-gray-700">{slot.plan.educational}</td>
-                            <td className="p-2 text-gray-600">{slot.plan.homework || '—'}</td>
+                            <td className="p-2 text-gray-600">{formatHomework(slot.plan.homework) || '—'}</td>
                             <td className="p-2 text-gray-600">{slot.plan.tarbawi || '—'}</td>
                           </>
                         ) : (
@@ -765,7 +769,7 @@ export function MasterPage() {
                       </p>
                       <p>
                         <span className="font-bold text-gray-500">واجب: </span>
-                        {slot.plan.homework || '—'}
+                        {formatHomework(slot.plan.homework) || '—'}
                       </p>
                       <p>
                         <span className="font-bold text-gray-500">تربوي: </span>

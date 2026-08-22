@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { computeRates, levelsForCurriculum } from '../lib/domain.js';
+import { computeRates, levelsForCurriculum, normalizeHomework } from '../lib/domain.js';
 import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
@@ -555,7 +555,10 @@ export async function masterRoutes(app: FastifyInstance) {
     const rows = await prisma.curriculumPlan.findMany({
       orderBy: [{ level: 'asc' }, { week: 'asc' }, { day: 'asc' }],
     });
-    return { status: 'success', data: rows };
+    return {
+      status: 'success',
+      data: rows.map((r) => ({ ...r, homework: normalizeHomework(r.homework) })),
+    };
   });
 
   app.post('/curriculum', guard, async (request) => {
@@ -570,6 +573,7 @@ export async function masterRoutes(app: FastifyInstance) {
       })
       .parse(request.body);
 
+    const homework = normalizeHomework(body.homework);
     const row = await prisma.curriculumPlan.upsert({
       where: {
         level_week_day: { level: body.level, week: body.week, day: body.day },
@@ -579,16 +583,16 @@ export async function masterRoutes(app: FastifyInstance) {
         week: body.week,
         day: body.day,
         educational: body.educational,
-        homework: body.homework,
+        homework,
         tarbawi: body.tarbawi || '',
       },
       update: {
         educational: body.educational,
-        homework: body.homework,
+        homework,
         tarbawi: body.tarbawi || '',
       },
     });
-    return { status: 'success', data: row };
+    return { status: 'success', data: { ...row, homework: normalizeHomework(row.homework) } };
   });
 
   app.delete('/curriculum/:id', { preHandler: requireRoles(Role.SUPER_MASTER) }, async (request, reply) => {

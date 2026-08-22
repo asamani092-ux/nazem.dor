@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
+import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
 import { Field } from '../components/Field';
 
@@ -298,7 +299,7 @@ export function TeacherPage() {
                 الدرس: <span className="text-gray-900">{plan.educational}</span>
               </p>
               <p>
-                الواجب: <span className="text-gray-900">{plan.homework}</span>
+                الواجب: <span className="text-gray-900">{formatHomework(plan.homework)}</span>
               </p>
               {isAwwalia && plan.tarbawi ? (
                 <p>

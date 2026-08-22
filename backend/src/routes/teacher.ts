@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { EntityStatus, Role } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
+import { normalizeHomework } from '../lib/domain.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -139,7 +140,7 @@ export async function teacherRoutes(app: FastifyInstance) {
     return {
       status: 'success',
       educational: plan.educational,
-      homework: plan.homework,
+      homework: normalizeHomework(plan.homework),
       tarbawi: plan.tarbawi || '',
     };
   });
