@@ -3,18 +3,12 @@ import { LoginPage } from './pages/LoginPage';
 import { MasterPage } from './pages/MasterPage';
 import { ManagerPage } from './pages/ManagerPage';
 import { TeacherPage } from './pages/TeacherPage';
+import { Spinner } from './components/ui/Spinner';
 
 function AppRouter() {
   const { user, loading } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-[#7A1F3D]" />
-        <p className="text-sm font-bold text-[#7A1F3D]">جاري التحميل...</p>
-      </div>
-    );
-  }
+  if (loading) return <Spinner />;
 
   if (!user) return <LoginPage />;
 

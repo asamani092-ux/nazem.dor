@@ -1,18 +1,43 @@
 @import "tailwindcss";
 
+/* نظام تصميم ناظم الصغار — توكنات */
 @theme {
-  --color-burgundy: #7A1F3D;
-  --color-burgundy-light: #9e2a4f;
-  --color-ios-bg: #F2F2F7;
-  --color-ios-text: #1C1C1E;
-  --color-ios-muted: #8E8E93;
-  --color-ios-border: #E5E5EA;
+  --color-primary: #7f4ba9;
+  --color-primary-light: #9568bc;
+  --color-primary-dark: #63408a;
+  --color-primary-soft: #f3ecfa;
+  --color-primary-ring: rgba(127, 75, 169, 0.14);
+
+  --color-burgundy: #7f4ba9;
+  --color-burgundy-light: #9568bc;
+
+  --color-ios-bg: #f2f2f7;
+  --color-ios-text: #1c1c1e;
+  --color-ios-muted: #8e8e93;
+  --color-ios-border: #e5e5ea;
+
+  --color-success: #34c759;
+  --color-success-soft: #e8f8ec;
+  --color-warning: #ff9500;
+  --color-warning-soft: #fff4e5;
+  --color-danger: #ff3b30;
+  --color-danger-soft: #ffebea;
+  --color-info: #007aff;
+  --color-info-soft: #e8f2ff;
+
+  --radius-card: 16px;
+  --radius-input: 12px;
+  --radius-pill: 9999px;
+
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04);
+  --shadow-shell: 0 0 40px rgba(0, 0, 0, 0.08);
+
   --font-sans: "Tajawal", ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
   margin: 0;
-  background: #E5E5EA;
+  background: #e5e5ea;
   font-family: var(--font-sans);
   color: var(--color-ios-text);
   -webkit-tap-highlight-color: transparent;
@@ -22,51 +47,106 @@ body {
   background: var(--color-ios-bg);
   min-height: 100vh;
   width: 100%;
-  max-width: 42rem;
+  max-width: 100%;
   margin: 0 auto;
-  box-shadow: 0 0 40px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-shell);
   position: relative;
+}
+
+@media (min-width: 640px) {
+  .app-shell {
+    max-width: 36rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 48rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    max-width: 64rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .app-shell {
+    max-width: 72rem;
+  }
+}
+
+.page-pad {
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .page-pad {
+    padding: 1.25rem 1.5rem;
+  }
 }
 
 .ios-card {
   background: #fff;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   border: 1px solid rgba(0, 0, 0, 0.02);
 }
 
 .ios-input {
-  background: #F2F2F7;
-  border-radius: 12px;
+  background: #f2f2f7;
+  border-radius: var(--radius-input);
   border: 1px solid transparent;
   width: 100%;
   padding: 14px;
   font-size: 16px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .ios-input:focus {
-  border-color: #7A1F3D;
+  border-color: var(--color-primary);
   background: #fff;
   outline: none;
-  box-shadow: 0 0 0 3px rgba(122, 31, 61, 0.1);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 .btn-primary {
-  background: #7A1F3D;
+  background: var(--color-primary);
   color: #fff;
   font-weight: 700;
-  border-radius: 12px;
+  border-radius: var(--radius-input);
   padding: 14px 16px;
   width: 100%;
   border: none;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.btn-primary:active {
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+
+.btn-primary:active:not(:disabled) {
   transform: scale(0.98);
 }
 
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.tab-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }

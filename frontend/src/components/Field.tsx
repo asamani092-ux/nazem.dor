@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-1">
-      <label className="block text-[10px] font-bold text-gray-500">{label}</label>
+      <label className="block text-[10px] font-bold text-ios-muted">{label}</label>
       {children}
     </div>
   );

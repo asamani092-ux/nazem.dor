@@ -4,6 +4,9 @@ import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
 import { downloadCsv } from '../lib/reports';
 import { Field } from '../components/Field';
+import { AlertBanner } from '../components/ui/AlertBanner';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 
 type Dar = {
   id: string;
@@ -487,7 +490,7 @@ export function MasterPage() {
       <div className="relative">
         <button
           type="button"
-          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[10px] font-bold text-[#7A1F3D]"
+          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[10px] font-bold text-primary"
           onClick={() => setPlanMenuDay(open ? null : slot.day)}
         >
           إجراءات
@@ -516,7 +519,7 @@ export function MasterPage() {
             ) : (
               <button
                 type="button"
-                className="block w-full px-3 py-2 text-right text-[11px] font-bold text-[#7A1F3D] hover:bg-gray-50"
+                className="block w-full px-3 py-2 text-right text-[11px] font-bold text-primary hover:bg-gray-50"
                 onClick={() => openAddPlan(slot.day)}
               >
                 إضافة
@@ -530,14 +533,15 @@ export function MasterPage() {
 
   return (
     <div className="min-h-screen pb-10">
-      <header className="sticky top-0 z-40 border-b bg-white/90 p-4 pt-10 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-ios-border bg-white/95 backdrop-blur-md">
+        <div className="page-pad pt-8 sm:pt-10">
         <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-[#7A1F3D]">الإشراف العام</h1>
+          <h1 className="text-2xl font-bold text-primary">الإشراف العام</h1>
           <button onClick={logout} className="rounded-full bg-red-50 px-3 py-2 text-sm font-bold text-red-500">
             خروج
           </button>
         </div>
-        <div className="mb-3 flex rounded-xl bg-gray-200 p-1">
+        <div className="mb-3 flex rounded-xl bg-gray-200 p-1 tab-scroll">
           {(
             [
               ['dars', 'الدور'],
@@ -549,7 +553,7 @@ export function MasterPage() {
             <button
               key={k}
               onClick={() => setTab(k)}
-              className={`flex-1 rounded-lg py-2 text-[10px] font-bold ${tab === k ? 'bg-white text-[#7A1F3D] shadow-sm' : 'text-gray-500'}`}
+              className={`min-w-0 flex-1 shrink-0 rounded-lg px-2 py-2 text-[10px] font-bold sm:text-[11px] ${tab === k ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
             >
               {label}
             </button>
@@ -558,29 +562,23 @@ export function MasterPage() {
         {tab === 'dars' ? (
           <>
             <div className="mb-3 flex flex-wrap gap-2">
-              <button className="rounded-xl bg-green-600 px-3 py-2 text-xs font-bold text-white" onClick={() => setShowAdd(true)}>
+              <Button variant="success" size="md" onClick={() => setShowAdd(true)}>
                 إضافة دار
-              </button>
-              <button className="rounded-xl bg-[#7A1F3D] px-3 py-2 text-xs font-bold text-white" onClick={() => setShowExam(true)}>
+              </Button>
+              <Button size="md" onClick={() => setShowExam(true)}>
                 اختبار مركزي
-              </button>
+              </Button>
             </div>
             <input className="ios-input text-sm" placeholder="ابحث عن دار..." aria-label="بحث عن دار" value={q} onChange={(e) => setQ(e.target.value)} />
           </>
         ) : null}
+        </div>
       </header>
 
-      {msg ? (
-        <div className="m-4 whitespace-pre-wrap rounded-xl bg-white p-3 text-sm font-bold text-[#7A1F3D] shadow">
-          {msg}
-          <button className="mr-3 text-xs text-gray-400" onClick={() => setMsg('')}>
-            إغلاق
-          </button>
-        </div>
-      ) : null}
+      {msg ? <AlertBanner message={msg} onClose={() => setMsg('')} /> : null}
 
       {tab === 'indicators' && indicators ? (
-        <div className="space-y-4 p-4">
+        <div className="page-pad space-y-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {[
               ['دور نشطة', indicators.darsActive],
@@ -594,7 +592,7 @@ export function MasterPage() {
               ['اختبارات', indicators.examsCount],
             ].map(([label, val]) => (
               <div key={String(label)} className="ios-card p-3 text-center">
-                <p className="text-xl font-black text-[#7A1F3D]">{val}</p>
+                <p className="text-xl font-black text-primary">{val}</p>
                 <p className="text-[10px] font-bold text-gray-500">{label}</p>
               </div>
             ))}
@@ -634,7 +632,7 @@ export function MasterPage() {
                 طالبات {d.activeStudents} | فصول {d.classesCount} | حضور %{d.attendanceRate} | إنجاز %{d.completionRate} |
                 واجب %{d.homeworkRate} | عام %{d.overallRate}
               </p>
-              <button className="mt-2 text-[10px] font-bold text-[#7A1F3D]" onClick={() => void openReport(d.id)}>
+              <button className="mt-2 text-[10px] font-bold text-primary" onClick={() => void openReport(d.id)}>
                 تقرير الدار الكامل
               </button>
             </div>
@@ -643,11 +641,11 @@ export function MasterPage() {
       ) : null}
 
       {tab === 'curriculum' ? (
-        <div className="space-y-4 p-4">
+        <div className="page-pad space-y-4">
           <div className="ios-card space-y-3 p-4">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-[#7A1F3D]">خطط المنهج</h3>
-              <button type="button" className="rounded-lg bg-[#7A1F3D] px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddPlan()}>
+              <h3 className="font-bold text-primary">خطط المنهج</h3>
+              <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddPlan()}>
                 إضافة يوم
               </button>
             </div>
@@ -699,7 +697,7 @@ export function MasterPage() {
                     setPlanViewMode(mode);
                     setPlanMenuDay(null);
                   }}
-                  className={`flex-1 rounded-lg py-2 text-[11px] font-bold ${planViewMode === mode ? 'bg-white text-[#7A1F3D] shadow-sm' : 'text-gray-500'}`}
+                  className={`flex-1 rounded-lg py-2 text-[11px] font-bold ${planViewMode === mode ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
                 >
                   {label}
                 </button>
@@ -713,7 +711,7 @@ export function MasterPage() {
 
           {planViewMode === 'table' ? (
             <div className="ios-card overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="table-wrap">
                 <table className="w-full min-w-[28rem] text-right text-[11px]">
                   <thead className="bg-gray-50 text-[10px] text-gray-500">
                     <tr>
@@ -727,7 +725,7 @@ export function MasterPage() {
                   <tbody>
                     {weekSlots.map((slot) => (
                       <tr key={slot.day} className="border-t border-gray-100 align-top">
-                        <td className="p-2 font-extrabold text-[#7A1F3D]">{slot.day}</td>
+                        <td className="p-2 font-extrabold text-primary">{slot.day}</td>
                         {slot.plan ? (
                           <>
                             <td className="p-2 font-bold text-gray-700">{slot.plan.educational}</td>
@@ -754,7 +752,7 @@ export function MasterPage() {
                 <div key={slot.day} className={`ios-card p-3 ${slot.plan ? '' : 'border border-dashed border-gray-300 bg-gray-50/80'}`}>
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm font-extrabold text-[#7A1F3D]">{slot.day}</p>
+                      <p className="text-sm font-extrabold text-primary">{slot.day}</p>
                       <p className="text-[9px] font-bold text-gray-400">
                         {planViewLevel} · أسبوع {planViewWeek}
                       </p>
@@ -787,11 +785,11 @@ export function MasterPage() {
       ) : null}
 
       {tab === 'accounts' && user?.role === 'SUPER_MASTER' ? (
-        <div className="space-y-4 p-4">
+        <div className="page-pad space-y-4">
           <div className="ios-card space-y-3 p-4">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-[#7A1F3D]">إدارة الحسابات</h3>
-              <button type="button" className="rounded-lg bg-[#7A1F3D] px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddAccount('MASTER')}>
+              <h3 className="font-bold text-primary">إدارة الحسابات</h3>
+              <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddAccount('MASTER')}>
                 إضافة
               </button>
             </div>
@@ -838,7 +836,7 @@ export function MasterPage() {
                   <div className="relative">
                     <button
                       type="button"
-                      className="rounded-lg border px-2 py-1 text-[10px] font-bold text-[#7A1F3D]"
+                      className="rounded-lg border px-2 py-1 text-[10px] font-bold text-primary"
                       onClick={() => setAccountMenuId(accountMenuId === row.id ? null : row.id)}
                     >
                       إجراءات
@@ -874,7 +872,7 @@ export function MasterPage() {
       ) : null}
 
       {tab === 'dars' ? (
-        <div className="space-y-4 p-4">
+        <div className="page-pad space-y-4">
           {busy && !dars.length ? <p className="text-center text-sm text-gray-400">جاري التحميل...</p> : null}
           {filtered.map((dar) => (
             <div key={dar.id} className={`ios-card p-5 ${dar.status === 'معلق' ? 'opacity-70 grayscale' : ''}`}>
@@ -983,7 +981,7 @@ export function MasterPage() {
             <p className="text-xs text-gray-500">
               {report.dar.curriculum} | المديرة {report.dar.managerName}
             </p>
-            <p className="font-bold text-[#7A1F3D]">
+            <p className="font-bold text-primary">
               طالبات {report.summary.totalStudents} | نشطات {report.summary.activeStudents} | فصول {report.summary.classesCount}
             </p>
             <p className="text-xs">
@@ -1217,22 +1215,6 @@ export function MasterPage() {
           </div>
         </Modal>
       ) : null}
-    </div>
-  );
-}
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[#7A1F3D]">{title}</h3>
-          <button onClick={onClose} className="text-2xl text-gray-400">
-            ×
-          </button>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }

@@ -3,6 +3,10 @@ import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { downloadCsv, LEVELS_BY_CURRICULUM } from '../lib/reports';
 import { Field } from '../components/Field';
+import { AlertBanner } from '../components/ui/AlertBanner';
+import { Modal } from '../components/ui/Modal';
+import { PageHeader } from '../components/ui/PageHeader';
+import { TabBar } from '../components/ui/TabBar';
 
 type Cls = {
   id: string;
@@ -152,50 +156,30 @@ export function ManagerPage() {
 
   return (
     <div className="min-h-screen pb-10">
-      <header className="sticky top-0 z-40 border-b bg-white p-4 pt-10 text-center">
-        <div className="flex items-center justify-between">
-          <div className="text-right">
-            <p className="mb-1 text-[10px] font-bold text-gray-500">مرحباً بك، أ. {user?.name}</p>
-            <h1 className="text-xl font-extrabold text-[#7A1F3D]">{meta?.darName || user?.darName}</h1>
-            {meta ? <p className="text-[9px] font-bold text-gray-400">{meta.curriculum} — مستويات: {meta.allowedLevels.join('، ')}</p> : null}
-          </div>
-          <button onClick={logout} className="rounded-full bg-red-50 px-3 py-2 text-sm font-bold text-red-500">
-            خروج
-          </button>
-        </div>
-        <div className="mt-4 flex rounded-xl bg-gray-200 p-1">
-          {(
-            [
-              ['classes', 'الفصول'],
-              ['students', 'الطالبات'],
-              ['alerts', `التنبيهات${unread ? ` (${unread})` : ''}`],
-              ['reports', 'التقارير'],
-            ] as const
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              onClick={() => {
-                setTab(k);
-                if (k === 'reports') void loadReport().catch((e) => setMsg(e.message));
-              }}
-              className={`flex-1 rounded-lg py-2.5 text-[10px] font-bold ${tab === k ? 'bg-white text-[#7A1F3D] shadow-sm' : 'text-gray-500'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </header>
+      <PageHeader
+        title={meta?.darName || user?.darName || 'دار التحفيظ'}
+        subtitle={`مرحباً بك، أ. ${user?.name}`}
+        meta={meta ? `${meta.curriculum} — مستويات: ${meta.allowedLevels.join('، ')}` : undefined}
+        onLogout={logout}
+      >
+        <TabBar
+          tabs={[
+            { key: 'classes', label: 'الفصول' },
+            { key: 'students', label: 'الطالبات' },
+            { key: 'alerts', label: `التنبيهات${unread ? ` (${unread})` : ''}` },
+            { key: 'reports', label: 'التقارير' },
+          ]}
+          active={tab}
+          onChange={(k) => {
+            setTab(k);
+            if (k === 'reports') void loadReport().catch((e) => setMsg(e.message));
+          }}
+        />
+      </PageHeader>
 
-      {msg ? (
-        <p className="m-4 whitespace-pre-wrap rounded-xl bg-white p-3 text-sm font-bold text-[#7A1F3D]">
-          {msg}
-          <button className="mr-2 text-xs text-gray-400" onClick={() => setMsg('')}>
-            إغلاق
-          </button>
-        </p>
-      ) : null}
+      {msg ? <AlertBanner message={msg} onClose={() => setMsg('')} /> : null}
 
-      <div className="space-y-4 p-4">
+      <div className="page-pad space-y-4">
         {tab === 'classes' ? (
           <>
             <button className="btn-primary" onClick={() => setShowClass(true)}>
@@ -211,7 +195,7 @@ export function ManagerPage() {
                     </p>
                   </div>
                   <div className="text-center">
-                    <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 font-black text-[#7A1F3D]">
+                    <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 font-black text-primary">
                       {c.studentCount}
                     </div>
                     <span className="text-[7px] font-bold text-gray-400">طالبات</span>
@@ -260,7 +244,7 @@ export function ManagerPage() {
               تسجيل طالبات
             </button>
             <Field label="الفصل">
-              <select className="ios-input font-bold text-[#7A1F3D]" value={filterClass} onChange={(e) => void loadStudents(e.target.value)}>
+              <select className="ios-input font-bold text-primary" value={filterClass} onChange={(e) => void loadStudents(e.target.value)}>
                 <option value="">اختاري الفصل...</option>
                 {classes
                   .filter((c) => c.status !== 'موقوف')
@@ -315,7 +299,7 @@ export function ManagerPage() {
             {alerts.map((a) => (
               <div key={a.id} className={`ios-card p-4 ${a.isRead ? 'opacity-60' : ''}`}>
                 <div className="mb-1 flex justify-between">
-                  <h4 className="text-xs font-bold text-[#7A1F3D]">{a.title}</h4>
+                  <h4 className="text-xs font-bold text-primary">{a.title}</h4>
                   <span className="text-[8px] text-gray-400">{a.date}</span>
                 </div>
                 <p className="mb-3 text-[10px] text-gray-500">{a.content || 'رابط مرفق'}</p>
@@ -351,7 +335,7 @@ export function ManagerPage() {
         {tab === 'reports' && report ? (
           <div className="space-y-4">
             <div className="ios-card space-y-2 p-4">
-              <h3 className="font-bold text-[#7A1F3D]">تقرير الدار</h3>
+              <h3 className="font-bold text-primary">تقرير الدار</h3>
               <p className="text-xs text-gray-500">
                 {report.dar.name} | {report.dar.curriculum}
               </p>
@@ -563,20 +547,6 @@ export function ManagerPage() {
           </div>
         </Modal>
       ) : null}
-    </div>
-  );
-}
-
-function Modal({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6">
-        <div className="mb-4 flex justify-between">
-          <h3 className="text-lg font-bold text-[#7A1F3D]">{title}</h3>
-          <button onClick={onClose}>×</button>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }

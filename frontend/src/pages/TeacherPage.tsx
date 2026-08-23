@@ -3,6 +3,8 @@ import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
 import { Field } from '../components/Field';
+import { AlertBanner } from '../components/ui/AlertBanner';
+import { PageHeader } from '../components/ui/PageHeader';
 
 type Student = { id: string; name: string; parentPhone: string };
 type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
@@ -199,23 +201,15 @@ export function TeacherPage() {
 
   return (
     <div className="min-h-screen pb-10">
-      <header className="sticky top-0 z-40 border-b bg-white p-4 pt-10">
-        <div className="flex items-center justify-between">
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-ios-muted">
-              المعلمة: أ. {user?.name} | {user?.classLevel}
-            </p>
-            <h1 className="text-xl font-extrabold text-burgundy">{user?.className}</h1>
-          </div>
-          <button onClick={logout} className="rounded-full bg-red-50 px-3 py-2 text-sm font-bold text-red-500">
-            خروج
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title={user?.className || 'فصل التحفيظ'}
+        subtitle={`المعلمة: أ. ${user?.name} | ${user?.classLevel}`}
+        onLogout={logout}
+      />
 
-      {msg ? <p className="m-4 rounded-xl bg-white p-3 text-sm font-bold text-burgundy">{msg}</p> : null}
+      {msg ? <AlertBanner message={msg} onClose={() => setMsg('')} /> : null}
 
-      <div className="space-y-4 p-4">
+      <div className="page-pad space-y-4">
         {alerts.map((a, i) => (
           <div
             key={a.id || i}
@@ -264,7 +258,7 @@ export function TeacherPage() {
           </Field>
           <div>
             <p className="mb-1 text-[10px] font-bold text-gray-500">اليوم</p>
-            <div className="flex justify-between gap-2">
+            <div className="flex flex-wrap justify-between gap-2 sm:gap-2">
               {DAYS.map((d) => {
                 const done = tracked.includes(d);
                 const selected = day === d;
@@ -273,11 +267,11 @@ export function TeacherPage() {
                     key={d}
                     type="button"
                     onClick={() => setDay(d)}
-                    className={`h-12 w-12 rounded-full text-[10px] font-bold ${
+                    className={`h-11 min-w-[3rem] flex-1 rounded-full px-2 text-[9px] font-bold sm:h-12 sm:w-12 sm:flex-none sm:text-[10px] ${
                       selected
-                        ? 'bg-burgundy text-white'
+                        ? 'bg-primary text-white'
                         : done
-                          ? 'border border-green-500 bg-green-50 text-green-700'
+                          ? 'border border-success bg-success-soft text-success'
                           : 'border border-gray-200 bg-gray-50 text-gray-600'
                     }`}
                   >
@@ -372,7 +366,7 @@ export function TeacherPage() {
                         <h4 className="text-sm font-bold">{ex.title}</h4>
                         <p className="text-[10px] text-gray-400">{ex.date}</p>
                       </div>
-                      <button className="rounded-full bg-burgundy px-4 py-2 text-[10px] font-bold text-white" onClick={() => setGrading(ex)}>
+                      <button className="rounded-full bg-primary px-4 py-2 text-[10px] font-bold text-white" onClick={() => setGrading(ex)}>
                         رصد الدرجات
                       </button>
                     </div>
