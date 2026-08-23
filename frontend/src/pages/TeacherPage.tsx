@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
-import { Field } from '../components/Field';
-import { AlertBanner } from '../components/ui/AlertBanner';
-import { PageHeader } from '../components/ui/PageHeader';
+import { Field, Input, Select, Button, Banner, AppChrome, TabBar, BottomSheet, Modal, TrackToggle, DayButton } from '../components/ds';
 
 type Student = { id: string; name: string; parentPhone: string };
 type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
@@ -200,16 +198,14 @@ export function TeacherPage() {
   }
 
   return (
-    <div className="min-h-screen pb-10">
-      <PageHeader
+    <div className="min-h-screen">
+      <AppChrome
         title={user?.className || 'فصل التحفيظ'}
         subtitle={`المعلمة: أ. ${user?.name} | ${user?.classLevel}`}
         onLogout={logout}
       />
-
-      {msg ? <AlertBanner message={msg} onClose={() => setMsg('')} /> : null}
-
-      <div className="page-pad space-y-4">
+      <div className="page-pad space-y-4 pb-10">
+      {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
         {alerts.map((a, i) => (
           <div
             key={a.id || i}
@@ -244,10 +240,10 @@ export function TeacherPage() {
           مركز الاختبارات
         </button>
 
-        <div className="ios-card space-y-3 p-5">
+        <div className="ds-card ds-card-pad space-y-3 p-5">
           <h3 className="text-sm font-bold">خطة الرصد</h3>
           <Field label="الأسبوع">
-            <select className="ios-input" value={week} onChange={(e) => void loadTracked(e.target.value)}>
+            <select className="ds-input" value={week} onChange={(e) => void loadTracked(e.target.value)}>
               <option value="">اختيار الأسبوع...</option>
               {Array.from({ length: weekCount }, (_, i) => i + 1).map((w) => (
                 <option key={w} value={w}>
@@ -258,37 +254,24 @@ export function TeacherPage() {
           </Field>
           <div>
             <p className="mb-1 text-[10px] font-bold text-gray-500">اليوم</p>
-            <div className="flex flex-wrap justify-between gap-2 sm:gap-2">
+            <div className="flex flex-wrap justify-between gap-2">
               {DAYS.map((d) => {
                 const done = tracked.includes(d);
                 const selected = day === d;
                 return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDay(d)}
-                    className={`h-11 min-w-[3rem] flex-1 rounded-full px-2 text-[9px] font-bold sm:h-12 sm:w-12 sm:flex-none sm:text-[10px] ${
-                      selected
-                        ? 'bg-primary text-white'
-                        : done
-                          ? 'border border-success bg-success-soft text-success'
-                          : 'border border-gray-200 bg-gray-50 text-gray-600'
-                    }`}
-                  >
-                    {d}
-                  </button>
+                  <DayButton key={d} day={d} done={done} selected={selected} onClick={() => setDay(d)} />
                 );
               })}
             </div>
           </div>
-          <button className="btn-primary" onClick={() => void fetchPlan()}>
+          <button className="ds-btn ds-btn-primary" onClick={() => void fetchPlan()}>
             جلب المقرر للرصد
           </button>
         </div>
 
         {plan ? (
           <>
-            <div className="ios-card space-y-1 p-4 text-[11px] font-bold">
+            <div className="ds-card ds-card-pad space-y-1 p-4 text-[11px] font-bold">
               <p>
                 الدرس: <span className="text-gray-900">{plan.educational}</span>
               </p>
@@ -301,14 +284,14 @@ export function TeacherPage() {
                 </p>
               ) : null}
               <Field label="مرفق (اختياري)">
-                <input type="file" className="ios-input mt-1" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+                <input type="file" className="ds-input mt-1" onChange={(e) => setFile(e.target.files?.[0] || null)} />
               </Field>
             </div>
 
             {students.map((s, idx) => {
               const st = states[s.id];
               return (
-                <div key={s.id} className="ios-card p-3">
+                <div key={s.id} className="ds-card ds-card-pad p-3">
                   <div className="mb-2 flex items-center justify-between">
                     <h3 className="text-xs font-extrabold">
                       {idx + 1}. {s.name}
@@ -329,17 +312,17 @@ export function TeacherPage() {
                     {isAwwalia ? <span>التربوي</span> : null}
                   </div>
                   <div className={`grid gap-2 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                    <TrackBtn label={st.attendance} onClick={() => toggle(s.id, 'attendance')} />
-                    <TrackBtn label={st.educational} onClick={() => toggle(s.id, 'educational')} />
-                    <TrackBtn label={st.homework} onClick={() => toggle(s.id, 'homework')} />
-                    {isAwwalia ? <TrackBtn label={st.tarbawi} onClick={() => toggle(s.id, 'tarbawi')} /> : null}
+                    <TrackToggle label={st.attendance} onClick={() => toggle(s.id, 'attendance')} />
+                    <TrackToggle label={st.educational} onClick={() => toggle(s.id, 'educational')} />
+                    <TrackToggle label={st.homework} onClick={() => toggle(s.id, 'homework')} />
+                    {isAwwalia ? <TrackToggle label={st.tarbawi} onClick={() => toggle(s.id, 'tarbawi')} /> : null}
                   </div>
                 </div>
               );
             })}
 
             <button
-              className="w-full rounded-xl bg-green-600 py-4 text-lg font-bold text-white"
+              className="ds-btn ds-btn-primary !bg-[#16a34a]"
               onClick={() => void submitTracking().catch((e) => setMsg(e.message))}
             >
               اعتماد وحفظ الرصد
@@ -349,70 +332,51 @@ export function TeacherPage() {
       </div>
 
       {examsOpen ? (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/50">
-          <div className="max-h-[85vh] overflow-hidden rounded-t-3xl bg-white">
-            <div className="flex items-center justify-between border-b bg-gray-50 p-4">
-              <h2 className="font-bold">{grading ? `رصد: ${grading.title}` : 'الاختبارات المتاحة'}</h2>
-              <button onClick={() => setExamsOpen(false)}>X</button>
-            </div>
-            <div className="max-h-[70vh] overflow-y-auto p-4">
-              {!grading ? (
-                exams.length === 0 ? (
-                  <p className="py-10 text-center text-sm text-gray-500">لا توجد اختبارات معلقة</p>
-                ) : (
-                  exams.map((ex) => (
-                    <div key={ex.id} className="mb-3 flex items-center justify-between rounded-xl border p-4">
-                      <div>
-                        <h4 className="text-sm font-bold">{ex.title}</h4>
-                        <p className="text-[10px] text-gray-400">{ex.date}</p>
-                      </div>
-                      <button className="rounded-full bg-primary px-4 py-2 text-[10px] font-bold text-white" onClick={() => setGrading(ex)}>
-                        رصد الدرجات
-                      </button>
+        <BottomSheet
+          title={grading ? `رصد: ${grading.title}` : 'مركز الاختبارات'}
+          onClose={() => setExamsOpen(false)}
+        >
+          {!grading ? (
+            exams.length === 0 ? (
+              <p className="py-6 text-center text-sm text-ios-muted">لا توجد اختبارات معلقة</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {exams.map((ex) => (
+                  <div key={ex.id} className="flex items-center justify-between rounded-[14px] bg-shell p-3.5">
+                    <div>
+                      <div className="text-sm font-bold">{ex.title}</div>
+                      <div className="text-xs text-ios-muted">{ex.date}</div>
                     </div>
-                  ))
-                )
-              ) : (
-                <div className="space-y-2">
-                  <div className="mb-2 flex justify-between text-[10px] font-bold text-gray-400">
-                    <span>الطالبة</span>
-                    <span>الدرجة</span>
+                    <Button variant="chip-primary" onClick={() => setGrading(ex)}>رصد الدرجات</Button>
                   </div>
-                  {students.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between rounded-lg bg-gray-50 p-3">
-                      <span className="text-xs font-bold">{s.name}</span>
-                      <input
-                        type="number"
-                        className="w-20 rounded border p-1 text-center text-xs"
-                        aria-label={`درجة ${s.name}`}
-                        placeholder="0"
-                        value={scores[s.id] || ''}
-                        onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
-                      />
-                    </div>
-                  ))}
-                  <button className="btn-primary bg-green-600" onClick={() => void saveGrades()}>
-                    حفظ الاعتماد
-                  </button>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="space-y-2">
+              <div className="mb-2 flex justify-between text-[10px] font-bold text-ios-muted">
+                <span>الطالبة</span>
+                <span>الدرجة</span>
+              </div>
+              {students.map((s) => (
+                <div key={s.id} className="flex items-center justify-between rounded-lg bg-shell p-3">
+                  <span className="text-xs font-bold">{s.name}</span>
+                  <Input
+                    type="number"
+                    className="!w-20 !py-2 text-center text-xs"
+                    aria-label={`درجة ${s.name}`}
+                    placeholder="0"
+                    value={scores[s.id] || ''}
+                    onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
+                  />
                 </div>
-              )}
+              ))}
+              <Button variant="primary" onClick={() => void saveGrades()}>حفظ الاعتماد</Button>
             </div>
-          </div>
-        </div>
+          )}
+          <Button variant="primary" className="mt-4" onClick={() => setExamsOpen(false)}>إغلاق</Button>
+        </BottomSheet>
       ) : null}
     </div>
-  );
-}
-
-function TrackBtn({ label, onClick }: { label: string; onClick: () => void }) {
-  const bad = label === 'غائبة' || label === 'لم تتقن' || label === 'لم تنجز' || label === '-';
-  return (
-    <button
-      onClick={onClick}
-      disabled={label === '-'}
-      className={`rounded-full py-1.5 text-[10px] font-bold text-white ${bad ? 'bg-red-500' : 'bg-green-500'} disabled:bg-gray-300`}
-    >
-      {label}
-    </button>
   );
 }

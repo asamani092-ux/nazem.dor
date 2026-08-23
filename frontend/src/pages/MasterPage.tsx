@@ -3,10 +3,7 @@ import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
 import { downloadCsv } from '../lib/reports';
-import { Field } from '../components/Field';
-import { AlertBanner } from '../components/ui/AlertBanner';
-import { Button } from '../components/ui/Button';
-import { Modal } from '../components/ui/Modal';
+import { Field, Input, Select, Button, Modal, TabBar, ViewToggle, Banner, AppChrome, StatCard, Badge } from '../components/ds';
 
 type Dar = {
   id: string;
@@ -532,53 +529,33 @@ export function MasterPage() {
   }
 
   return (
-    <div className="min-h-screen pb-10">
-      <header className="sticky top-0 z-40 border-b border-ios-border bg-white/95 backdrop-blur-md">
-        <div className="page-pad pt-8 sm:pt-10">
-        <div className="mb-3 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-primary">الإشراف العام</h1>
-          <button onClick={logout} className="rounded-full bg-red-50 px-3 py-2 text-sm font-bold text-red-500">
-            خروج
-          </button>
-        </div>
-        <div className="mb-3 flex rounded-xl bg-gray-200 p-1 tab-scroll">
-          {(
-            [
-              ['dars', 'الدور'],
-              ['indicators', 'المؤشرات'],
-              ['curriculum', 'المناهج'],
-              ...(user?.role === 'SUPER_MASTER' ? ([['accounts', 'الحسابات']] as const) : []),
-            ] as Array<readonly [Tab, string]>
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              className={`min-w-0 flex-1 shrink-0 rounded-lg px-2 py-2 text-[10px] font-bold sm:text-[11px] ${tab === k ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+    <div className="min-h-screen">
+      <AppChrome title="الإشراف العام" onLogout={logout} />
+      <div className="page-pad space-y-4 pb-10">
+        <TabBar
+          tabs={[
+            { key: 'dars', label: 'الدور' },
+            { key: 'indicators', label: 'المؤشرات' },
+            { key: 'curriculum', label: 'المناهج' },
+            ...(user?.role === 'SUPER_MASTER' ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
+          ]}
+          active={tab}
+          onChange={setTab}
+        />
         {tab === 'dars' ? (
           <>
-            <div className="mb-3 flex flex-wrap gap-2">
-              <Button variant="success" size="md" onClick={() => setShowAdd(true)}>
-                إضافة دار
-              </Button>
-              <Button size="md" onClick={() => setShowExam(true)}>
-                اختبار مركزي
-              </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="success" onClick={() => setShowAdd(true)}>إضافة دار</Button>
+              <Button variant="primary" className="!w-auto" onClick={() => setShowExam(true)}>اختبار مركزي</Button>
             </div>
-            <input className="ios-input text-sm" placeholder="ابحث عن دار..." aria-label="بحث عن دار" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input className="text-sm" placeholder="ابحث عن دار..." aria-label="بحث عن دار" value={q} onChange={(e) => setQ(e.target.value)} />
           </>
         ) : null}
-        </div>
-      </header>
 
-      {msg ? <AlertBanner message={msg} onClose={() => setMsg('')} /> : null}
+      {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
 
       {tab === 'indicators' && indicators ? (
-        <div className="page-pad space-y-4">
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {[
               ['دور نشطة', indicators.darsActive],
@@ -591,10 +568,7 @@ export function MasterPage() {
               ['عام %', indicators.overallRate],
               ['اختبارات', indicators.examsCount],
             ].map(([label, val]) => (
-              <div key={String(label)} className="ios-card p-3 text-center">
-                <p className="text-xl font-black text-primary">{val}</p>
-                <p className="text-[10px] font-bold text-gray-500">{label}</p>
-              </div>
+              <StatCard key={String(label)} label={String(label)} value={val as string | number} />
             ))}
           </div>
           <p className="text-xs font-bold text-gray-500">
@@ -602,7 +576,7 @@ export function MasterPage() {
             {indicators.byCurriculum.both}
           </p>
           <button
-            className="btn-primary"
+            className="ds-btn ds-btn-primary"
             onClick={() =>
               downloadCsv(
                 'indicators-dars.csv',
@@ -623,7 +597,7 @@ export function MasterPage() {
             تصدير مؤشرات الدور CSV
           </button>
           {indicators.perDar.map((d) => (
-            <div key={d.id} className="ios-card p-4">
+            <div key={d.id} className="ds-card ds-card-pad p-4">
               <div className="mb-2 flex justify-between">
                 <h3 className="font-bold">{d.name}</h3>
                 <span className="text-[10px] font-bold">{d.curriculum}</span>
@@ -641,8 +615,8 @@ export function MasterPage() {
       ) : null}
 
       {tab === 'curriculum' ? (
-        <div className="page-pad space-y-4">
-          <div className="ios-card space-y-3 p-4">
+        <div className="space-y-4">
+          <div className="ds-card ds-card-pad space-y-3 p-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-bold text-primary">خطط المنهج</h3>
               <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddPlan()}>
@@ -653,7 +627,7 @@ export function MasterPage() {
               <div>
                 <label className="mb-1 block text-[9px] font-bold text-gray-400">المستوى</label>
                 <select
-                  className="ios-input py-2 text-sm"
+                  className="ds-input py-2 text-sm"
                   value={planViewLevel}
                   onChange={(e) => {
                     setPlanViewLevel(e.target.value);
@@ -668,7 +642,7 @@ export function MasterPage() {
               <div>
                 <label className="mb-1 block text-[9px] font-bold text-gray-400">الأسبوع</label>
                 <select
-                  className="ios-input py-2 text-sm"
+                  className="ds-input py-2 text-sm"
                   value={planViewWeek}
                   onChange={(e) => {
                     setPlanViewWeek(Number(e.target.value));
@@ -710,7 +684,7 @@ export function MasterPage() {
           </div>
 
           {planViewMode === 'table' ? (
-            <div className="ios-card overflow-hidden">
+            <div className="ds-card overflow-hidden">
               <div className="table-wrap">
                 <table className="w-full min-w-[28rem] text-right text-[11px]">
                   <thead className="bg-gray-50 text-[10px] text-gray-500">
@@ -749,7 +723,7 @@ export function MasterPage() {
           ) : (
             <div className="space-y-3">
               {weekSlots.map((slot) => (
-                <div key={slot.day} className={`ios-card p-3 ${slot.plan ? '' : 'border border-dashed border-gray-300 bg-gray-50/80'}`}>
+                <div key={slot.day} className={`ds-card ds-card-pad p-3 ${slot.plan ? '' : 'border border-dashed border-gray-300 bg-gray-50/80'}`}>
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-extrabold text-primary">{slot.day}</p>
@@ -785,8 +759,8 @@ export function MasterPage() {
       ) : null}
 
       {tab === 'accounts' && user?.role === 'SUPER_MASTER' ? (
-        <div className="page-pad space-y-4">
-          <div className="ios-card space-y-3 p-4">
+        <div className="space-y-4">
+          <div className="ds-card ds-card-pad space-y-3 p-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="font-bold text-primary">إدارة الحسابات</h3>
               <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddAccount('MASTER')}>
@@ -795,7 +769,7 @@ export function MasterPage() {
             </div>
             <Field label="العرض">
               <select
-                className="ios-input py-2 text-sm"
+                className="ds-input py-2 text-sm"
                 value={accountFilter}
                 onChange={(e) => setAccountFilter(e.target.value as AccountFilter)}
               >
@@ -808,7 +782,7 @@ export function MasterPage() {
             </Field>
             <Field label="بحث">
               <input
-                className="ios-input py-2 text-sm"
+                className="ds-input py-2 text-sm"
                 placeholder="اسم أو جوال"
                 value={accountSearch}
                 onChange={(e) => setAccountSearch(e.target.value)}
@@ -819,7 +793,7 @@ export function MasterPage() {
 
           <div className="space-y-2">
             {accounts.map((row) => (
-              <div key={`${row.kind}-${row.id}`} className={`ios-card p-3 ${row.status === 'معلق' ? 'opacity-70' : ''}`}>
+              <div key={`${row.kind}-${row.id}`} className={`ds-card ds-card-pad p-3 ${row.status === 'معلق' ? 'opacity-70' : ''}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-sm font-extrabold">{row.name}</p>
@@ -872,10 +846,10 @@ export function MasterPage() {
       ) : null}
 
       {tab === 'dars' ? (
-        <div className="page-pad space-y-4">
+        <div className="space-y-4">
           {busy && !dars.length ? <p className="text-center text-sm text-gray-400">جاري التحميل...</p> : null}
           {filtered.map((dar) => (
-            <div key={dar.id} className={`ios-card p-5 ${dar.status === 'معلق' ? 'opacity-70 grayscale' : ''}`}>
+            <div key={dar.id} className={`ds-card ds-card-pad p-5 ${dar.status === 'معلق' ? 'opacity-70 grayscale' : ''}`}>
               <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   <h2 className="text-xl font-bold">{dar.name}</h2>
@@ -915,25 +889,25 @@ export function MasterPage() {
         <Modal title="إضافة دار" onClose={() => setShowAdd(false)}>
           <div className="space-y-3">
             <Field label="اسم الدار">
-              <input className="ios-input" placeholder="مثال: دار النور" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <input className="ds-input" placeholder="مثال: دار النور" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>
             <Field label="المنهج">
-              <select className="ios-input" value={form.curriculum} onChange={(e) => setForm({ ...form, curriculum: e.target.value })}>
+              <select className="ds-input" value={form.curriculum} onChange={(e) => setForm({ ...form, curriculum: e.target.value })}>
                 <option>منهج تبيان</option>
                 <option>منهج قارئ</option>
                 <option>كلاهما</option>
               </select>
             </Field>
             <Field label="اسم المديرة">
-              <input className="ios-input" placeholder="اسم المديرة" value={form.managerName} onChange={(e) => setForm({ ...form, managerName: e.target.value })} />
+              <input className="ds-input" placeholder="اسم المديرة" value={form.managerName} onChange={(e) => setForm({ ...form, managerName: e.target.value })} />
             </Field>
             <Field label="جوال المديرة">
-              <input className="ios-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={form.managerPhone} onChange={(e) => setForm({ ...form, managerPhone: e.target.value })} />
+              <input className="ds-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={form.managerPhone} onChange={(e) => setForm({ ...form, managerPhone: e.target.value })} />
             </Field>
             <Field label="الموقع / الرابط">
-              <input className="ios-input" placeholder="رابط أو وصف الموقع" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+              <input className="ds-input" placeholder="رابط أو وصف الموقع" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
             </Field>
-            <button className="btn-primary" onClick={() => void addDar()}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void addDar()}>
               حفظ
             </button>
           </div>
@@ -944,31 +918,31 @@ export function MasterPage() {
         <Modal title="تعديل الدار" onClose={() => setEditDar(null)}>
           <div className="space-y-3">
             <Field label="اسم الدار">
-              <input className="ios-input" value={editDar.name} onChange={(e) => setEditDar({ ...editDar, name: e.target.value })} />
+              <input className="ds-input" value={editDar.name} onChange={(e) => setEditDar({ ...editDar, name: e.target.value })} />
             </Field>
             <Field label="المنهج">
-              <select className="ios-input" value={editDar.curriculum} onChange={(e) => setEditDar({ ...editDar, curriculum: e.target.value })}>
+              <select className="ds-input" value={editDar.curriculum} onChange={(e) => setEditDar({ ...editDar, curriculum: e.target.value })}>
                 <option>منهج تبيان</option>
                 <option>منهج قارئ</option>
                 <option>كلاهما</option>
               </select>
             </Field>
             <Field label="اسم المديرة">
-              <input className="ios-input" value={editDar.managerName} onChange={(e) => setEditDar({ ...editDar, managerName: e.target.value })} />
+              <input className="ds-input" value={editDar.managerName} onChange={(e) => setEditDar({ ...editDar, managerName: e.target.value })} />
             </Field>
             <Field label="جوال المديرة">
-              <input className="ios-input text-left" dir="ltr" value={editDar.managerPhone} onChange={(e) => setEditDar({ ...editDar, managerPhone: e.target.value })} />
+              <input className="ds-input text-left" dir="ltr" value={editDar.managerPhone} onChange={(e) => setEditDar({ ...editDar, managerPhone: e.target.value })} />
             </Field>
             <Field label="الموقع / الرابط">
-              <input className="ios-input" value={editDar.location} onChange={(e) => setEditDar({ ...editDar, location: e.target.value })} />
+              <input className="ds-input" value={editDar.location} onChange={(e) => setEditDar({ ...editDar, location: e.target.value })} />
             </Field>
             <Field label="الحالة">
-              <select className="ios-input" value={editDar.status === 'معلق' ? 'معلق' : 'نشط'} onChange={(e) => setEditDar({ ...editDar, status: e.target.value })}>
+              <select className="ds-input" value={editDar.status === 'معلق' ? 'معلق' : 'نشط'} onChange={(e) => setEditDar({ ...editDar, status: e.target.value })}>
                 <option value="نشط">نشط</option>
                 <option value="معلق">معلق</option>
               </select>
             </Field>
-            <button className="btn-primary" onClick={() => void saveEditDar()}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveEditDar()}>
               حفظ التعديلات
             </button>
           </div>
@@ -990,7 +964,7 @@ export function MasterPage() {
             </p>
             <p className="text-[10px] text-gray-500">مستويات مسموحة: {report.dar.allowedLevels.join('، ')}</p>
             <button
-              className="btn-primary"
+              className="ds-btn ds-btn-primary"
               onClick={() =>
                 downloadCsv(
                   `report-${report.dar.name}.csv`,
@@ -1033,7 +1007,7 @@ export function MasterPage() {
           <div className="space-y-3">
             <Field label="المستوى">
               <select
-                className="ios-input"
+                className="ds-input"
                 value={planForm.level}
                 onChange={(e) => setPlanForm({ ...planForm, level: e.target.value })}
                 disabled={planEditorMode === 'edit'}
@@ -1045,7 +1019,7 @@ export function MasterPage() {
             </Field>
             <Field label="الأسبوع">
               <input
-                className="ios-input"
+                className="ds-input"
                 type="number"
                 min={1}
                 value={planForm.week}
@@ -1055,7 +1029,7 @@ export function MasterPage() {
             </Field>
             <Field label="اليوم">
               <select
-                className="ios-input"
+                className="ds-input"
                 value={planForm.day}
                 onChange={(e) => setPlanForm({ ...planForm, day: e.target.value })}
                 disabled={planEditorMode === 'edit'}
@@ -1067,7 +1041,7 @@ export function MasterPage() {
             </Field>
             <Field label="الدرس التعليمي">
               <input
-                className="ios-input"
+                className="ds-input"
                 placeholder="نص الدرس"
                 value={planForm.educational}
                 onChange={(e) => setPlanForm({ ...planForm, educational: e.target.value })}
@@ -1075,7 +1049,7 @@ export function MasterPage() {
             </Field>
             <Field label="الواجب">
               <input
-                className="ios-input"
+                className="ds-input"
                 placeholder="نص الواجب"
                 value={planForm.homework}
                 onChange={(e) => setPlanForm({ ...planForm, homework: e.target.value })}
@@ -1083,13 +1057,13 @@ export function MasterPage() {
             </Field>
             <Field label="التربوي">
               <input
-                className="ios-input"
+                className="ds-input"
                 placeholder="اختياري"
                 value={planForm.tarbawi}
                 onChange={(e) => setPlanForm({ ...planForm, tarbawi: e.target.value })}
               />
             </Field>
-            <button className="btn-primary" onClick={() => void savePlan()}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void savePlan()}>
               {planEditorMode === 'edit' ? 'تحديث الخطة' : 'إضافة الخطة'}
             </button>
           </div>
@@ -1100,7 +1074,7 @@ export function MasterPage() {
         <Modal title="إرسال اختبار" onClose={() => setShowExam(false)}>
           <div className="space-y-3">
             <Field label="الدار المستهدفة">
-              <select className="ios-input" value={exam.targetDarId} onChange={(e) => setExam({ ...exam, targetDarId: e.target.value })}>
+              <select className="ds-input" value={exam.targetDarId} onChange={(e) => setExam({ ...exam, targetDarId: e.target.value })}>
                 <option value="الكل">مركزي لجميع الدور</option>
                 {dars.filter((d) => d.status !== 'معلق').map((d) => (
                   <option key={d.id} value={d.id}>
@@ -1110,15 +1084,15 @@ export function MasterPage() {
               </select>
             </Field>
             <Field label="عنوان الاختبار">
-              <input className="ios-input" placeholder="عنوان واضح" value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} />
+              <input className="ds-input" placeholder="عنوان واضح" value={exam.title} onChange={(e) => setExam({ ...exam, title: e.target.value })} />
             </Field>
             <Field label="تاريخ الاختبار">
-              <input className="ios-input" type="date" value={exam.date} onChange={(e) => setExam({ ...exam, date: e.target.value })} />
+              <input className="ds-input" type="date" value={exam.date} onChange={(e) => setExam({ ...exam, date: e.target.value })} />
             </Field>
             <Field label="رابط الاختبار">
-              <input className="ios-input text-left" dir="ltr" placeholder="https://..." value={exam.link} onChange={(e) => setExam({ ...exam, link: e.target.value })} />
+              <input className="ds-input text-left" dir="ltr" placeholder="https://..." value={exam.link} onChange={(e) => setExam({ ...exam, link: e.target.value })} />
             </Field>
-            <button className="btn-primary" onClick={() => void saveExam()}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveExam()}>
               إرسال
             </button>
           </div>
@@ -1129,18 +1103,18 @@ export function MasterPage() {
         <Modal title="إشعار للدار" onClose={() => setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE' })}>
           <div className="space-y-3">
             <Field label="نوع الإشعار">
-              <select className="ios-input" value={alertForm.kind} onChange={(e) => setAlertForm({ ...alertForm, kind: e.target.value })}>
+              <select className="ds-input" value={alertForm.kind} onChange={(e) => setAlertForm({ ...alertForm, kind: e.target.value })}>
                 <option value="NOTICE">تنبيه عام</option>
                 <option value="VISIT">زيارة ميدانية</option>
               </select>
             </Field>
             <Field label="العنوان">
-              <input className="ios-input" placeholder="عنوان الإشعار" value={alertForm.title} onChange={(e) => setAlertForm({ ...alertForm, title: e.target.value })} />
+              <input className="ds-input" placeholder="عنوان الإشعار" value={alertForm.title} onChange={(e) => setAlertForm({ ...alertForm, title: e.target.value })} />
             </Field>
             <Field label="التفاصيل">
-              <textarea className="ios-input h-24" placeholder="نص الإشعار" value={alertForm.content} onChange={(e) => setAlertForm({ ...alertForm, content: e.target.value })} />
+              <textarea className="ds-input h-24" placeholder="نص الإشعار" value={alertForm.content} onChange={(e) => setAlertForm({ ...alertForm, content: e.target.value })} />
             </Field>
-            <button className="btn-primary" onClick={() => void sendAlert()}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void sendAlert()}>
               إرسال
             </button>
           </div>
@@ -1153,7 +1127,7 @@ export function MasterPage() {
             {accountEditorMode === 'add' ? (
               <Field label="النوع">
                 <select
-                  className="ios-input"
+                  className="ds-input"
                   value={accountForm.type}
                   onChange={(e) => {
                     const type = e.target.value as typeof accountForm.type;
@@ -1174,11 +1148,11 @@ export function MasterPage() {
               <p className="text-[10px] font-bold text-gray-500">{accountForm.type === 'STUDENT' ? 'طالبة' : accountForm.type}</p>
             )}
             <Field label="الاسم">
-              <input className="ios-input" value={accountForm.name} onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })} />
+              <input className="ds-input" value={accountForm.name} onChange={(e) => setAccountForm({ ...accountForm, name: e.target.value })} />
             </Field>
             <Field label={accountForm.type === 'STUDENT' ? 'جوال ولي الأمر' : 'الجوال'}>
               <input
-                className="ios-input text-left"
+                className="ds-input text-left"
                 dir="ltr"
                 placeholder="05XXXXXXXX"
                 value={accountForm.phone}
@@ -1187,7 +1161,7 @@ export function MasterPage() {
             </Field>
             {accountForm.type === 'MANAGER' ? (
               <Field label="الدار">
-                <select className="ios-input" value={accountForm.darId} onChange={(e) => setAccountForm({ ...accountForm, darId: e.target.value })}>
+                <select className="ds-input" value={accountForm.darId} onChange={(e) => setAccountForm({ ...accountForm, darId: e.target.value })}>
                   <option value="">اختاري الدار</option>
                   {(usersMeta?.dars || []).map((d) => (
                     <option key={d.id} value={d.id}>
@@ -1199,7 +1173,7 @@ export function MasterPage() {
             ) : null}
             {accountForm.type === 'TEACHER' || accountForm.type === 'STUDENT' ? (
               <Field label="الفصل">
-                <select className="ios-input" value={accountForm.classId} onChange={(e) => setAccountForm({ ...accountForm, classId: e.target.value })}>
+                <select className="ds-input" value={accountForm.classId} onChange={(e) => setAccountForm({ ...accountForm, classId: e.target.value })}>
                   <option value="">اختاري الفصل</option>
                   {allClasses.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -1209,12 +1183,13 @@ export function MasterPage() {
                 </select>
               </Field>
             ) : null}
-            <button className="btn-primary" onClick={() => void saveAccount().catch((e) => setMsg(e.message))}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveAccount().catch((e) => setMsg(e.message))}>
               {accountEditorMode === 'edit' ? 'حفظ التعديل' : 'إضافة'}
             </button>
           </div>
         </Modal>
       ) : null}
+      </div>
     </div>
   );
 }

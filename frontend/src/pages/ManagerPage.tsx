@@ -2,11 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { downloadCsv, LEVELS_BY_CURRICULUM } from '../lib/reports';
-import { Field } from '../components/Field';
-import { AlertBanner } from '../components/ui/AlertBanner';
-import { Modal } from '../components/ui/Modal';
-import { PageHeader } from '../components/ui/PageHeader';
-import { TabBar } from '../components/ui/TabBar';
+import { Field, Input, Select, Button, Modal, TabBar, Banner, AppChrome, Badge } from '../components/ds';
 
 type Cls = {
   id: string;
@@ -155,13 +151,17 @@ export function ManagerPage() {
   const unread = alerts.filter((a) => !a.isRead).length;
 
   return (
-    <div className="min-h-screen pb-10">
-      <PageHeader
+    <div className="min-h-screen">
+      <AppChrome
         title={meta?.darName || user?.darName || 'دار التحفيظ'}
-        subtitle={`مرحباً بك، أ. ${user?.name}`}
-        meta={meta ? `${meta.curriculum} — مستويات: ${meta.allowedLevels.join('، ')}` : undefined}
+        subtitle={
+          meta
+            ? `مرحباً بك، أ. ${user?.name} — ${meta.curriculum}`
+            : `مرحباً بك، أ. ${user?.name}`
+        }
         onLogout={logout}
-      >
+      />
+      <div className="page-pad space-y-4 pb-10">
         <TabBar
           tabs={[
             { key: 'classes', label: 'الفصول' },
@@ -175,18 +175,15 @@ export function ManagerPage() {
             if (k === 'reports') void loadReport().catch((e) => setMsg(e.message));
           }}
         />
-      </PageHeader>
 
-      {msg ? <AlertBanner message={msg} onClose={() => setMsg('')} /> : null}
-
-      <div className="page-pad space-y-4">
+      {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
         {tab === 'classes' ? (
           <>
-            <button className="btn-primary" onClick={() => setShowClass(true)}>
+            <button className="ds-btn ds-btn-primary" onClick={() => setShowClass(true)}>
               إضافة فصل جديد
             </button>
             {classes.map((c) => (
-              <div key={c.id} className={`ios-card p-4 ${c.status === 'موقوف' ? 'opacity-70' : ''}`}>
+              <div key={c.id} className={`ds-card ds-card-pad p-4 ${c.status === 'موقوف' ? 'opacity-70' : ''}`}>
                 <div className="mb-3 flex justify-between">
                   <div>
                     <h4 className="font-extrabold">أ. {c.teacherName}</h4>
@@ -240,11 +237,11 @@ export function ManagerPage() {
 
         {tab === 'students' ? (
           <>
-            <button className="btn-primary" onClick={() => setShowStudents(true)}>
+            <button className="ds-btn ds-btn-primary" onClick={() => setShowStudents(true)}>
               تسجيل طالبات
             </button>
             <Field label="الفصل">
-              <select className="ios-input font-bold text-primary" value={filterClass} onChange={(e) => void loadStudents(e.target.value)}>
+              <select className="ds-input font-bold text-primary" value={filterClass} onChange={(e) => void loadStudents(e.target.value)}>
                 <option value="">اختاري الفصل...</option>
                 {classes
                   .filter((c) => c.status !== 'موقوف')
@@ -256,7 +253,7 @@ export function ManagerPage() {
               </select>
             </Field>
             {students.map((s) => (
-              <div key={s.id} className="ios-card flex items-center justify-between p-3">
+              <div key={s.id} className="ds-card ds-card-pad flex items-center justify-between p-3">
                 <div>
                   <p className="text-sm font-extrabold">{s.name}</p>
                   <p className="text-[10px] text-gray-500">{s.phone}</p>
@@ -297,7 +294,7 @@ export function ManagerPage() {
         {tab === 'alerts' ? (
           <div className="space-y-3">
             {alerts.map((a) => (
-              <div key={a.id} className={`ios-card p-4 ${a.isRead ? 'opacity-60' : ''}`}>
+              <div key={a.id} className={`ds-card ds-card-pad p-4 ${a.isRead ? 'opacity-60' : ''}`}>
                 <div className="mb-1 flex justify-between">
                   <h4 className="text-xs font-bold text-primary">{a.title}</h4>
                   <span className="text-[8px] text-gray-400">{a.date}</span>
@@ -334,7 +331,7 @@ export function ManagerPage() {
 
         {tab === 'reports' && report ? (
           <div className="space-y-4">
-            <div className="ios-card space-y-2 p-4">
+            <div className="ds-card ds-card-pad space-y-2 p-4">
               <h3 className="font-bold text-primary">تقرير الدار</h3>
               <p className="text-xs text-gray-500">
                 {report.dar.name} | {report.dar.curriculum}
@@ -348,7 +345,7 @@ export function ManagerPage() {
               </p>
               <p className="text-[10px] text-gray-500">مستويات المنهج: {report.dar.allowedLevels.join('، ')}</p>
               <button
-                className="btn-primary"
+                className="ds-btn ds-btn-primary"
                 onClick={() =>
                   downloadCsv(
                     `dar-report.csv`,
@@ -368,7 +365,7 @@ export function ManagerPage() {
               </button>
             </div>
             {report.classBreakdown.map((c) => (
-              <div key={String(c.id)} className="ios-card p-3 text-[11px]">
+              <div key={String(c.id)} className="ds-card ds-card-pad p-3 text-[11px]">
                 <p className="font-bold">
                   {String(c.name)} — {String(c.level)} (أ. {String(c.teacherName)})
                 </p>
@@ -386,22 +383,22 @@ export function ManagerPage() {
         <Modal title="إضافة فصل" onClose={() => setShowClass(false)}>
           <div className="space-y-3">
             <Field label="اسم الفصل">
-              <input className="ios-input" placeholder="مثال: تمهيدي 1 أ" value={classForm.name} onChange={(e) => setClassForm({ ...classForm, name: e.target.value })} />
+              <input className="ds-input" placeholder="مثال: تمهيدي 1 أ" value={classForm.name} onChange={(e) => setClassForm({ ...classForm, name: e.target.value })} />
             </Field>
             <Field label="المستوى">
-              <select className="ios-input" value={classForm.level} onChange={(e) => setClassForm({ ...classForm, level: e.target.value })}>
+              <select className="ds-input" value={classForm.level} onChange={(e) => setClassForm({ ...classForm, level: e.target.value })}>
                 {levels.map((l) => (
                   <option key={l}>{l}</option>
                 ))}
               </select>
             </Field>
             <Field label="اسم المعلمة">
-              <input className="ios-input" placeholder="اسم المعلمة" value={classForm.teacherName} onChange={(e) => setClassForm({ ...classForm, teacherName: e.target.value })} />
+              <input className="ds-input" placeholder="اسم المعلمة" value={classForm.teacherName} onChange={(e) => setClassForm({ ...classForm, teacherName: e.target.value })} />
             </Field>
             <Field label="جوال المعلمة">
-              <input className="ios-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={classForm.teacherPhone} onChange={(e) => setClassForm({ ...classForm, teacherPhone: e.target.value })} />
+              <input className="ds-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={classForm.teacherPhone} onChange={(e) => setClassForm({ ...classForm, teacherPhone: e.target.value })} />
             </Field>
-            <button className="btn-primary" onClick={() => void saveClass().catch((e) => setMsg(e.message))}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveClass().catch((e) => setMsg(e.message))}>
               حفظ
             </button>
           </div>
@@ -412,22 +409,22 @@ export function ManagerPage() {
         <Modal title="تعديل الفصل" onClose={() => setEditClass(null)}>
           <div className="space-y-3">
             <Field label="اسم الفصل">
-              <input className="ios-input" value={editClass.name} onChange={(e) => setEditClass({ ...editClass, name: e.target.value })} />
+              <input className="ds-input" value={editClass.name} onChange={(e) => setEditClass({ ...editClass, name: e.target.value })} />
             </Field>
             <Field label="المستوى">
-              <select className="ios-input" value={editClass.level} onChange={(e) => setEditClass({ ...editClass, level: e.target.value })}>
+              <select className="ds-input" value={editClass.level} onChange={(e) => setEditClass({ ...editClass, level: e.target.value })}>
                 {levels.map((l) => (
                   <option key={l}>{l}</option>
                 ))}
               </select>
             </Field>
             <Field label="اسم المعلمة">
-              <input className="ios-input" value={editClass.teacherName} onChange={(e) => setEditClass({ ...editClass, teacherName: e.target.value })} />
+              <input className="ds-input" value={editClass.teacherName} onChange={(e) => setEditClass({ ...editClass, teacherName: e.target.value })} />
             </Field>
             <Field label="جوال المعلمة">
-              <input className="ios-input text-left" dir="ltr" value={editClass.teacherPhone} onChange={(e) => setEditClass({ ...editClass, teacherPhone: e.target.value })} />
+              <input className="ds-input text-left" dir="ltr" value={editClass.teacherPhone} onChange={(e) => setEditClass({ ...editClass, teacherPhone: e.target.value })} />
             </Field>
-            <button className="btn-primary" onClick={() => void saveEditClass().catch((e) => setMsg(e.message))}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveEditClass().catch((e) => setMsg(e.message))}>
               حفظ
             </button>
           </div>
@@ -438,10 +435,10 @@ export function ManagerPage() {
         <Modal title="تعديل الطالبة" onClose={() => setEditStudent(null)}>
           <div className="space-y-3">
             <Field label="اسم الطالبة">
-              <input className="ios-input" value={editStudent.name} onChange={(e) => setEditStudent({ ...editStudent, name: e.target.value })} />
+              <input className="ds-input" value={editStudent.name} onChange={(e) => setEditStudent({ ...editStudent, name: e.target.value })} />
             </Field>
             <Field label="الفصل">
-              <select className="ios-input" value={editStudent.classId} onChange={(e) => setEditStudent({ ...editStudent, classId: e.target.value })}>
+              <select className="ds-input" value={editStudent.classId} onChange={(e) => setEditStudent({ ...editStudent, classId: e.target.value })}>
                 {classes
                   .filter((c) => c.status !== 'موقوف')
                   .map((c) => (
@@ -452,9 +449,9 @@ export function ManagerPage() {
               </select>
             </Field>
             <Field label="جوال ولي الأمر">
-              <input className="ios-input text-left" dir="ltr" value={editStudent.phone} onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })} />
+              <input className="ds-input text-left" dir="ltr" value={editStudent.phone} onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })} />
             </Field>
-            <button className="btn-primary" onClick={() => void saveEditStudent().catch((e) => setMsg(e.message))}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveEditStudent().catch((e) => setMsg(e.message))}>
               حفظ
             </button>
           </div>
@@ -465,7 +462,7 @@ export function ManagerPage() {
         <Modal title="تسجيل طالبات" onClose={() => setShowStudents(false)}>
           <div className="space-y-3">
             <Field label="الفصل">
-              <select className="ios-input" value={stuClassId} onChange={(e) => setStuClassId(e.target.value)}>
+              <select className="ds-input" value={stuClassId} onChange={(e) => setStuClassId(e.target.value)}>
                 <option value="">اختر الفصل</option>
                 {classes
                   .filter((c) => c.status !== 'موقوف')
@@ -483,7 +480,7 @@ export function ManagerPage() {
             {stuRows.map((row, i) => (
               <div key={i} className="flex gap-2">
                 <input
-                  className="ios-input"
+                  className="ds-input"
                   placeholder="الاسم"
                   aria-label={`اسم الطالبة ${i + 1}`}
                   value={row.name}
@@ -494,7 +491,7 @@ export function ManagerPage() {
                   }}
                 />
                 <input
-                  className="ios-input text-left"
+                  className="ds-input text-left"
                   dir="ltr"
                   placeholder="05XXXXXXXX"
                   aria-label={`جوال ولي الأمر ${i + 1}`}
@@ -512,7 +509,7 @@ export function ManagerPage() {
                 + طالبة أخرى
               </button>
             ) : null}
-            <button className="btn-primary" onClick={() => void saveStudents()}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveStudents()}>
               تسجيل
             </button>
           </div>
@@ -523,7 +520,7 @@ export function ManagerPage() {
         <Modal title="تمرير للمعلمات" onClose={() => setForward(null)}>
           <div className="space-y-3">
             <Field label="الفصل المستهدف">
-              <select className="ios-input" value={forward.targetClassId} onChange={(e) => setForward({ ...forward, targetClassId: e.target.value })}>
+              <select className="ds-input" value={forward.targetClassId} onChange={(e) => setForward({ ...forward, targetClassId: e.target.value })}>
                 <option value="الكل">جميع الفصول</option>
                 {classes
                   .filter((c) => c.status !== 'موقوف')
@@ -535,7 +532,7 @@ export function ManagerPage() {
               </select>
             </Field>
             <button
-              className="btn-primary"
+              className="ds-btn ds-btn-primary"
               onClick={async () => {
                 await api('/api/manager/alerts/forward', { method: 'POST', json: forward });
                 setForward(null);

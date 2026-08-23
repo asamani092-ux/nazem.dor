@@ -3,7 +3,7 @@ import { LoginPage } from './pages/LoginPage';
 import { MasterPage } from './pages/MasterPage';
 import { ManagerPage } from './pages/ManagerPage';
 import { TeacherPage } from './pages/TeacherPage';
-import { Spinner } from './components/ui/Spinner';
+import { Spinner } from './components/ds/Spinner';
 
 function AppRouter() {
   const { user, loading } = useAuth();
