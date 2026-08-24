@@ -7,11 +7,13 @@ if command -v pg_ctlcluster >/dev/null 2>&1; then
   sudo pg_ctlcluster 16 main start 2>/dev/null || true
 fi
 
+# أعد بناء الواجهة دائماً ثم شغّل API
+cd "$ROOT/frontend"
+npm run build
+
 cd "$ROOT/backend"
 test -f .env || cp .env.example .env
 npx tsc
-test -d "$ROOT/frontend/dist" || (cd "$ROOT/frontend" && npm run build)
-
 # أوقف نسخة قديمة على 4000 إن وُجدت
 if command -v fuser >/dev/null 2>&1; then
   fuser -k 4000/tcp 2>/dev/null || true

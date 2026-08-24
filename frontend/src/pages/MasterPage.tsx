@@ -3,7 +3,7 @@ import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
 import { downloadCsv } from '../lib/reports';
-import { Field, Input, Select, Button, Modal, TabBar, ViewToggle, Banner, AppChrome, StatCard, Badge } from '../components/ds';
+import { Field, Input, Select, Button, Modal, TabBar, ViewToggle, Banner, AppChrome, StatCard, Badge, Card, ActionChip } from '../components/ds';
 
 type Dar = {
   id: string;
@@ -618,10 +618,23 @@ export function MasterPage() {
         <div className="space-y-4">
           <div className="ds-card ds-card-pad space-y-3 p-4">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-primary">خطط المنهج</h3>
-              <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddPlan()}>
-                إضافة يوم
-              </button>
+              <h3 className="text-lg font-extrabold text-primary">خطط المنهج</h3>
+              <div className="flex items-center gap-2">
+                <ViewToggle
+                  mode={planViewMode}
+                  onTable={() => {
+                    setPlanViewMode('table');
+                    setPlanMenuDay(null);
+                  }}
+                  onCards={() => {
+                    setPlanViewMode('cards');
+                    setPlanMenuDay(null);
+                  }}
+                />
+                <Button variant="primary" className="!w-auto !px-3 !py-2 !text-xs" onClick={() => openAddPlan()}>
+                  إضافة يوم
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -657,30 +670,10 @@ export function MasterPage() {
                 </select>
               </div>
             </div>
-            <div className="flex rounded-xl bg-gray-200 p-1">
-              {(
-                [
-                  ['table', 'جدول'],
-                  ['cards', 'بطاقات'],
-                ] as const
-              ).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => {
-                    setPlanViewMode(mode);
-                    setPlanMenuDay(null);
-                  }}
-                  className={`flex-1 rounded-lg py-2 text-[11px] font-bold ${planViewMode === mode ? 'bg-white text-primary shadow-sm' : 'text-gray-500'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] font-bold text-gray-500">
+            <p className="text-[10px] font-bold text-ios-muted">
               {planViewLevel} — أسبوع {planViewWeek}: {weekFilled} من {WEEK_DAYS.length} أيام
             </p>
-            <p className="text-[9px] text-gray-400">الربط: تبيان ← تمهيدي | قارئ ← صفوف أولية | كلاهما ← الكل</p>
+            <p className="text-[9px] text-ios-muted">الربط: تبيان ← تمهيدي | قارئ ← صفوف أولية | كلاهما ← الكل</p>
           </div>
 
           {planViewMode === 'table' ? (
@@ -847,40 +840,37 @@ export function MasterPage() {
 
       {tab === 'dars' ? (
         <div className="space-y-4">
-          {busy && !dars.length ? <p className="text-center text-sm text-gray-400">جاري التحميل...</p> : null}
+          {busy && !dars.length ? <p className="text-center text-sm text-ios-muted">جاري التحميل...</p> : null}
+          {!busy && !filtered.length ? (
+            <Card className="ds-empty">
+              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-shell text-xl font-extrabold text-ios-muted">؟</div>
+              <div className="font-bold">لا توجد نتائج</div>
+              <div className="mt-1 text-xs text-ios-muted">لم يتم العثور على دار مطابقة.</div>
+            </Card>
+          ) : null}
           {filtered.map((dar) => (
-            <div key={dar.id} className={`ds-card ds-card-pad p-5 ${dar.status === 'معلق' ? 'opacity-70 grayscale' : ''}`}>
-              <div className="mb-3 flex items-start justify-between gap-2">
-                <div>
-                  <h2 className="text-xl font-bold">{dar.name}</h2>
-                  <p className="mt-1 text-sm text-gray-500">المديرة: {dar.managerName}</p>
+            <Card key={dar.id} className={dar.status === 'معلق' ? 'suspended-card' : ''}>
+              <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-lg font-extrabold text-primary">د</div>
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-base font-extrabold">{dar.name}</h2>
+                  <p className="mt-0.5 text-[13px] text-ios-muted">المديرة: {dar.managerName}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Badge tone={dar.curriculum.includes('قارئ') ? 'info' : 'primary'}>{dar.curriculum.replace('منهج ', '')}</Badge>
+                    <Badge tone={dar.status === 'معلق' ? 'warning' : 'success'}>{dar.status === 'معلق' ? 'معلّق' : 'نشط'}</Badge>
+                  </div>
                 </div>
-                <span className="rounded-md border px-2 py-1 text-[10px] font-bold">{dar.curriculum}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-bold sm:grid-cols-3">
-                <button className="rounded-xl bg-gray-50 p-2" onClick={() => void showStats(dar.id)}>
-                  مؤشرات
-                </button>
-                <button className="rounded-xl bg-indigo-50 p-2 text-indigo-700" onClick={() => void openReport(dar.id)}>
-                  تقرير الدار
-                </button>
-                <a className="rounded-xl bg-green-50 p-2 text-center text-green-700" href={waLink(dar.managerPhone)} target="_blank" rel="noreferrer">
-                  واتساب
-                </a>
-                <button className="rounded-xl bg-blue-50 p-2 text-blue-700" onClick={() => setAlertForm({ darId: dar.id, title: '', content: '', kind: 'NOTICE' })}>
-                  إشعار
-                </button>
-                <button className="rounded-xl bg-purple-50 p-2 text-purple-700" onClick={() => setEditDar({ ...dar })}>
-                  تعديل
-                </button>
-                <button className="rounded-xl bg-amber-50 p-2 text-amber-700" onClick={() => void suspendToggle(dar)}>
-                  {dar.status === 'معلق' ? 'تنشيط' : 'تعليق'}
-                </button>
-                <button className="rounded-xl bg-red-50 p-2 text-red-600 sm:col-span-3" onClick={() => void deleteDar(dar.id)}>
-                  حذف
-                </button>
+              <div className="mt-3.5 flex flex-wrap gap-2">
+                <ActionChip label="مؤشرات" tone="primary" onClick={() => void showStats(dar.id)} />
+                <ActionChip label="تقرير" tone="report" onClick={() => void openReport(dar.id)} />
+                <ActionChip label="واتساب" tone="wa" href={waLink(dar.managerPhone)} />
+                <ActionChip label="إشعار" tone="info" onClick={() => setAlertForm({ darId: dar.id, title: '', content: '', kind: 'NOTICE' })} />
+                <ActionChip label="تعديل" tone="edit" onClick={() => setEditDar({ ...dar })} />
+                <ActionChip label={dar.status === 'معلق' ? 'تنشيط' : 'تعليق'} tone="suspend" onClick={() => void suspendToggle(dar)} />
+                <ActionChip label="حذف" tone="delete" onClick={() => void deleteDar(dar.id)} />
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       ) : null}

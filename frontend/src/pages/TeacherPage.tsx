@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
-import { Field, Input, Select, Button, Banner, AppChrome, TabBar, BottomSheet, Modal, TrackToggle, DayButton } from '../components/ds';
+import { Field, Input, Select, Button, Banner, AppChrome, BottomSheet, TrackToggle, DayButton, Card, ActionChip } from '../components/ds';
 
 type Student = { id: string; name: string; parentPhone: string };
 type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
@@ -236,12 +236,12 @@ export function TeacherPage() {
           </div>
         ))}
 
-        <button className="w-full rounded-2xl border bg-gray-50 py-3 text-sm font-bold" onClick={() => void openExams()}>
+        <Button variant="secondary" className="w-full" onClick={() => void openExams()}>
           مركز الاختبارات
-        </button>
+        </Button>
 
-        <div className="ds-card ds-card-pad space-y-3 p-5">
-          <h3 className="text-sm font-bold">خطة الرصد</h3>
+        <Card className="space-y-3">
+          <h3 className="text-sm font-bold text-primary">خطة الرصد</h3>
           <Field label="الأسبوع">
             <select className="ds-input" value={week} onChange={(e) => void loadTracked(e.target.value)}>
               <option value="">اختيار الأسبوع...</option>
@@ -267,7 +267,7 @@ export function TeacherPage() {
           <button className="ds-btn ds-btn-primary" onClick={() => void fetchPlan()}>
             جلب المقرر للرصد
           </button>
-        </div>
+        </Card>
 
         {plan ? (
           <>
@@ -297,10 +297,10 @@ export function TeacherPage() {
                       {idx + 1}. {s.name}
                     </h3>
                     <div className="flex gap-2">
-                      <button className="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-600" onClick={() => void sendReport(s)}>
+                      <button className="ds-chip ds-chip-report" onClick={() => void sendReport(s)}>
                         تقرير
                       </button>
-                      <a className="rounded-full bg-green-50 px-2 py-1 text-[10px] font-bold text-green-600" href={waLink(s.parentPhone)} target="_blank" rel="noreferrer">
+                      <a className="ds-chip ds-chip-wa" href={waLink(s.parentPhone)} target="_blank" rel="noreferrer">
                         واتساب
                       </a>
                     </div>

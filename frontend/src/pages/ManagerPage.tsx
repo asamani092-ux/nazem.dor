@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { downloadCsv, LEVELS_BY_CURRICULUM } from '../lib/reports';
-import { Field, Input, Select, Button, Modal, TabBar, Banner, AppChrome, Badge } from '../components/ds';
+import { Field, Input, Select, Button, Modal, TabBar, Banner, AppChrome, Badge, Card, ActionChip } from '../components/ds';
 
 type Cls = {
   id: string;
@@ -179,58 +179,53 @@ export function ManagerPage() {
       {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
         {tab === 'classes' ? (
           <>
-            <button className="ds-btn ds-btn-primary" onClick={() => setShowClass(true)}>
+            <Button variant="primary" onClick={() => setShowClass(true)}>
               إضافة فصل جديد
-            </button>
+            </Button>
             {classes.map((c) => (
-              <div key={c.id} className={`ds-card ds-card-pad p-4 ${c.status === 'موقوف' ? 'opacity-70' : ''}`}>
-                <div className="mb-3 flex justify-between">
+              <Card key={c.id} className={c.status === 'موقوف' ? 'suspended-card' : ''}>
+                <div className="mb-3 flex justify-between gap-2">
                   <div>
                     <h4 className="font-extrabold">أ. {c.teacherName}</h4>
-                    <p className="text-[10px] font-bold text-gray-500">
+                    <p className="text-[13px] text-ios-muted">
                       {c.name} | {c.level}
                     </p>
+                    <div className="mt-2">
+                      <Badge tone={c.status === 'موقوف' ? 'danger' : 'success'}>{c.status === 'موقوف' ? 'موقوف' : 'نشط'}</Badge>
+                    </div>
                   </div>
                   <div className="text-center">
-                    <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 font-black text-primary">
+                    <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft font-black text-primary">
                       {c.studentCount}
                     </div>
-                    <span className="text-[7px] font-bold text-gray-400">طالبات</span>
+                    <span className="text-[7px] font-bold text-ios-muted">طالبات</span>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 text-[10px] font-bold">
-                  <button className="rounded-full bg-blue-50 px-3 py-1 text-blue-700" onClick={() => void showClassStats(c.id)}>
-                    مؤشرات
-                  </button>
-                  <button className="rounded-full bg-purple-50 px-3 py-1 text-purple-700" onClick={() => setEditClass({ ...c })}>
-                    تعديل
-                  </button>
-                  <a className="rounded-full bg-green-50 px-3 py-1 text-green-700" href={waLink(c.teacherPhone)} target="_blank" rel="noreferrer">
-                    واتساب
-                  </a>
-                  <button
-                    className="rounded-full bg-amber-50 px-3 py-1 text-amber-700"
+                <div className="flex flex-wrap gap-2">
+                  <ActionChip label="مؤشرات" tone="primary" onClick={() => void showClassStats(c.id)} />
+                  <ActionChip label="تعديل" tone="edit" onClick={() => setEditClass({ ...c })} />
+                  <ActionChip label="واتساب" tone="wa" href={waLink(c.teacherPhone)} />
+                  <ActionChip
+                    label={c.status === 'موقوف' ? 'تنشيط' : 'تعطيل'}
+                    tone="suspend"
                     onClick={async () => {
                       await api(`/api/manager/classes/${c.id}/${c.status === 'موقوف' ? 'activate' : 'suspend'}`, { method: 'POST' });
                       await load();
                     }}
-                  >
-                    {c.status === 'موقوف' ? 'تنشيط' : 'تعطيل'}
-                  </button>
+                  />
                   {c.status === 'موقوف' ? (
-                    <button
-                      className="rounded-full bg-red-50 px-3 py-1 text-red-600"
+                    <ActionChip
+                      label="حذف"
+                      tone="delete"
                       onClick={async () => {
                         if (!confirm('حذف الفصل؟')) return;
                         await api(`/api/manager/classes/${c.id}`, { method: 'DELETE' });
                         await load();
                       }}
-                    >
-                      حذف
-                    </button>
+                    />
                   ) : null}
                 </div>
-              </div>
+              </Card>
             ))}
           </>
         ) : null}
@@ -253,17 +248,16 @@ export function ManagerPage() {
               </select>
             </Field>
             {students.map((s) => (
-              <div key={s.id} className="ds-card ds-card-pad flex items-center justify-between p-3">
+              <Card key={s.id} className="flex items-center justify-between !py-3">
                 <div>
                   <p className="text-sm font-extrabold">{s.name}</p>
-                  <p className="text-[10px] text-gray-500">{s.phone}</p>
+                  <p className="text-[10px] text-ios-muted">{s.phone}</p>
                 </div>
-                <div className="flex gap-2 text-[10px] font-bold">
-                  <button className="rounded-full bg-purple-50 px-2 py-1 text-purple-700" onClick={() => setEditStudent({ ...s })}>
-                    تعديل
-                  </button>
-                  <button
-                    className="rounded-full bg-amber-50 px-2 py-1"
+                <div className="flex flex-wrap gap-2">
+                  <ActionChip label="تعديل" tone="edit" onClick={() => setEditStudent({ ...s })} />
+                  <ActionChip
+                    label={s.status === 'موقوف' ? 'تنشيط' : 'إيقاف'}
+                    tone="suspend"
                     onClick={async () => {
                       await api(`/api/manager/students/${s.id}/status`, {
                         method: 'POST',
@@ -271,22 +265,19 @@ export function ManagerPage() {
                       });
                       await loadStudents(filterClass);
                     }}
-                  >
-                    {s.status === 'موقوف' ? 'تنشيط' : 'إيقاف'}
-                  </button>
+                  />
                   {s.status === 'موقوف' ? (
-                    <button
-                      className="rounded-full bg-red-50 px-2 py-1 text-red-600"
+                    <ActionChip
+                      label="حذف"
+                      tone="delete"
                       onClick={async () => {
                         await api(`/api/manager/students/${s.id}`, { method: 'DELETE' });
                         await loadStudents(filterClass);
                       }}
-                    >
-                      حذف
-                    </button>
+                    />
                   ) : null}
                 </div>
-              </div>
+              </Card>
             ))}
           </>
         ) : null}

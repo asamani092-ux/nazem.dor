@@ -1,3 +1,4 @@
+export * from './ActionChip';
 export * from './AppChrome';
 export * from './Banner';
 export * from './Badge';

@@ -14,12 +14,19 @@ export function AppChrome({
 }) {
   return (
     <header className="ds-chrome">
-      <div className="min-w-0 text-right">
-        {subtitle ? <div className="ds-chrome-sub">{subtitle}</div> : null}
-        <div className="ds-chrome-title">{title}</div>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ds-brand-mark text-center text-[10px] font-extrabold leading-tight">
+          ناظم
+        </div>
+        <div className="min-w-0 text-right">
+          {subtitle ? <div className="ds-chrome-sub truncate">{subtitle}</div> : null}
+          <div className="ds-chrome-title truncate">{title}</div>
+        </div>
       </div>
-      <Button variant="logout" onClick={onLogout}>خروج</Button>
-      {children ? <div className="hidden">{children}</div> : null}
+      <Button variant="logout" onClick={onLogout}>
+        خروج
+      </Button>
+      {children}
     </header>
   );
 }
