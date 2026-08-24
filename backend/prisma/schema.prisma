@@ -145,16 +145,18 @@ model CurriculumPlan {
 }
 
 model Alert {
-  id        String    @id @default(cuid())
-  kind      AlertKind @default(NOTICE)
-  darId     String?
-  title     String
-  content   String
-  createdAt DateTime  @default(now())
+  id          String    @id @default(cuid())
+  kind        AlertKind @default(NOTICE)
+  darId       String?
+  title       String
+  content     String
+  scheduledAt DateTime?
+  createdAt   DateTime  @default(now())
 
   dar Dar? @relation(fields: [darId], references: [id])
 
   @@index([darId, createdAt])
+  @@index([darId, scheduledAt])
 }
 
 model AlertRead {
@@ -247,6 +249,7 @@ model ExamGrade {
   studentId   String
   studentName String
   score       String
+  note        String?
   gradedAt    DateTime @default(now())
 
   dar     Dar     @relation(fields: [darId], references: [id])

@@ -37,8 +37,9 @@ const TOOLS: ToolDef[] = [
   { id: 'teacher', name: 'صفحة المعلمة', category: 'صفحات' },
   { id: 'perms', name: 'الصلاحيات وتدفق البيانات', category: 'نظام' },
   { id: 'tracking', name: 'رصد الطالبات', category: 'صفحات' },
-  { id: 'exams', name: 'مركز الاختبارات', category: 'صفحات' },
-];
+  { id: 'calendar', name: 'تقويم الزيارات والاختبارات', category: 'صفحات' },
+  { id: 'excel-import', name: 'استيراد Excel للطالبات', category: 'صفحات' },
+  { id: 'file-upload', name: 'رفع ملف DS', category: 'مكوّنات' },
 
 function loadStored(): Record<string, AuditEntry> {
   try {

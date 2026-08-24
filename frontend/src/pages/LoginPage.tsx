@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth';
 import { Field, Input } from '../components/ds';
+import { ThemeSwitcher } from '../components/ds/ThemeSwitcher';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -28,6 +29,9 @@ export function LoginPage() {
           <img src="/logo.png" alt="" className="ds-login-logo" />
           <div className="ds-login-title">ناظم الصغار</div>
           <div className="ds-login-sub">نظام إدارة دور التحفيظ — بريدة</div>
+          <div className="ds-login-theme">
+            <ThemeSwitcher />
+          </div>
         </div>
         <div className="ds-login-fields">
           <Field label="رقم الجوال">

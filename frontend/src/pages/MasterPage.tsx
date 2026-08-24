@@ -5,6 +5,7 @@ import { useAuth } from '../auth';
 import { downloadXlsx } from '../lib/export';
 import { printReport, tableHtml } from '../lib/print';
 import { matchQuery } from '../lib/search';
+import { monthEnd, monthStart, type CalendarEvent } from '../lib/calendar';
 import { usePageFeedback } from '../hooks/usePageFeedback';
 import {
   Field,
@@ -30,6 +31,8 @@ import {
   IconButton,
   ActionMenu,
   PaginatedList,
+  CalendarMonth,
+  BottomSheet,
   IconChart,
   IconReport,
   IconWhatsApp,
@@ -47,6 +50,7 @@ type Dar = {
   managerPhone: string;
   location: string;
   status: string;
+  lastVisit?: string;
 };
 
 type Indicators = {
@@ -106,7 +110,8 @@ type WeekSlot = {
   plan: CurriculumRow | null;
 };
 
-type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts';
+type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar';
+type DarViewMode = 'cards' | 'table';
 type PlanViewMode = 'table' | 'cards';
 type AccountFilter = 'ALL' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
 
@@ -165,7 +170,13 @@ export function MasterPage() {
   const [accountFilter, setAccountFilter] = useState<AccountFilter>('ALL');
   const [accountSearch, setAccountSearch] = useState('');
   const [usersMeta, setUsersMeta] = useState<UsersMeta | null>(null);
-  const [accountMenuId, setAccountMenuId] = useState<string | null>(null);
+  const [darViewMode, setDarViewMode] = useState<DarViewMode>('cards');
+  const [calendarMonth, setCalendarMonth] = useState(() => monthStart(new Date()));
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarDarFilter, setCalendarDarFilter] = useState('الكل');
+  const [calendarDetail, setCalendarDetail] = useState<CalendarEvent | null>(null);
+  const [calendarDayEvents, setCalendarDayEvents] = useState<CalendarEvent[]>([]);
+  const [accountMenuRow, setAccountMenuRow] = useState<string | null>(null);
   const [showAccountEditor, setShowAccountEditor] = useState(false);
   const [accountEditorMode, setAccountEditorMode] = useState<'add' | 'edit'>('add');
   const [accountForm, setAccountForm] = useState({
@@ -185,7 +196,7 @@ export function MasterPage() {
     location: '',
   });
   const [exam, setExam] = useState({ targetDarId: 'الكل', date: '', link: '', title: '' });
-  const [alertForm, setAlertForm] = useState({ darId: '', title: '', content: '', kind: 'NOTICE' });
+  const [alertForm, setAlertForm] = useState({ darId: '', title: '', content: '', kind: 'NOTICE', scheduledAt: '' });
   const [planForm, setPlanForm] = useState({
     level: 'تمهيدي 1',
     week: 1,
@@ -365,12 +376,54 @@ export function MasterPage() {
     setShowExam(false);
     setExam({ targetDarId: 'الكل', date: '', link: '', title: '' });
     notify('تم نشر الاختبار');
+    if (tab === 'calendar') void loadCalendar().catch(() => undefined);
+  }
+
+  useEffect(() => {
+    if (tab === 'calendar') {
+      void loadCalendar().catch((e) => notify(e.message, 'error'));
+    }
+  }, [tab, calendarMonth, calendarDarFilter]);
+
+  async function loadCalendar() {
+    const from = monthStart(calendarMonth).toISOString();
+    const to = monthEnd(calendarMonth).toISOString();
+    const params = new URLSearchParams({ from, to });
+    if (calendarDarFilter && calendarDarFilter !== 'الكل') params.set('darId', calendarDarFilter);
+    const res = await api<{ data: CalendarEvent[] }>(`/api/master/calendar?${params}`);
+    setCalendarEvents(res.data);
+  }
+
+  function openScheduleVisit(dar: Dar) {
+    const title = `زيارة ميدانية: ${dar.name}`;
+    setAlertForm({
+      darId: dar.id,
+      title,
+      content: '',
+      kind: 'VISIT',
+      scheduledAt: new Date().toISOString().slice(0, 10),
+    });
   }
 
   async function sendAlert() {
-    await api('/api/master/alerts', { method: 'POST', json: alertForm });
-    setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE' });
+    if (alertForm.kind === 'VISIT' && !alertForm.scheduledAt) {
+      notify('تاريخ الزيارة مطلوب', 'error');
+      return;
+    }
+    await api('/api/master/alerts', {
+      method: 'POST',
+      json: {
+        darId: alertForm.darId,
+        title: alertForm.title,
+        content: alertForm.content,
+        kind: alertForm.kind,
+        scheduledAt: alertForm.kind === 'VISIT' ? alertForm.scheduledAt : undefined,
+      },
+    });
+    setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE', scheduledAt: '' });
     notify('تم إرسال الإشعار');
+    if (tab === 'calendar') await loadCalendar();
+    await load();
   }
 
   function openAddAccount(type: 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT' = 'MASTER') {
@@ -384,7 +437,7 @@ export function MasterPage() {
       darId: usersMeta?.dars[0]?.id || '',
       classId: usersMeta?.dars[0]?.classes[0]?.id || '',
     });
-    setAccountMenuId(null);
+    setAccountMenuRow(null);
     setShowAccountEditor(true);
   }
 
@@ -399,7 +452,7 @@ export function MasterPage() {
       darId: row.darId || '',
       classId: row.classId || '',
     });
-    setAccountMenuId(null);
+    setAccountMenuRow(null);
     setShowAccountEditor(true);
   }
 
@@ -442,7 +495,7 @@ export function MasterPage() {
       method: 'POST',
       json: { kind: row.kind, status },
     });
-    setAccountMenuId(null);
+    setAccountMenuRow(null);
     await loadAccounts();
   }
 
@@ -453,7 +506,7 @@ export function MasterPage() {
       method: 'DELETE',
       json: { kind: row.kind },
     });
-    setAccountMenuId(null);
+    setAccountMenuRow(null);
     notify('تم الحذف');
     await loadAccounts();
   }
@@ -590,6 +643,7 @@ export function MasterPage() {
 
   const masterNav = [
     { key: 'dars', label: 'الدور' },
+    { key: 'calendar', label: 'التقويم' },
     { key: 'indicators', label: 'المؤشرات' },
     { key: 'curriculum', label: 'المناهج' },
     ...(user?.role === 'SUPER_MASTER' ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
@@ -603,30 +657,30 @@ export function MasterPage() {
         name: 'ملخص',
         rows: [
           {
-            دور_نشطة: indicators.darsActive,
+            'دور نشطة': indicators.darsActive,
             فصول: indicators.classesCount,
             معلمات: indicators.teachersCount,
             طالبات: indicators.studentsActive,
-            حضور: indicators.attendanceRate,
-            إنجاز: indicators.completionRate,
-            واجب: indicators.homeworkRate,
-            عام: indicators.overallRate,
+            'حضور %': indicators.attendanceRate,
+            'إنجاز %': indicators.completionRate,
+            'واجب %': indicators.homeworkRate,
+            'عام %': indicators.overallRate,
             اختبارات: indicators.examsCount,
           },
         ],
       },
       {
-        name: 'اداء_الدور',
+        name: 'أداء الدور',
         rows: indicators.perDar.map((d) => ({
           الدار: d.name,
           المنهج: d.curriculum,
           الحالة: d.status,
           طالبات: d.activeStudents,
           فصول: d.classesCount,
-          حضور: d.attendanceRate,
-          إنجاز: d.completionRate,
-          واجب: d.homeworkRate,
-          عام: d.overallRate,
+          'حضور %': d.attendanceRate,
+          'إنجاز %': d.completionRate,
+          'واجب %': d.homeworkRate,
+          'عام %': d.overallRate,
         })),
       },
     ]);
@@ -765,7 +819,12 @@ export function MasterPage() {
           <>
             <SectionTitle
               action={
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ViewToggle
+                    mode={darViewMode}
+                    onTable={() => setDarViewMode('table')}
+                    onCards={() => setDarViewMode('cards')}
+                  />
                   <Button variant="success" className="!w-auto" onClick={() => setShowAdd(true)}>إضافة دار</Button>
                   <Button variant="primary" className="!w-auto" onClick={() => setShowExam(true)}>اختبار مركزي</Button>
                 </div>
@@ -1017,7 +1076,7 @@ export function MasterPage() {
                     <PlanActions slot={slot} />
                   </div>
                   {slot.plan ? (
-                    <div className="space-y-1 text-[11px]">
+                    <div className="space-y-1 text-sm">
                       <p>
                         <span className="font-bold text-gray-500">تعليمي: </span>
                         {slot.plan.educational}
@@ -1043,13 +1102,16 @@ export function MasterPage() {
 
       {tab === 'accounts' && user?.role === 'SUPER_MASTER' ? (
         <div className="space-y-4">
-          <div className="ds-card ds-card-pad space-y-3 p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-bold text-primary">إدارة الحسابات</h3>
-              <button type="button" className="rounded-lg bg-primary px-3 py-1.5 text-[10px] font-bold text-white" onClick={() => openAddAccount('MASTER')}>
-                إضافة
-              </button>
-            </div>
+          <SectionTitle
+            action={
+              <Button variant="primary" className="!w-auto !px-4 !py-2" onClick={() => openAddAccount('MASTER')}>
+                إضافة حساب
+              </Button>
+            }
+          >
+            إدارة الحسابات
+          </SectionTitle>
+          <div className="ds-card ds-card-pad grid gap-3 p-4 sm:grid-cols-2">
             <Field label="العرض">
               <select
                 className="ds-input py-2 text-sm"
@@ -1071,59 +1133,94 @@ export function MasterPage() {
                 onChange={(e) => setAccountSearch(e.target.value)}
               />
             </Field>
-            <p className="text-[10px] font-bold text-gray-500">{accounts.length} نتيجة</p>
           </div>
+          <p className="text-[11px] font-bold text-gray-500">{accounts.length} نتيجة</p>
+          {accounts.length ? (
+            <DataTable
+              head={
+                <tr>
+                  <th>الاسم</th>
+                  <th>الجوال</th>
+                  <th>النوع</th>
+                  <th>الدار / الفصل</th>
+                  <th>الحالة</th>
+                  <th>إجراءات</th>
+                </tr>
+              }
+            >
+              {accounts.map((row) => (
+                <tr key={`${row.kind}-${row.id}`} className={row.status === 'معلق' ? 'opacity-70' : ''}>
+                  <td className="font-bold">{row.name}</td>
+                  <td dir="ltr" className="text-left">{row.phone}</td>
+                  <td>{row.typeLabel}</td>
+                  <td className="text-[11px]">
+                    {row.darName || '—'}
+                    {row.className ? ` · ${row.className}` : ''}
+                  </td>
+                  <td>
+                    <Badge tone={row.status === 'معلق' ? 'warning' : 'success'}>
+                      {row.status === 'معلق' ? 'معلق' : 'نشط'}
+                    </Badge>
+                  </td>
+                  <td>
+                    <ActionMenu
+                      open={accountMenuRow === row.id}
+                      onToggle={() => setAccountMenuRow(accountMenuRow === row.id ? null : row.id)}
+                      onClose={() => setAccountMenuRow(null)}
+                      items={[
+                        { key: 'edit', label: 'تعديل', onClick: () => openEditAccount(row) },
+                        ...(row.type !== 'SUPER_MASTER'
+                          ? [
+                              {
+                                key: 'status',
+                                label: row.status === 'معلق' ? 'تنشيط' : 'تعليق',
+                                onClick: () => void setAccountStatus(row, row.status === 'معلق' ? 'نشط' : 'معلق'),
+                              },
+                              {
+                                key: 'delete',
+                                label: 'حذف',
+                                tone: 'danger' as const,
+                                onClick: () => void deleteAccount(row),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </DataTable>
+          ) : (
+            <p className="py-8 text-center text-sm text-gray-400">لا توجد نتائج</p>
+          )}
+        </div>
+      ) : null}
 
-          <div className="space-y-2">
-            {accounts.map((row) => (
-              <div key={`${row.kind}-${row.id}`} className={`ds-card ds-card-pad p-3 ${row.status === 'معلق' ? 'opacity-70' : ''}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-extrabold">{row.name}</p>
-                    <p className="text-[10px] font-bold text-gray-500" dir="ltr">
-                      {row.phone}
-                    </p>
-                    <p className="mt-1 text-[9px] font-bold text-gray-400">
-                      {row.typeLabel}
-                      {row.darName ? ` · ${row.darName}` : ''}
-                      {row.className ? ` · ${row.className}` : ''}
-                      {` · ${row.status}`}
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      className="rounded-lg border px-2 py-1 text-[10px] font-bold text-primary"
-                      onClick={() => setAccountMenuId(accountMenuId === row.id ? null : row.id)}
-                    >
-                      إجراءات
-                    </button>
-                    {accountMenuId === row.id ? (
-                      <div className="absolute left-0 z-20 mt-1 min-w-[7.5rem] rounded-xl border bg-white py-1 shadow-lg">
-                        <button type="button" className="block w-full px-3 py-2 text-right text-[11px] font-bold hover:bg-gray-50" onClick={() => openEditAccount(row)}>
-                          تعديل
-                        </button>
-                        {row.type !== 'SUPER_MASTER' ? (
-                          <>
-                            <button
-                              type="button"
-                              className="block w-full px-3 py-2 text-right text-[11px] font-bold hover:bg-gray-50"
-                              onClick={() => void setAccountStatus(row, row.status === 'معلق' ? 'نشط' : 'معلق')}
-                            >
-                              {row.status === 'معلق' ? 'تنشيط' : 'تعليق'}
-                            </button>
-                            <button type="button" className="block w-full px-3 py-2 text-right text-[11px] font-bold text-red-600 hover:bg-red-50" onClick={() => void deleteAccount(row)}>
-                              حذف
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ))}
-            {!accounts.length ? <p className="py-8 text-center text-sm text-gray-400">لا توجد نتائج</p> : null}
+      {tab === 'calendar' ? (
+        <div className="space-y-4">
+          <SectionTitle>تقويم الزيارات والاختبارات</SectionTitle>
+          <Field label="فلتر الدار">
+            <select className="ds-input" value={calendarDarFilter} onChange={(e) => setCalendarDarFilter(e.target.value)}>
+              <option value="الكل">كل الدور</option>
+              {dars.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </Field>
+          <CalendarMonth
+            events={calendarEvents}
+            month={calendarMonth}
+            onMonthChange={setCalendarMonth}
+            onSelectDay={(_, evs) => {
+              if (evs.length === 1) setCalendarDetail(evs[0]);
+              else setCalendarDayEvents(evs);
+            }}
+            onSelectEvent={(e) => setCalendarDetail(e)}
+          />
+          <div className="flex flex-wrap gap-2 text-[10px] font-bold text-gray-500">
+            <span className="flex items-center gap-1"><span className="ds-calendar-dot ds-calendar-dot-visit" /> زيارة</span>
+            <span className="flex items-center gap-1"><span className="ds-calendar-dot ds-calendar-dot-exam" /> اختبار</span>
+            <span className="flex items-center gap-1"><span className="ds-calendar-dot ds-calendar-dot-notice" /> تنبيه</span>
           </div>
         </div>
       ) : null}
@@ -1138,7 +1235,7 @@ export function MasterPage() {
               <div className="mt-1 text-xs text-ios-muted">لم يتم العثور على دار مطابقة.</div>
             </Card>
           ) : null}
-          {filtered.length ? (
+          {filtered.length && darViewMode === 'cards' ? (
             <PaginatedList key={q} items={filtered} pageSize={12} renderItem={(dar) => (
             <Card key={dar.id} className={dar.status === 'معلق' ? 'suspended-card' : ''}>
               <div className="flex items-start gap-3">
@@ -1146,6 +1243,8 @@ export function MasterPage() {
                 <div className="min-w-0 flex-1">
                   <h2 className="text-base font-extrabold">{dar.name}</h2>
                   <p className="mt-0.5 text-[13px] text-ios-muted">المديرة: {dar.managerName}</p>
+                  {dar.location ? <p className="mt-0.5 text-[11px] text-ios-muted">الموقع: {dar.location}</p> : null}
+                  {dar.lastVisit ? <p className="mt-0.5 text-[11px] text-ios-muted">آخر زيارة: {dar.lastVisit}</p> : null}
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <Badge tone={dar.curriculum.includes('قارئ') ? 'info' : 'primary'}>{dar.curriculum.replace('منهج ', '')}</Badge>
                     <Badge tone={dar.status === 'معلق' ? 'warning' : 'success'}>{dar.status === 'معلق' ? 'معلّق' : 'نشط'}</Badge>
@@ -1156,7 +1255,8 @@ export function MasterPage() {
                 <IconButton label="مؤشرات" tone="primary" onClick={() => void showStats(dar.id)}><IconChart /></IconButton>
                 <IconButton label="تقرير" tone="report" onClick={() => void openReport(dar.id)}><IconReport /></IconButton>
                 <IconButton label="واتساب" tone="wa" href={waLink(dar.managerPhone)}><IconWhatsApp /></IconButton>
-                <IconButton label="إشعار" tone="alert" onClick={() => setAlertForm({ darId: dar.id, title: '', content: '', kind: 'NOTICE' })}><IconBell /></IconButton>
+                <IconButton label="زيارة" tone="alert" onClick={() => openScheduleVisit(dar)}><IconBell /></IconButton>
+                <IconButton label="إشعار" tone="alert" onClick={() => setAlertForm({ darId: dar.id, title: '', content: '', kind: 'NOTICE', scheduledAt: '' })}><IconBell /></IconButton>
                 <IconButton label="تعديل" tone="edit" onClick={() => setEditDar({ ...dar })}><IconEdit /></IconButton>
                 <IconButton label={dar.status === 'معلق' ? 'تنشيط' : 'تعليق'} tone="alert" onClick={() => void suspendToggle(dar)}><IconSuspend /></IconButton>
                 {user?.role === 'SUPER_MASTER' ? (
@@ -1165,6 +1265,44 @@ export function MasterPage() {
               </div>
             </Card>
             )} />
+          ) : null}
+          {filtered.length && darViewMode === 'table' ? (
+            <DataTable
+              head={
+                <tr>
+                  <th>الدار</th>
+                  <th>المديرة</th>
+                  <th>الجوال</th>
+                  <th>المنهج</th>
+                  <th>الموقع</th>
+                  <th>آخر زيارة</th>
+                  <th>الحالة</th>
+                  <th>إجراءات</th>
+                </tr>
+              }
+            >
+              {filtered.map((dar) => (
+                <tr key={dar.id}>
+                  <td className="font-bold">{dar.name}</td>
+                  <td>{dar.managerName}</td>
+                  <td dir="ltr" className="text-left">{dar.managerPhone}</td>
+                  <td>{dar.curriculum.replace('منهج ', '')}</td>
+                  <td className="text-[11px]">{dar.location || '—'}</td>
+                  <td>{dar.lastVisit || '—'}</td>
+                  <td>
+                    <Badge tone={dar.status === 'معلق' ? 'warning' : 'success'}>
+                      {dar.status === 'معلق' ? 'معلق' : 'نشط'}
+                    </Badge>
+                  </td>
+                  <td>
+                    <div className="flex flex-wrap gap-1">
+                      <IconButton label="زيارة" tone="alert" onClick={() => openScheduleVisit(dar)}><IconBell /></IconButton>
+                      <IconButton label="تقرير" tone="report" onClick={() => void openReport(dar.id)}><IconReport /></IconButton>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </DataTable>
           ) : null}
         </div>
       ) : null}
@@ -1382,7 +1520,7 @@ export function MasterPage() {
       ) : null}
 
       {alertForm.darId ? (
-        <Modal title="إشعار للدار" onClose={() => setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE' })}>
+        <Modal title={alertForm.kind === 'VISIT' ? 'جدولة زيارة' : 'إشعار للدار'} onClose={() => setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE', scheduledAt: '' })}>
           <div className="space-y-3">
             <Field label="نوع الإشعار">
               <select className="ds-input" value={alertForm.kind} onChange={(e) => setAlertForm({ ...alertForm, kind: e.target.value })}>
@@ -1390,17 +1528,54 @@ export function MasterPage() {
                 <option value="VISIT">زيارة ميدانية</option>
               </select>
             </Field>
+            {alertForm.kind === 'VISIT' ? (
+              <Field label="تاريخ الزيارة">
+                <input type="date" className="ds-input" value={alertForm.scheduledAt} onChange={(e) => setAlertForm({ ...alertForm, scheduledAt: e.target.value })} required />
+              </Field>
+            ) : null}
             <Field label="العنوان">
               <input className="ds-input" placeholder="عنوان الإشعار" value={alertForm.title} onChange={(e) => setAlertForm({ ...alertForm, title: e.target.value })} />
             </Field>
             <Field label="التفاصيل">
               <textarea className="ds-input h-24" placeholder="نص الإشعار" value={alertForm.content} onChange={(e) => setAlertForm({ ...alertForm, content: e.target.value })} />
             </Field>
-            <button className="ds-btn ds-btn-primary" onClick={() => void sendAlert()}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void sendAlert().catch((e) => notify(e.message, 'error'))}>
               إرسال
             </button>
           </div>
         </Modal>
+      ) : null}
+
+      {calendarDetail ? (
+        <BottomSheet title={calendarDetail.title} onClose={() => setCalendarDetail(null)}>
+          <p className="text-xs text-ios-muted">{new Date(calendarDetail.scheduledAt).toLocaleDateString('ar-SA')}</p>
+          {calendarDetail.darName ? <p className="mt-2 text-sm font-bold">{calendarDetail.darName}</p> : null}
+          {calendarDetail.content ? <p className="mt-2 text-sm">{calendarDetail.content}</p> : null}
+          {calendarDetail.link ? (
+            <a className="mt-3 inline-block text-sm font-bold text-primary" href={calendarDetail.link} target="_blank" rel="noreferrer">فتح الرابط</a>
+          ) : null}
+        </BottomSheet>
+      ) : null}
+
+      {calendarDayEvents.length ? (
+        <BottomSheet title="أحداث اليوم" onClose={() => setCalendarDayEvents([])}>
+          <div className="space-y-2">
+            {calendarDayEvents.map((e) => (
+              <button
+                key={e.id}
+                type="button"
+                className="w-full rounded-xl bg-shell p-3 text-right"
+                onClick={() => {
+                  setCalendarDayEvents([]);
+                  setCalendarDetail(e);
+                }}
+              >
+                <p className="text-sm font-bold">{e.title}</p>
+                <p className="text-[10px] text-ios-muted">{e.type === 'visit' ? 'زيارة' : e.type === 'exam' ? 'اختبار' : 'تنبيه'}</p>
+              </button>
+            ))}
+          </div>
+        </BottomSheet>
       ) : null}
 
       {showAccountEditor ? (

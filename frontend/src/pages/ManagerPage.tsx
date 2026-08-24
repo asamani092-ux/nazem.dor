@@ -3,9 +3,10 @@ import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { LEVELS_BY_CURRICULUM } from '../lib/reports';
 import { usePageFeedback } from '../hooks/usePageFeedback';
-import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, SectionTitle, StatCard, RingStat, ProgressBar, ExportBar, NotificationCard, IconButton, IconEdit, IconWhatsApp, IconChart, IconSuspend, IconDelete } from '../components/ds';
-import { downloadXlsx } from '../lib/export';
+import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, SectionTitle, StatCard, RingStat, ProgressBar, ExportBar, NotificationCard, IconButton, IconEdit, IconWhatsApp, IconChart, IconSuspend, IconDelete, CalendarMonth, BottomSheet, FileUpload } from '../components/ds';
+import { downloadXlsx, downloadTemplateXlsx, parseXlsxFile } from '../lib/export';
 import { printReport, tableHtml } from '../lib/print';
+import { monthEnd, monthStart, type CalendarEvent } from '../lib/calendar';
 
 type Cls = {
   id: string;
@@ -38,7 +39,7 @@ type Report = {
 export function ManagerPage() {
   const { user, logout } = useAuth();
   const { banner, notify, clearBanner } = usePageFeedback();
-  const [tab, setTab] = useState<'classes' | 'students' | 'alerts' | 'reports'>('classes');
+  const [tab, setTab] = useState<'classes' | 'students' | 'alerts' | 'reports' | 'calendar'>('classes');
   const [classes, setClasses] = useState<Cls[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
@@ -53,6 +54,10 @@ export function ManagerPage() {
   const [stuClassId, setStuClassId] = useState('');
   const [stuRows, setStuRows] = useState([{ name: '', phone: '' }]);
   const [forward, setForward] = useState<{ title: string; content: string; targetClassId: string } | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState(() => monthStart(new Date()));
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarDetail, setCalendarDetail] = useState<CalendarEvent | null>(null);
+  const [importPreview, setImportPreview] = useState<Array<{ name: string; phone: string }>>([]);
 
   const levels = meta?.allowedLevels || LEVELS_BY_CURRICULUM.BOTH;
 
@@ -73,6 +78,48 @@ export function ManagerPage() {
   useEffect(() => {
     void load().catch((e) => notify(e.message, 'error'));
   }, []);
+
+  useEffect(() => {
+    if (tab === 'calendar') {
+      void loadCalendar().catch((e) => notify(e.message, 'error'));
+    }
+  }, [tab, calendarMonth]);
+
+  async function loadCalendar() {
+    const from = monthStart(calendarMonth).toISOString();
+    const to = monthEnd(calendarMonth).toISOString();
+    const res = await api<{ data: CalendarEvent[] }>(`/api/manager/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+    setCalendarEvents(res.data);
+  }
+
+  async function importExcel(file: File) {
+    const rows = await parseXlsxFile(file);
+    const parsed = rows
+      .map((r) => ({
+        name: String(r['اسم الطالبة'] ?? r.name ?? '').trim(),
+        phone: String(r['جوال ولي الأمر'] ?? r.phone ?? '').trim(),
+      }))
+      .filter((r) => r.name && r.phone);
+    setImportPreview(parsed);
+    notify(`تم قراءة ${parsed.length} صف`);
+  }
+
+  async function confirmImport() {
+    if (!stuClassId) return notify('اختاري الفصل', 'error');
+    if (!importPreview.length) return notify('لا توجد بيانات للاستيراد', 'error');
+    const count = importPreview.length;
+    const chunk = 100;
+    for (let i = 0; i < importPreview.length; i += chunk) {
+      await api('/api/manager/students', {
+        method: 'POST',
+        json: { classId: stuClassId, students: importPreview.slice(i, i + chunk) },
+      });
+    }
+    setImportPreview([]);
+    setShowStudents(false);
+    notify(`تم تسجيل ${count} طالبة`);
+    if (filterClass === stuClassId) await loadStudents(stuClassId);
+  }
 
   async function loadStudents(classId: string) {
     setFilterClass(classId);
@@ -164,6 +211,7 @@ export function ManagerPage() {
         { key: 'classes', label: 'الفصول' },
         { key: 'students', label: 'الطالبات' },
         { key: 'alerts', label: unread ? `التنبيهات (${unread})` : 'التنبيهات' },
+        { key: 'calendar', label: 'التقويم' },
         { key: 'reports', label: 'التقارير' },
       ]}
       active={tab}
@@ -327,6 +375,18 @@ export function ManagerPage() {
           </div>
         ) : null}
 
+        {tab === 'calendar' ? (
+          <div className="space-y-4">
+            <SectionTitle>تقويم الدار</SectionTitle>
+            <CalendarMonth
+              events={calendarEvents}
+              month={calendarMonth}
+              onMonthChange={setCalendarMonth}
+              onSelectEvent={(e) => setCalendarDetail(e)}
+            />
+          </div>
+        ) : null}
+
         {tab === 'reports' && report ? (
           <div className="space-y-4">
             <SectionTitle
@@ -485,7 +545,7 @@ export function ManagerPage() {
       ) : null}
 
       {showStudents ? (
-        <Modal title="تسجيل طالبات" onClose={() => setShowStudents(false)}>
+        <Modal title="تسجيل طالبات" onClose={() => { setShowStudents(false); setImportPreview([]); }}>
           <div className="space-y-3">
             <Field label="الفصل">
               <select className="ds-input" value={stuClassId} onChange={(e) => setStuClassId(e.target.value)}>
@@ -499,6 +559,30 @@ export function ManagerPage() {
                   ))}
               </select>
             </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" className="!w-auto" onClick={() => downloadTemplateXlsx('نموذج-طالبات.xlsx', ['اسم الطالبة', 'جوال ولي الأمر'])}>
+                تحميل نموذج
+              </Button>
+              <FileUpload
+                label="رفع Excel"
+                accept=".xlsx,.xls"
+                onChange={(f) => { if (f) void importExcel(f).catch((e) => notify(e.message, 'error')); }}
+              />
+            </div>
+            {importPreview.length ? (
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-primary">معاينة ({importPreview.length})</p>
+                <div className="max-h-40 overflow-auto rounded-lg bg-shell p-2 text-[11px]">
+                  {importPreview.slice(0, 20).map((r, i) => (
+                    <p key={i}>{r.name} — {r.phone}</p>
+                  ))}
+                  {importPreview.length > 20 ? <p className="text-ios-muted">… و{importPreview.length - 20} أكثر</p> : null}
+                </div>
+                <button className="ds-btn ds-btn-primary" onClick={() => void confirmImport().catch((e) => notify(e.message, 'error'))}>
+                  تأكيد الاستيراد
+                </button>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-2 text-[9px] font-bold text-gray-400">
               <span>اسم الطالبة</span>
               <span>جوال ولي الأمر</span>
@@ -540,6 +624,33 @@ export function ManagerPage() {
             </button>
           </div>
         </Modal>
+      ) : null}
+
+      {calendarDetail ? (
+        <BottomSheet title={calendarDetail.title} onClose={() => setCalendarDetail(null)}>
+          <p className="text-xs text-ios-muted">{new Date(calendarDetail.scheduledAt).toLocaleDateString('ar-SA')}</p>
+          <p className="mt-2 text-sm font-bold">
+            {calendarDetail.type === 'visit' ? 'زيارة ميدانية' : calendarDetail.type === 'exam' ? 'اختبار' : 'تنبيه'}
+          </p>
+          {calendarDetail.content ? <p className="mt-2 text-sm">{calendarDetail.content}</p> : null}
+          {calendarDetail.link ? (
+            <a className="mt-2 inline-block text-sm font-bold text-primary" href={calendarDetail.link} target="_blank" rel="noreferrer">فتح الرابط</a>
+          ) : null}
+          <Button
+            variant="primary"
+            className="mt-4"
+            onClick={() => {
+              setForward({
+                title: calendarDetail.title,
+                content: calendarDetail.content || calendarDetail.link || calendarDetail.title,
+                targetClassId: 'الكل',
+              });
+              setCalendarDetail(null);
+            }}
+          >
+            تذكير المعلمات
+          </Button>
+        </BottomSheet>
       ) : null}
 
       {forward ? (

@@ -62,30 +62,6 @@ body {
   position: relative;
 }
 
-@media (min-width: 640px) {
-  .app-shell {
-    max-width: 36rem;
-  }
-}
-
-@media (min-width: 768px) {
-  .app-shell {
-    max-width: 48rem;
-  }
-}
-
-@media (min-width: 1024px) {
-  .app-shell {
-    max-width: 64rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .app-shell {
-    max-width: 72rem;
-  }
-}
-
 .page-pad {
   padding: 1rem;
 }
@@ -1002,6 +978,7 @@ body {
 
 .ds-login {
   min-height: 100vh;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1113,24 +1090,73 @@ body {
 }
 
 .ds-toast-success {
-  background: #16a34a;
-  color: #fff;
+  background: #fff;
+  color: #15803d;
+  border: 2px solid #22c55e;
 }
 
 .ds-toast-error {
-  background: #dc2626;
-  color: #fff;
+  background: #fff;
+  color: #b91c1c;
+  border: 2px solid #ef4444;
 }
 
 .ds-toast-warn {
-  background: #f59e0b;
-  color: #fff;
+  background: #fff;
+  color: #b45309;
+  border: 2px solid #f59e0b;
 }
 
 .ds-theme-switcher {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+}
+
+.ds-theme-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ds-theme-trigger-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  flex: none;
+}
+
+.ds-theme-trigger-label {
+  white-space: nowrap;
+}
+
+.ds-theme-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 50;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  min-width: 180px;
+}
+
+.ds-theme-popover-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--color-ios-muted);
+  margin: 0 0 10px;
 }
 
 .ds-theme-compact .ds-theme-label {
@@ -1145,7 +1171,7 @@ body {
 
 .ds-theme-swatches {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
@@ -1158,9 +1184,174 @@ body {
   flex: none;
 }
 
+.ds-theme-swatch-popover {
+  border-color: #e5e5ea;
+  width: 28px;
+  height: 28px;
+}
+
 .ds-theme-swatch-active {
-  border-color: #fff;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.ds-file-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ds-file-upload-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-ios-muted);
+}
+
+.ds-file-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ds-file-upload-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1.5px solid color-mix(in srgb, var(--color-primary) 35%, transparent);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ds-file-upload-name {
+  font-size: 11px;
+  color: var(--color-ios-muted);
+  font-weight: 600;
+}
+
+.ds-file-upload-input {
+  display: none;
+}
+
+.ds-login-theme {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.ds-login-theme .ds-theme-trigger {
+  border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.ds-login-theme .ds-theme-popover {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ds-calendar {
+  background: var(--color-surface);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.ds-calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ds-calendar-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+.ds-calendar-nav {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: var(--color-shell);
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--color-primary);
+}
+
+.ds-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.ds-calendar-weekday {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--color-ios-muted);
+}
+
+.ds-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.ds-calendar-cell {
+  min-height: 52px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--color-shell);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.ds-calendar-cell-out {
+  opacity: 0.35;
+}
+
+.ds-calendar-cell-today {
+  border-color: var(--color-primary);
+}
+
+.ds-calendar-day-num {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ds-calendar-dots {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.ds-calendar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.ds-calendar-dot-visit {
+  background: var(--color-primary);
+}
+
+.ds-calendar-dot-exam {
+  background: #3b82f6;
+}
+
+.ds-calendar-dot-notice {
+  background: #f59e0b;
 }
 
 .ds-export-bar {

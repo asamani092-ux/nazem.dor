@@ -38,6 +38,10 @@ function AppRoot() {
   const wide = !loading && !!user;
 
   if (!loading && user && window.location.pathname === '/tools-audit') {
+    if (user.role !== 'SUPER_MASTER') {
+      window.location.href = '/';
+      return null;
+    }
     return (
       <div className="flex justify-center" dir="rtl" lang="ar">
         <div className="app-shell app-shell-wide">
@@ -48,8 +52,8 @@ function AppRoot() {
   }
 
   return (
-    <div className="flex justify-center" dir="rtl" lang="ar">
-      <div className={wide ? 'app-shell app-shell-wide' : 'app-shell'}>
+    <div className="w-full min-h-screen" dir="rtl" lang="ar">
+      <div className={wide ? 'app-shell app-shell-wide' : 'app-shell app-shell-wide'}>
         <AppRouter />
       </div>
     </div>

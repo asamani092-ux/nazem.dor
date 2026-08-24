@@ -358,7 +358,7 @@ export async function managerRoutes(app: FastifyInstance) {
         students: z
           .array(z.object({ name: z.string().min(1), phone: z.string() }))
           .min(1)
-          .max(10),
+          .max(100),
       })
       .parse(request.body);
 
@@ -466,7 +466,11 @@ export async function managerRoutes(app: FastifyInstance) {
       ...alerts.map((a) => ({
         id: a.id,
         type: 'msg' as const,
-        date: a.createdAt.toLocaleDateString('en-GB'),
+        kind: a.kind,
+        scheduledAt: a.scheduledAt?.toISOString() || null,
+        date: a.kind === 'VISIT' && a.scheduledAt
+          ? a.scheduledAt.toLocaleDateString('en-GB')
+          : a.createdAt.toLocaleDateString('en-GB'),
         title: a.title,
         content: a.content,
         isRead: readSet.has(a.id),
@@ -474,6 +478,8 @@ export async function managerRoutes(app: FastifyInstance) {
       ...exams.map((e) => ({
         id: e.id,
         type: 'exam' as const,
+        kind: 'EXAM' as const,
+        scheduledAt: e.examDate.toISOString(),
         date: e.examDate.toLocaleDateString('en-GB'),
         title: e.title,
         link: e.link,
@@ -516,5 +522,64 @@ export async function managerRoutes(app: FastifyInstance) {
       data: { darId, classId, title: body.title, content: body.content },
     });
     return { status: 'success' };
+  });
+
+  app.get('/calendar', guard, async (request, reply) => {
+    const darId = darIdOf(request);
+    const q = z
+      .object({
+        from: z.string(),
+        to: z.string(),
+      })
+      .parse(request.query);
+
+    let start: Date;
+    let end: Date;
+    try {
+      const { parseDateRange } = await import('../lib/calendar.js');
+      const range = parseDateRange(q.from, q.to);
+      start = range.start;
+      end = range.end;
+    } catch {
+      return reply.code(400).send({ status: 'error', message: 'نطاق تاريخ غير صالح' });
+    }
+
+    const [alerts, exams, dar] = await Promise.all([
+      prisma.alert.findMany({
+        where: {
+          AND: [
+            { OR: [{ darId: null }, { darId }] },
+            {
+              OR: [
+                { kind: 'VISIT', scheduledAt: { gte: start, lte: end } },
+                { kind: 'NOTICE', createdAt: { gte: start, lte: end } },
+              ],
+            },
+          ],
+        },
+      }),
+      prisma.exam.findMany({
+        where: {
+          examDate: { gte: start, lte: end },
+          OR: [{ darId: null }, { darId }],
+        },
+        orderBy: { examDate: 'asc' },
+      }),
+      prisma.dar.findUnique({ where: { id: darId }, select: { name: true } }),
+    ]);
+
+    const reads = await prisma.alertRead.findMany({ where: { darId } });
+    const readSet = new Set(reads.map((r) => r.alertId));
+    const { alertToEvent, examToEvent } = await import('../lib/calendar.js');
+    const darName = dar?.name;
+
+    const events = [
+      ...alerts
+        .map((a) => alertToEvent(a, a.darId === darId ? darName : 'كل الدور', readSet.has(a.id)))
+        .filter(Boolean),
+      ...exams.map((e) => examToEvent(e, e.darId === darId ? darName : 'كل الدور', readSet.has(e.id))),
+    ] as import('../lib/calendar.js').CalendarEventDto[];
+
+    return { status: 'success', data: events };
   });
 }

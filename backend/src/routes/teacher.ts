@@ -272,6 +272,63 @@ export async function teacherRoutes(app: FastifyInstance) {
     return { status: 'success', url };
   });
 
+  app.get('/exams', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+
+    const students = await prisma.student.findMany({
+      where: { darId, classId, status: EntityStatus.ACTIVE },
+      select: { id: true },
+    });
+    if (!students.length) {
+      return { status: 'success', data: { pending: [], graded: [] } };
+    }
+
+    const exams = await prisma.exam.findMany({
+      where: { OR: [{ darId: null }, { darId }] },
+      orderBy: { examDate: 'desc' },
+    });
+
+    const grades = await prisma.examGrade.findMany({
+      where: { classId },
+      orderBy: { gradedAt: 'desc' },
+    });
+
+    const gradedExamIds = new Set(grades.map((g) => g.examId));
+
+    const pending = exams
+      .filter((e) => !gradedExamIds.has(e.id))
+      .map((e) => ({
+        id: e.id,
+        title: e.title,
+        date: e.examDate.toLocaleDateString('en-GB'),
+        link: e.link,
+      }));
+
+    const gradedMap = new Map<string, { exam: typeof exams[0]; grades: typeof grades }>();
+    for (const g of grades) {
+      const exam = exams.find((e) => e.id === g.examId);
+      if (!exam) continue;
+      if (!gradedMap.has(g.examId)) gradedMap.set(g.examId, { exam, grades: [] });
+      gradedMap.get(g.examId)!.grades.push(g);
+    }
+
+    const graded = [...gradedMap.values()].map(({ exam, grades: gs }) => ({
+      id: exam.id,
+      title: exam.title,
+      date: exam.examDate.toLocaleDateString('en-GB'),
+      link: exam.link,
+      grades: gs.map((g) => ({
+        studentId: g.studentId,
+        name: g.studentName,
+        score: g.score,
+        note: g.note || '',
+      })),
+    }));
+
+    return { status: 'success', data: { pending, graded } };
+  });
+
   app.get('/exams/pending', guard, async (request, reply) => {
     const { darId, classId } = request.user;
     if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
@@ -314,6 +371,7 @@ export async function teacherRoutes(app: FastifyInstance) {
             studentId: z.string(),
             name: z.string(),
             score: z.string(),
+            note: z.string().optional(),
           }),
         ),
       })
@@ -322,18 +380,21 @@ export async function teacherRoutes(app: FastifyInstance) {
     const exam = await prisma.exam.findUnique({ where: { id } });
     if (!exam) return reply.code(404).send({ status: 'error', message: 'الاختبار غير موجود' });
 
-    const already = await prisma.examGrade.findFirst({ where: { classId, examId: id } });
-    if (already) {
-      return reply.code(403).send({
-        status: 'error',
-        message: 'تم رصد هذا الاختبار مسبقاً. التعديل غير مسموح إلا عبر طلب موافقة (قريباً).',
-      });
+    const studentIds = body.gradesData.map((g) => g.studentId);
+    const activeStudents = await prisma.student.count({
+      where: { darId, classId, status: EntityStatus.ACTIVE, id: { in: studentIds } },
+    });
+    if (activeStudents === 0) {
+      return reply.code(400).send({ status: 'error', message: 'لا توجد طالبات في الفصل' });
     }
 
     await prisma.$transaction(
       body.gradesData.map((g) =>
-        prisma.examGrade.create({
-          data: {
+        prisma.examGrade.upsert({
+          where: {
+            classId_examId_studentId: { classId, examId: id, studentId: g.studentId },
+          },
+          create: {
             darId,
             classId,
             examId: id,
@@ -341,6 +402,14 @@ export async function teacherRoutes(app: FastifyInstance) {
             studentId: g.studentId,
             studentName: g.name,
             score: g.score,
+            note: g.note || null,
+          },
+          update: {
+            score: g.score,
+            note: g.note || null,
+            studentName: g.name,
+            examTitle: body.examTitle,
+            gradedAt: new Date(),
           },
         }),
       ),

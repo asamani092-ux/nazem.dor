@@ -17,6 +17,8 @@ export * from './PaginatedList';
 export * from './Spinner';
 export * from './StatCard';
 export * from './TabBar';
+export * from './CalendarMonth';
+export * from './FileUpload';
 export * from './ThemeSwitcher';
 export * from './Toast';
 export * from './theme';

@@ -36,6 +36,16 @@ export async function masterRoutes(app: FastifyInstance) {
       where: { status: { not: EntityStatus.DELETED } },
       orderBy: { createdAt: 'desc' },
     });
+    const visits = await prisma.alert.findMany({
+      where: { kind: 'VISIT', darId: { in: dars.map((d) => d.id) }, scheduledAt: { not: null } },
+      orderBy: { scheduledAt: 'desc' },
+    });
+    const lastVisitMap = new Map<string, string>();
+    for (const v of visits) {
+      if (v.darId && !lastVisitMap.has(v.darId) && v.scheduledAt) {
+        lastVisitMap.set(v.darId, v.scheduledAt.toLocaleDateString('en-GB'));
+      }
+    }
     return {
       status: 'success',
       data: dars.map((d) => ({
@@ -46,6 +56,7 @@ export async function masterRoutes(app: FastifyInstance) {
         managerPhone: d.managerPhone,
         location: d.location || '',
         status: statusLabel(d.status),
+        lastVisit: lastVisitMap.get(d.id) || '',
       })),
     };
   });
@@ -536,19 +547,87 @@ export async function masterRoutes(app: FastifyInstance) {
         title: z.string().min(2),
         content: z.string().min(2),
         kind: z.enum(['NOTICE', 'VISIT']).optional(),
+        scheduledAt: z.string().optional(),
       })
       .parse(request.body);
 
+    const isVisit = body.kind === 'VISIT';
+    if (isVisit && !body.scheduledAt) {
+      return reply.code(400).send({ status: 'error', message: 'تاريخ الزيارة مطلوب' });
+    }
+
     const isAll = body.darId === 'الكل';
+    if (isVisit && isAll) {
+      return reply.code(400).send({ status: 'error', message: 'الزيارة تتطلب تحديد دار' });
+    }
+
     await prisma.alert.create({
       data: {
         darId: isAll ? null : body.darId,
         title: body.title,
         content: body.content,
-        kind: body.kind === 'VISIT' ? 'VISIT' : 'NOTICE',
+        kind: isVisit ? 'VISIT' : 'NOTICE',
+        scheduledAt: isVisit && body.scheduledAt ? new Date(body.scheduledAt) : null,
       },
     });
     return { status: 'success' };
+  });
+
+  app.get('/calendar', guard, async (request, reply) => {
+    const q = z
+      .object({
+        from: z.string(),
+        to: z.string(),
+        darId: z.string().optional(),
+      })
+      .parse(request.query);
+
+    let start: Date;
+    let end: Date;
+    try {
+      const range = (await import('../lib/calendar.js')).parseDateRange(q.from, q.to);
+      start = range.start;
+      end = range.end;
+    } catch {
+      return reply.code(400).send({ status: 'error', message: 'نطاق تاريخ غير صالح' });
+    }
+
+    const darFilter = q.darId && q.darId !== 'الكل' ? q.darId : undefined;
+
+    const [alerts, exams, dars] = await Promise.all([
+      prisma.alert.findMany({
+        where: {
+          AND: [
+            ...(darFilter ? [{ darId: darFilter }] : []),
+            {
+              OR: [
+                { kind: 'VISIT', scheduledAt: { gte: start, lte: end } },
+                { kind: 'NOTICE', createdAt: { gte: start, lte: end } },
+              ],
+            },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.exam.findMany({
+        where: {
+          examDate: { gte: start, lte: end },
+          ...(darFilter ? { OR: [{ darId: darFilter }, { darId: null }] } : {}),
+        },
+        orderBy: { examDate: 'asc' },
+      }),
+      prisma.dar.findMany({ select: { id: true, name: true } }),
+    ]);
+
+    const darMap = new Map(dars.map((d) => [d.id, d.name]));
+    const { alertToEvent, examToEvent } = await import('../lib/calendar.js');
+
+    const events = [
+      ...alerts.map((a) => alertToEvent(a, a.darId ? darMap.get(a.darId) : 'كل الدور')).filter(Boolean),
+      ...exams.map((e) => examToEvent(e, e.darId ? darMap.get(e.darId) : undefined)),
+    ] as import('../lib/calendar.js').CalendarEventDto[];
+
+    return { status: 'success', data: events };
   });
 
   app.get('/curriculum', guard, async () => {
