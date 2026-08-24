@@ -16,7 +16,7 @@ type Variant =
   | 'logout';
 
 const map: Record<Variant, string> = {
-  primary: 'ds-btn ds-ds-btn ds-btn-primary',
+  primary: 'ds-btn ds-btn-primary',
   secondary: 'ds-btn ds-btn-secondary',
   outline: 'ds-btn ds-btn-outline',
   ghost: 'ds-btn ds-btn-ghost',
