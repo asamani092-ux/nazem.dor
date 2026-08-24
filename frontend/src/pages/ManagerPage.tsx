@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
-import { downloadCsv, LEVELS_BY_CURRICULUM } from '../lib/reports';
-import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, ActionChip, SectionTitle, StatCard, RingStat, ProgressBar } from '../components/ds';
+import { LEVELS_BY_CURRICULUM } from '../lib/reports';
+import { usePageFeedback } from '../hooks/usePageFeedback';
+import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, SectionTitle, StatCard, RingStat, ProgressBar, ExportBar, NotificationCard, IconButton, IconEdit, IconWhatsApp, IconChart, IconSuspend, IconDelete } from '../components/ds';
+import { downloadXlsx } from '../lib/export';
+import { printReport, tableHtml } from '../lib/print';
 
 type Cls = {
   id: string;
@@ -34,6 +37,7 @@ type Report = {
 
 export function ManagerPage() {
   const { user, logout } = useAuth();
+  const { banner, notify, clearBanner } = usePageFeedback();
   const [tab, setTab] = useState<'classes' | 'students' | 'alerts' | 'reports'>('classes');
   const [classes, setClasses] = useState<Cls[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -41,7 +45,6 @@ export function ManagerPage() {
   const [meta, setMeta] = useState<Meta | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [filterClass, setFilterClass] = useState('');
-  const [msg, setMsg] = useState('');
   const [showClass, setShowClass] = useState(false);
   const [editClass, setEditClass] = useState<Cls | null>(null);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
@@ -68,7 +71,7 @@ export function ManagerPage() {
   }
 
   useEffect(() => {
-    void load().catch((e) => setMsg(e.message));
+    void load().catch((e) => notify(e.message, 'error'));
   }, []);
 
   async function loadStudents(classId: string) {
@@ -84,7 +87,7 @@ export function ManagerPage() {
 
   async function saveClass() {
     const res = await api<{ message?: string }>('/api/manager/classes', { method: 'POST', json: classForm });
-    setMsg(res.message || 'تمت الإضافة');
+    notify(res.message || 'تمت الإضافة');
     setShowClass(false);
     await load();
   }
@@ -101,7 +104,7 @@ export function ManagerPage() {
       },
     });
     setEditClass(null);
-    setMsg('تم تعديل الفصل');
+    notify('تم تعديل الفصل');
     await load();
   }
 
@@ -116,7 +119,7 @@ export function ManagerPage() {
       },
     });
     setEditStudent(null);
-    setMsg('تم تعديل الطالبة');
+    notify('تم تعديل الطالبة');
     if (filterClass) await loadStudents(filterClass);
   }
 
@@ -131,7 +134,7 @@ export function ManagerPage() {
       };
     }>(`/api/manager/classes/${id}/stats`);
     const d = res.data;
-    setMsg(
+    notify(
       `طالبات: ${d.studentCount}\nحضور %${d.attendanceRate} | إنجاز %${d.completionRate} | واجب %${d.homeworkRate} | عام %${d.overallRate}`,
     );
   }
@@ -144,7 +147,7 @@ export function ManagerPage() {
     });
     setShowStudents(false);
     setStuRows([{ name: '', phone: '' }]);
-    setMsg('تم تسجيل الطالبات');
+    notify('تم تسجيل الطالبات');
     if (filterClass === stuClassId) await loadStudents(stuClassId);
   }
 
@@ -166,11 +169,11 @@ export function ManagerPage() {
       active={tab}
       onNav={(k) => {
         setTab(k as typeof tab);
-        if (k === 'reports') void loadReport().catch((e) => setMsg(e.message));
+        if (k === 'reports') void loadReport().catch((e) => notify(e.message, 'error'));
       }}
       onLogout={logout}
     >
-      {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
+      {banner ? <Banner tone={banner.tone} onClose={clearBanner}>{banner.text}</Banner> : null}
         {tab === 'classes' ? (
           <>
             <Button variant="primary" onClick={() => setShowClass(true)}>
@@ -195,20 +198,22 @@ export function ManagerPage() {
                     <span className="text-[7px] font-bold text-ios-muted">طالبات</span>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <ActionChip label="مؤشرات" tone="primary" onClick={() => void showClassStats(c.id)} />
-                  <ActionChip label="تعديل" tone="edit" onClick={() => setEditClass({ ...c })} />
-                  <ActionChip label="واتساب" tone="wa" href={waLink(c.teacherPhone)} />
-                  <ActionChip
+                <div className="flex flex-wrap gap-1.5">
+                  <IconButton label="مؤشرات" tone="primary" onClick={() => void showClassStats(c.id)}><IconChart /></IconButton>
+                  <IconButton label="تعديل" tone="edit" onClick={() => setEditClass({ ...c })}><IconEdit /></IconButton>
+                  <IconButton label="واتساب" tone="wa" href={waLink(c.teacherPhone)}><IconWhatsApp /></IconButton>
+                  <IconButton
                     label={c.status === 'موقوف' ? 'تنشيط' : 'تعطيل'}
-                    tone="suspend"
+                    tone="alert"
                     onClick={async () => {
                       await api(`/api/manager/classes/${c.id}/${c.status === 'موقوف' ? 'activate' : 'suspend'}`, { method: 'POST' });
                       await load();
                     }}
-                  />
+                  >
+                    <IconSuspend />
+                  </IconButton>
                   {c.status === 'موقوف' ? (
-                    <ActionChip
+                    <IconButton
                       label="حذف"
                       tone="delete"
                       onClick={async () => {
@@ -216,7 +221,9 @@ export function ManagerPage() {
                         await api(`/api/manager/classes/${c.id}`, { method: 'DELETE' });
                         await load();
                       }}
-                    />
+                    >
+                      <IconDelete />
+                    </IconButton>
                   ) : null}
                 </div>
               </Card>
@@ -247,11 +254,11 @@ export function ManagerPage() {
                   <p className="text-sm font-extrabold">{s.name}</p>
                   <p className="text-[10px] text-ios-muted">{s.phone}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <ActionChip label="تعديل" tone="edit" onClick={() => setEditStudent({ ...s })} />
-                  <ActionChip
+                <div className="flex flex-wrap gap-1.5">
+                  <IconButton label="تعديل" tone="edit" onClick={() => setEditStudent({ ...s })}><IconEdit /></IconButton>
+                  <IconButton
                     label={s.status === 'موقوف' ? 'تنشيط' : 'إيقاف'}
-                    tone="suspend"
+                    tone="alert"
                     onClick={async () => {
                       await api(`/api/manager/students/${s.id}/status`, {
                         method: 'POST',
@@ -259,16 +266,20 @@ export function ManagerPage() {
                       });
                       await loadStudents(filterClass);
                     }}
-                  />
+                  >
+                    <IconSuspend />
+                  </IconButton>
                   {s.status === 'موقوف' ? (
-                    <ActionChip
+                    <IconButton
                       label="حذف"
                       tone="delete"
                       onClick={async () => {
                         await api(`/api/manager/students/${s.id}`, { method: 'DELETE' });
                         await loadStudents(filterClass);
                       }}
-                    />
+                    >
+                      <IconDelete />
+                    </IconButton>
                   ) : null}
                 </div>
               </Card>
@@ -279,37 +290,39 @@ export function ManagerPage() {
         {tab === 'alerts' ? (
           <div className="space-y-3">
             {alerts.map((a) => (
-              <div key={a.id} className={`ds-card ds-card-pad p-4 ${a.isRead ? 'opacity-60' : ''}`}>
-                <div className="mb-1 flex justify-between">
-                  <h4 className="text-xs font-bold text-primary">{a.title}</h4>
-                  <span className="text-[8px] text-gray-400">{a.date}</span>
-                </div>
-                <p className="mb-3 text-[10px] text-gray-500">{a.content || 'رابط مرفق'}</p>
-                <div className="flex flex-wrap gap-2">
-                  {!a.isRead ? (
+              <NotificationCard
+                key={a.id}
+                title={a.title}
+                date={a.date}
+                isRead={a.isRead}
+                content={a.content || (a.link ? 'رابط مرفق' : undefined)}
+                actions={
+                  <>
+                    {!a.isRead ? (
+                      <button
+                        className="ds-chip ds-chip-primary"
+                        onClick={async () => {
+                          await api(`/api/manager/alerts/${a.id}/read`, { method: 'POST' });
+                          await load();
+                        }}
+                      >
+                        مقروء
+                      </button>
+                    ) : null}
+                    {a.link ? (
+                      <a className="ds-chip" style={{ background: '#eff6ff', color: '#1d4ed8' }} href={a.link} target="_blank" rel="noreferrer">
+                        فتح الرابط
+                      </a>
+                    ) : null}
                     <button
-                      className="rounded-full bg-gray-100 px-3 py-1 text-[9px] font-bold"
-                      onClick={async () => {
-                        await api(`/api/manager/alerts/${a.id}/read`, { method: 'POST' });
-                        await load();
-                      }}
+                      className="ds-chip ds-chip-wa"
+                      onClick={() => setForward({ title: a.title, content: a.content || a.link || '', targetClassId: 'الكل' })}
                     >
-                      مقروء
+                      توجيه للمعلمات
                     </button>
-                  ) : null}
-                  {a.link ? (
-                    <a className="rounded-full bg-blue-50 px-3 py-1 text-[9px] font-bold text-blue-600" href={a.link} target="_blank" rel="noreferrer">
-                      فتح الرابط
-                    </a>
-                  ) : null}
-                  <button
-                    className="rounded-full bg-green-50 px-3 py-1 text-[9px] font-bold text-green-700"
-                    onClick={() => setForward({ title: a.title, content: a.content || a.link || '', targetClassId: 'الكل' })}
-                  >
-                    توجيه للمعلمات
-                  </button>
-                </div>
-              </div>
+                  </>
+                }
+              />
             ))}
           </div>
         ) : null}
@@ -318,25 +331,40 @@ export function ManagerPage() {
           <div className="space-y-4">
             <SectionTitle
               action={
-                <button
-                  className="ds-btn ds-btn-primary !w-auto !px-4 !py-2 !text-sm"
-                  onClick={() =>
-                    downloadCsv(
-                      `dar-report.csv`,
-                      report.students.map((s) => ({
-                        الطالبة: s.name,
-                        الفصل: s.className,
-                        المستوى: s.level,
-                        حضور: s.attendanceRate,
-                        إنجاز: s.completionRate,
-                        واجب: s.homeworkRate,
-                        اختبارات: s.examAvg,
-                      })),
-                    )
-                  }
-                >
-                  تصدير CSV
-                </button>
+                <ExportBar
+                  onExcel={() => {
+                    if (!report) return;
+                    downloadXlsx(`dar-${report.dar.name}.xlsx`, [
+                      { name: 'ملخص', rows: [report.summary as Record<string, unknown>] },
+                      { name: 'فصول', rows: report.classBreakdown },
+                      { name: 'طالبات', rows: report.students },
+                    ]);
+                  }}
+                  onPrint={() => {
+                    if (!report) return;
+                    const summary = tableHtml(
+                      ['البيان', 'القيمة'],
+                      [
+                        ['طالبات', String(report.summary.totalStudents)],
+                        ['نشطات', String(report.summary.activeStudents)],
+                        ['فصول', String(report.summary.classesCount)],
+                        ['عام %', String(report.summary.overallRate)],
+                      ],
+                    );
+                    const classes = tableHtml(
+                      ['الفصل', 'المستوى', 'المعلمة', 'طالبات', 'عام %'],
+                      report.classBreakdown.map((c) => [
+                        String(c.name ?? ''),
+                        String(c.level ?? ''),
+                        String(c.teacherName ?? ''),
+                        String(c.studentCount ?? ''),
+                        String(c.overallRate ?? ''),
+                      ]),
+                    );
+                    printReport(`تقرير ${report.dar.name}`, `${summary}<h2>الفصول</h2>${classes}`);
+                  }}
+                  excelLabel="تصدير Excel"
+                />
               }
             >
               التقارير
@@ -396,7 +424,7 @@ export function ManagerPage() {
             <Field label="جوال المعلمة">
               <input className="ds-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={classForm.teacherPhone} onChange={(e) => setClassForm({ ...classForm, teacherPhone: e.target.value })} />
             </Field>
-            <button className="ds-btn ds-btn-primary" onClick={() => void saveClass().catch((e) => setMsg(e.message))}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveClass().catch((e) => notify(e.message, 'error'))}>
               حفظ
             </button>
           </div>
@@ -422,7 +450,7 @@ export function ManagerPage() {
             <Field label="جوال المعلمة">
               <input className="ds-input text-left" dir="ltr" value={editClass.teacherPhone} onChange={(e) => setEditClass({ ...editClass, teacherPhone: e.target.value })} />
             </Field>
-            <button className="ds-btn ds-btn-primary" onClick={() => void saveEditClass().catch((e) => setMsg(e.message))}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveEditClass().catch((e) => notify(e.message, 'error'))}>
               حفظ
             </button>
           </div>
@@ -449,7 +477,7 @@ export function ManagerPage() {
             <Field label="جوال ولي الأمر">
               <input className="ds-input text-left" dir="ltr" value={editStudent.phone} onChange={(e) => setEditStudent({ ...editStudent, phone: e.target.value })} />
             </Field>
-            <button className="ds-btn ds-btn-primary" onClick={() => void saveEditStudent().catch((e) => setMsg(e.message))}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveEditStudent().catch((e) => notify(e.message, 'error'))}>
               حفظ
             </button>
           </div>
@@ -534,7 +562,7 @@ export function ManagerPage() {
               onClick={async () => {
                 await api('/api/manager/alerts/forward', { method: 'POST', json: forward });
                 setForward(null);
-                setMsg('تم تمرير الإشعار');
+                notify('تم تمرير الإشعار');
               }}
             >
               اعتماد التوجيه

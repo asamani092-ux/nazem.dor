@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
-import { Field, Input, Select, Button, Banner, AppShell, BottomSheet, TrackToggle, DayButton, Card, ActionChip } from '../components/ds';
+import { usePageFeedback } from '../hooks/usePageFeedback';
+import { Field, Input, Select, Button, Banner, AppShell, BottomSheet, TrackToggle, DayButton, Card, IconButton, IconReport } from '../components/ds';
+import { IconWhatsApp } from '../components/ds/Icons';
 
 type Student = { id: string; name: string; parentPhone: string };
 type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
@@ -19,6 +21,7 @@ type TrackState = {
 
 export function TeacherPage() {
   const { user, logout } = useAuth();
+  const { banner, notify, clearBanner } = usePageFeedback();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [week, setWeek] = useState('');
@@ -27,7 +30,6 @@ export function TeacherPage() {
   const [plan, setPlan] = useState<{ educational: string; homework: string; tarbawi: string } | null>(null);
   const [states, setStates] = useState<Record<string, TrackState>>({});
   const [file, setFile] = useState<File | null>(null);
-  const [msg, setMsg] = useState('');
   const [examsOpen, setExamsOpen] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [grading, setGrading] = useState<Exam | null>(null);
@@ -49,7 +51,7 @@ export function TeacherPage() {
   }
 
   useEffect(() => {
-    void loadDashboard().catch((e) => setMsg(e.message));
+    void loadDashboard().catch((e) => notify(e.message, 'error'));
   }, []);
 
   async function loadTracked(w: string) {
@@ -61,7 +63,7 @@ export function TeacherPage() {
   }
 
   async function fetchPlan() {
-    if (!week || !day) return setMsg('اختاري الأسبوع واليوم');
+    if (!week || !day) return notify('اختاري الأسبوع واليوم', 'error');
     const res = await api<{ educational: string; homework: string; tarbawi: string }>(
       `/api/teacher/lesson-plan?level=${encodeURIComponent(user?.classLevel || '')}&week=${week}&day=${encodeURIComponent(day)}`,
     );
@@ -90,7 +92,7 @@ export function TeacherPage() {
         }
         return next;
       });
-      setMsg('تم تحميل الرصد السابق لهذا اليوم — يمكن التعديل ثم الحفظ');
+      notify('تم تحميل الرصد السابق لهذا اليوم — يمكن التعديل ثم الحفظ');
     }
   }
 
@@ -119,7 +121,7 @@ export function TeacherPage() {
   }
 
   async function submitTracking() {
-    if (!plan || !week || !day) return setMsg('يجب جلب المقرر أولاً');
+    if (!plan || !week || !day) return notify('يجب جلب المقرر أولاً', 'error');
     let attachment = '';
     if (file) {
       const fd = new FormData();
@@ -151,7 +153,7 @@ export function TeacherPage() {
         trackingData,
       },
     });
-    setMsg('تم حفظ الرصد');
+    notify('تم حفظ الرصد');
     setPlan(null);
     setFile(null);
     await loadTracked(week);
@@ -177,7 +179,7 @@ export function TeacherPage() {
         })),
       },
     });
-    setMsg('تم حفظ الدرجات');
+    notify('تم حفظ الدرجات');
     await openExams();
   }
 
@@ -215,7 +217,7 @@ export function TeacherPage() {
       }}
       onLogout={logout}
     >
-      {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
+      {banner ? <Banner tone={banner.tone} onClose={clearBanner}>{banner.text}</Banner> : null}
         {alerts.map((a, i) => (
           <div
             key={a.id || i}
@@ -307,12 +309,8 @@ export function TeacherPage() {
                       {idx + 1}. {s.name}
                     </h3>
                     <div className="flex gap-2">
-                      <button className="ds-chip ds-chip-report" onClick={() => void sendReport(s)}>
-                        تقرير
-                      </button>
-                      <a className="ds-chip ds-chip-wa" href={waLink(s.parentPhone)} target="_blank" rel="noreferrer">
-                        واتساب
-                      </a>
+                      <IconButton label="تقرير" tone="report" onClick={() => void sendReport(s)}><IconReport /></IconButton>
+                      <IconButton label="واتساب" tone="wa" href={waLink(s.parentPhone)}><IconWhatsApp /></IconButton>
                     </div>
                   </div>
                   <div className={`mb-1 grid gap-2 text-center text-[8px] font-bold text-gray-400 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
@@ -333,7 +331,7 @@ export function TeacherPage() {
 
             <button
               className="ds-btn ds-btn-primary !bg-[#16a34a]"
-              onClick={() => void submitTracking().catch((e) => setMsg(e.message))}
+              onClick={() => void submitTracking().catch((e) => notify(e.message, 'error'))}
             >
               اعتماد وحفظ الرصد
             </button>

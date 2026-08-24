@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Tajawal', system-ui, sans-serif; background: #E5E5EA; color: #1C1C1E; -webkit-font-smoothing: antialiased; }
+  @keyframes om-spin { to { transform: rotate(360deg); } }
+  @keyframes om-slide { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes om-fade { from { opacity: 0; } to { opacity: 1; } }
+  ::-webkit-scrollbar { height: 6px; width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #C7C7CC; border-radius: 999px; }
+  a { color: var(--ac, #7A1F3D); }
+  a:hover { color: color-mix(in srgb, var(--ac, #7A1F3D) 80%, black); }
+</style>
+</helmet>
+
+<div dir="rtl" style="--ac: {{ accent }}; min-height: 100vh; display: flex; flex-direction: column;">
+
+  <!-- Top brand bar -->
+  <div style="color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 40; background-color: var(--ac, #7A1F3D)">
+    <button onClick="{{ toggleSidebar }}" aria-label="القائمة" style="width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.16); border: none; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; flex: none;">
+      <span style="font-size: 18px; line-height: 1;">☰</span>
+    </button>
+    <div style="width: 40px; height: 40px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden;"><img src="uploads/LOGO.png" style="width: 32px; height: 32px; object-fit: contain;" alt="شعار"></div>
+    <div style="display: flex; flex-direction: column;">
+      <span style="font-weight: 800; font-size: 17px;">ناظم الصغار</span>
+      <span style="font-size: 11px; opacity: 0.85;">نظام تصميم دور التحفيظ — RTL</span>
+    </div>
+    <div style="{{ swatchBarStyle }}">
+      <span style="font-size: 11px; opacity: 0.9;">اللون الأساسي</span>
+      <sc-for list="{{ swatches }}" as="sw" hint-placeholder-count="5">
+        <button onClick="{{ sw.onClick }}" style="{{ sw.style }}" title="{{ sw.name }}"></button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ showBackdrop }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeSidebarMobile }}" style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 45; animation: om-fade 0.15s ease;"></div>
+  </sc-if>
+
+  <div style="{{ layoutStyle }}">
+
+    <!-- Sidebar / section nav -->
+    <nav style="{{ sidebarStyle }}">
+      <div style="{{ sidebarHeaderStyle }}">
+        <div style="width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; background: color-mix(in srgb, var(--ac,#7A1F3D) 15%, white); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: var(--ac,#7A1F3D);">م</div>
+        <div style="{{ accountTextStyle }}">
+          <div style="font-size: 14px; font-weight: 700; color: #1C1C1E; white-space: nowrap;">معلمة</div>
+          <div style="font-size: 11px; color: #8E8E93; white-space: nowrap;">معلمة — حلقة النور</div>
+        </div>
+      </div>
+      <div style="{{ sidebarDividerStyle }}"></div>
+      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="8">
+        <button onClick="{{ item.onClick }}" style="{{ item.style }}">
+          <span style="{{ item.dot }}"></span>
+          <span style="{{ item.labelStyle }}">{{ item.label }}</span>
+        </button>
+      </sc-for>
+      <div style="margin-top: auto; padding-top: 8px;">
+        <div style="height: 1px; background: #E5E5EA; margin-bottom: 8px;"></div>
+        <button style="{{ logoutStyle }}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path></svg>
+          <span style="{{ logoutLabelStyle }}">تسجيل خروج</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Content -->
+    <main style="{{ contentStyle }}">
+      <div style="{{ innerStyle }}">
+
+        <!-- ============ OVERVIEW ============ -->
+        <sc-if value="{{ secOverview }}" hint-placeholder-val="{{ true }}">
+        <section>
+          <div style="margin-bottom: 8px; font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">نظرة عامة على النظام</div>
+          <p style="margin: 0 0 24px; color: #8E8E93; font-size: 14px; line-height: 1.7;">نظام تصميم عربي جوّال أولاً بطابع iOS للوحات دور التحفيظ. غيّر اللون الأساسي من الأعلى وسينعكس على كل المكوّنات.</p>
+
+          <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">لوحة الألوان</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 28px;">
+            <sc-for list="{{ palette }}" as="c" hint-placeholder-count="8">
+              <div style="background: #FAFAFA; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #E5E5EA;">
+                <div style="{{ c.chip }}"></div>
+                <div style="padding: 10px 12px;">
+                  <div style="font-weight: 700; font-size: 13px;">{{ c.name }}</div>
+                  <div style="font-size: 11px; color: #8E8E93; direction: ltr; text-align: right;">{{ c.value }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">الطباعة — Tajawal</div>
+          <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px;">
+            <div style="font-size: 28px; font-weight: 800; color: var(--ac, #7A1F3D);">عنوان رئيسي — 28px / 800</div>
+            <div style="font-size: 20px; font-weight: 700;">عنوان قسم — 20px / 700</div>
+            <div style="font-size: 16px; font-weight: 500;">نص أساسي — 16px / 500 يقرأه المستخدم في الحقول والبطاقات.</div>
+            <div style="font-size: 13px; color: #8E8E93;">نص مساعد ثانوي — 13px رمادي.</div>
+            <div style="font-size: 10px; font-weight: 700; color: #8E8E93; letter-spacing: 0.5px;">تسمية حقل — 10px / 700</div>
+          </div>
+
+
+          <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px; margin-top: 28px;">نموذج تسجيل الدخول</div>
+          <div style="max-width: 380px; margin: 0 auto; background: #fff; border-radius: 24px; padding: 36px 28px; box-shadow: 0 8px 30px rgba(0,0,0,0.08);">
+            <div style="text-align: center; margin-bottom: 28px;">
+              <img src="uploads/LOGO.png" style="width: 80px; height: 80px; object-fit: contain; display: block; margin: 0 auto 14px;" alt="شعار">
+              <div style="font-size: 22px; font-weight: 800; color: var(--ac,#7A1F3D);">ناظم الصغار</div>
+              <div style="font-size: 13px; color: #8E8E93; margin-top: 4px;">نظام إدارة دور التحفيظ — بريدة</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">رقم الجوال</label>
+                <input inputmode="numeric" placeholder="05XXXXXXXX" style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; direction: ltr; text-align: right; outline: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">كلمة المرور</label>
+                <input type="password" placeholder="••••••••" style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; outline: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+              </div>
+              <button style="width: 100%; background: var(--ac,#7A1F3D); color: #fff; border: none; border-radius: 12px; padding: 14px; font-family: inherit; font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 4px;" style-active="transform: scale(0.98);">تسجيل الدخول</button>
+              <div style="text-align: center; font-size: 12px; color: #8E8E93;">نسيت كلمة المرور؟ <span style="color: var(--ac,#7A1F3D); font-weight: 700; cursor: pointer;">استعادة</span></div>
+            </div>
+          </div>
+
+        </section>
+        </sc-if>
+
+        <!-- ============ BUTTONS ============ -->
+        <sc-if value="{{ secButtons }}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">الأزرار والشارات</div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">الأزرار الأساسية</div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 12px;">
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button style="background: var(--ac,#7A1F3D); color: #fff; border: none; border-radius: 12px; padding: 10px 18px; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer;" style-active="transform: scale(0.98);">زر أساسي</button>
+                <button style="background: color-mix(in srgb, var(--ac,#7A1F3D) 10%, white); color: var(--ac,#7A1F3D); border: none; border-radius: 12px; padding: 10px 18px; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer;">زر ثانوي</button>
+                <button style="background: #FAFAFA; color: var(--ac,#7A1F3D); border: 1.5px solid var(--ac,#7A1F3D); border-radius: 12px; padding: 10px 18px; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer;">زر محدّد</button>
+                <button disabled="" style="background: #E5E5EA; color: #8E8E93; border: none; border-radius: 12px; padding: 10px 18px; font-family: inherit; font-weight: 700; font-size: 14px; cursor: not-allowed;">زر معطّل</button>
+                <button style="background: var(--ac,#7A1F3D); color: #fff; border: none; border-radius: 12px; padding: 10px 18px; font-family: inherit; font-weight: 700; font-size: 14px; cursor: wait; display: flex; align-items: center; gap: 8px;"><span style="width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; display: inline-block; animation: om-spin 0.7s linear infinite;"></span>جارٍ الحفظ</button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">أزرار الإجراءات الصغيرة (ملوّنة)</div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; gap: 8px; flex-wrap: wrap;">
+              <sc-for list="{{ actionChips }}" as="a" hint-placeholder-count="7">
+                <span style="{{ a.style }}">{{ a.label }}</span>
+              </sc-for>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">الشارات Badges</div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; gap: 8px; flex-wrap: wrap;">
+              <span style="background: color-mix(in srgb, var(--ac,#7A1F3D) 12%, white); color: var(--ac,#7A1F3D); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700;">منهج تبيان</span>
+              <span style="background: #eef2ff; color: #4338ca; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700;">منهج قارئ</span>
+              <span style="background: #f0fdf4; color: #15803d; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700;">نشط</span>
+              <span style="background: #fffbeb; color: #b45309; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700;">معلّق</span>
+              <span style="background: #fef2f2; color: #dc2626; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700;">موقوف</span>
+            </div>
+          </div>
+
+
+
+          <!-- ActionMenu -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">قائمة إجراءات (⋮)</div>
+            <div style="position: relative; display: inline-block;">
+              <button onClick="{{ toggleMenu }}" style="width: 36px; height: 36px; border-radius: 10px; background: #F2F2F7; border: none; cursor: pointer; font-size: 18px; color: #3a3a3c; display: flex; align-items: center; justify-content: center;">⋮</button>
+              <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+                <div style="position: absolute; top: 42px; right: 0; background: #fff; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.15); min-width: 180px; z-index: 10; overflow: hidden; animation: om-slide 0.15s ease;">
+                  <button onClick="{{ closeMenu }}" style="width: 100%; padding: 12px 16px; border: none; background: none; font-family: inherit; font-size: 13px; font-weight: 600; text-align: right; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #1C1C1E;" style-hover="background: #F2F2F7;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4v14a2 2 0 002 2h12a2 2 0 002-2v-5M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg> تعديل
+                  </button>
+                  <button onClick="{{ closeMenu }}" style="width: 100%; padding: 12px 16px; border: none; background: none; font-family: inherit; font-size: 13px; font-weight: 600; text-align: right; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #1C1C1E;" style-hover="background: #F2F2F7;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"></path></svg> نسخ
+                  </button>
+                  <div style="height: 1px; background: #E5E5EA;"></div>
+                  <button onClick="{{ closeMenu }}" style="width: 100%; padding: 12px 16px; border: none; background: none; font-family: inherit; font-size: 13px; font-weight: 600; text-align: right; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #dc2626;" style-hover="background: #fef2f2;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m5 0V4a2 2 0 012-2h0a2 2 0 012 2v2"></path></svg> حذف
+                  </button>
+                </div>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- TrackToggle -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">زر رصد (أنجزت/لم تنجز)</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; max-width: 360px;">
+              <div style="background: #fff; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <span style="font-size: 13px; font-weight: 600;">حفظ سورة الفجر</span>
+                <button onClick="{{ toggleTrack }}" data-i="0" style="{{ trackStyle0 }}">{{ trackLabel0 }}</button>
+              </div>
+              <div style="background: #fff; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <span style="font-size: 13px; font-weight: 600;">مراجعة جزء عمّ</span>
+                <button onClick="{{ toggleTrack }}" data-i="1" style="{{ trackStyle1 }}">{{ trackLabel1 }}</button>
+              </div>
+              <div style="background: #fff; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                <span style="font-size: 13px; font-weight: 600;">الواجب اليومي</span>
+                <button onClick="{{ toggleTrack }}" data-i="2" style="{{ trackStyle2 }}">{{ trackLabel2 }}</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- الشعار -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">شعار المنصة</div>
+            <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+              <div style="background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;">
+                <img src="uploads/LOGO.png" style="width: 100px; height: 100px; object-fit: contain; display: block; margin: 0 auto;" alt="شعار">
+                <div style="font-size: 11px; color: #8E8E93; margin-top: 10px;">خلفية فاتحة</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- مجموعة الأيقونات -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">مجموعة الأيقونات</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px;">
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="#25D366" style="display: block; margin: 0 auto 8px;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a3.8 3.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"></path></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">واتساب</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#7A1F3D)" stroke-width="2" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">تقرير</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"></path></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">خروج</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">إضافة</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m5 0V4a2 2 0 012-2h0a2 2 0 012 2v2"></path></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">حذف</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#7A1F3D)" stroke-width="2.5" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">بحث</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#7A1F3D)" stroke-width="2" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><path d="M11 4H4v14a2 2 0 002 2h12a2 2 0 002-2v-5M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">تعديل</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#7A1F3D)" stroke-width="2" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"></path></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">إشعار</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#7A1F3D)" stroke-width="2" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">مستخدم</div></div>
+              <div style="background: #fff; border-radius: 14px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#7A1F3D)" stroke-width="2" stroke-linecap="round" style="display: block; margin: 0 auto 8px;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg><div style="font-size: 11px; font-weight: 600; color: #3a3a3c;">تحميل</div></div>
+            </div>
+          </div>
+
+        </section>
+        </sc-if>
+
+        <!-- ============ FORMS ============ -->
+        <sc-if value="{{ secForms }}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">النماذج والحقول</div>
+          <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px;">
+            <div>
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px; letter-spacing: 0.3px;">اسم الدار</label>
+              <input placeholder="أدخل اسم الدار" style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; outline: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">رقم الجوال</label>
+              <input inputmode="numeric" placeholder="05XXXXXXXX" style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; direction: ltr; text-align: right; outline: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">التاريخ</label>
+              <input type="date" placeholder="YYYY-MM-DD" style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; outline: none; direction: ltr; text-align: right;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">رابط الاختبار (LTR)</label>
+              <input placeholder="https://" style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; direction: ltr; text-align: left; outline: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">المستوى</label>
+              <select style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; outline: none; appearance: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+                <option>تمهيدي 1</option><option>تمهيدي 2</option><option>أولى ابتدائي</option><option>ثانية ابتدائي</option><option>ثالثة ابتدائي</option>
+              </select>
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">المنهج</label>
+              <select style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; outline: none; appearance: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+                <option>منهج تبيان</option><option>منهج قارئ</option><option>كلاهما</option>
+              </select>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">تفاصيل الإشعار</label>
+              <textarea rows="3" placeholder="اكتب تفاصيل الإشعار…" style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; outline: none; resize: vertical;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;"></textarea>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">حقل معطّل</label>
+              <input disabled="" value="غير متاح" style="width: 100%; background: #E5E5EA; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; color: #8E8E93;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 10px; font-weight: 700; color: #dc2626; margin-bottom: 6px;">حقل خطأ</label>
+              <input value="05" style="width: 100%; background: #fef2f2; border: 1.5px solid #dc2626; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; direction: ltr; text-align: right;">
+              <div style="font-size: 11px; color: #dc2626; margin-top: 5px;">رقم الجوال يجب أن يكون 10 أرقام.</div>
+            </div>
+          </div>
+
+          <!-- SearchInput — منقول من المكونات -->
+          <div style="margin-top: 10px;">
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">حقل البحث</div>
+            <div style="position: relative; max-width: 400px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2.5" stroke-linecap="round" style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); pointer-events: none;"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>
+              <input type="text" placeholder="ابحث عن طالبة أو معلمة…" style="width: 100%; padding: 12px 44px 12px 14px; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; font-family: inherit; font-size: 14px; outline: none;" style-focus="border-color: var(--ac,#7A1F3D); background: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent);">
+            </div>
+          </div>
+
+          <!-- DayPicker -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">اختيار أيام الأسبوع</div>
+            <div style="display: flex; gap: 8px;">
+              <button onClick="{{ toggleDay }}" style="{{ dayStyle0 }}" data-i="0">أحد</button>
+              <button onClick="{{ toggleDay }}" style="{{ dayStyle1 }}" data-i="1">إثن</button>
+              <button onClick="{{ toggleDay }}" style="{{ dayStyle2 }}" data-i="2">ثلا</button>
+              <button onClick="{{ toggleDay }}" style="{{ dayStyle3 }}" data-i="3">أرب</button>
+              <button onClick="{{ toggleDay }}" style="{{ dayStyle4 }}" data-i="4">خمي</button>
+            </div>
+          </div>
+
+          <!-- FileUpload -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">رفع مرفق</div>
+            <div style="border: 2px dashed #C7C7CC; border-radius: 16px; padding: 32px; text-align: center; cursor: pointer; transition: all 0.15s;" style-hover="border-color: var(--ac,#7A1F3D); background: color-mix(in srgb, var(--ac,#7A1F3D) 4%, white);">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="1.5" style="margin: 0 auto 12px; display: block;"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"></path></svg>
+              <div style="font-size: 14px; font-weight: 700; color: #3a3a3c;">اسحب الملف هنا أو اضغط للاختيار</div>
+              <div style="font-size: 12px; color: #8E8E93; margin-top: 4px;">PDF, JPG, PNG — حد أقصى 5 ميجا</div>
+            </div>
+          </div>
+
+          <!-- Select / Checkbox / Switch -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">عناصر نموذج موحّدة</div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 18px;">
+              <div>
+                <label style="display: block; font-size: 11px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">قائمة منسدلة</label>
+                <select style="width: 100%; max-width: 300px; padding: 12px 14px; background: #fff; border: 1.5px solid #E5E5EA; border-radius: 12px; font-family: inherit; font-size: 14px; outline: none; appearance: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent);"><option>اختر الفصل…</option><option>تمهيدي 1</option><option>تمهيدي 2</option><option>أولي 1</option></select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 11px; font-weight: 700; color: #8E8E93; margin-bottom: 8px;">مربع اختيار</label>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <button onClick="{{ toggleChk1 }}" style="display: flex; align-items: center; gap: 10px; background: none; border: none; cursor: pointer; font-family: inherit; padding: 0;">
+                    <div style="{{ chk1Style }}"><sc-if value="{{ chk1 }}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if></div>
+                    <span style="font-size: 14px; font-weight: 600; color: #1C1C1E;">حفظ القرآن</span>
+                  </button>
+                  <button onClick="{{ toggleChk2 }}" style="display: flex; align-items: center; gap: 10px; background: none; border: none; cursor: pointer; font-family: inherit; padding: 0;">
+                    <div style="{{ chk2Style }}"><sc-if value="{{ chk2 }}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg></sc-if></div>
+                    <span style="font-size: 14px; font-weight: 600; color: #1C1C1E;">مراجعة</span>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label style="display: block; font-size: 11px; font-weight: 700; color: #8E8E93; margin-bottom: 8px;">مفتاح تبديل</label>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <button onClick="{{ toggleSwitch }}" style="{{ switchBg }}"><div style="{{ switchKnob }}"></div></button>
+                  <span style="font-size: 14px; font-weight: 600;">تفعيل الإشعارات</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+        </sc-if>
+
+        <!-- ============ LAYOUT ============ -->
+        <sc-if value="{{ secLayout }}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">البطاقات والتبويبات</div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">تبويبات Tabs</div>
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+
+              <!-- Underline tabs -->
+              <div>
+                <div style="font-size: 11px; color: #8E8E93; margin-bottom: 6px;">خطية (Underline)</div>
+                <div style="display: flex; gap: 0; border-bottom: 2px solid #E5E5EA;">
+                  <sc-for list="{{ tabsUnderline }}" as="t" hint-placeholder-count="4">
+                    <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <!-- Pill tabs -->
+              <div>
+                <div style="font-size: 11px; color: #8E8E93; margin-bottom: 6px;">كبسولة (Pill)</div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <sc-for list="{{ tabsPill }}" as="t" hint-placeholder-count="4">
+                    <button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+              <div style="font-size: 14px; font-weight: 800; color: #1C1C1E;">إدارة الدور</div>
+              <div style="display: flex; background: #EDEDF0; border-radius: 10px; padding: 3px; gap: 2px;">
+                <button onClick="{{ setCards }}" style="{{ cardsBtn }}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+                </button>
+                <button onClick="{{ setTable }}" style="{{ tableBtn }}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+              </div>
+            </div>
+
+            <sc-if value="{{ isCards }}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #FAFAFA; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: color-mix(in srgb, var(--ac,#7A1F3D) 12%, white); color: var(--ac,#7A1F3D); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">د</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 800; font-size: 15px;">دار الفرقان</div>
+                    <div style="font-size: 12px; color: #8E8E93; margin-top: 2px;">أ. نورة العتيبي · 4 حلقات</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                    <span style="background: #f0fdf4; color: #15803d; border-radius: 999px; padding: 3px 10px; font-size: 10px; font-weight: 700;">نشط</span>
+                    <span style="background: color-mix(in srgb, var(--ac,#7A1F3D) 10%, white); color: var(--ac,#7A1F3D); border-radius: 999px; padding: 3px 10px; font-size: 10px; font-weight: 700;">تبيان</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap;">
+                  <sc-for list="{{ carIconActions }}" as="a" hint-placeholder-count="6">
+                    <button onClick="{{ a.onClick }}" style="{{ a.style }}" title="{{ a.label }}">
+                      <span dangerouslySetInnerHTML="{{ a.icon }}"></span>
+                    </button>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="background: #FAFAFA; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: #EFF6FF; color: #1d4ed8; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px;">ن</div>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 800; font-size: 15px;">دار النور</div>
+                    <div style="font-size: 12px; color: #8E8E93; margin-top: 2px;">أ. سارة المطيري · 3 حلقات</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                    <span style="background: #f0fdf4; color: #15803d; border-radius: 999px; padding: 3px 10px; font-size: 10px; font-weight: 700;">نشط</span>
+                    <span style="background: #EFF6FF; color: #1d4ed8; border-radius: 999px; padding: 3px 10px; font-size: 10px; font-weight: 700;">قارئ</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap;">
+                  <sc-for list="{{ carActions }}" as="a" hint-placeholder-count="6">
+                    <span style="{{ a.style }}">{{ a.label }}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            </sc-if>
+
+            <sc-if value="{{ isTable }}" hint-placeholder-val="{{ false }}">
+            <div style="background: #FAFAFA; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); position: relative;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="background: color-mix(in srgb, var(--ac,#7A1F3D) 6%, white);">
+                    <th style="padding: 12px 16px; font-size: 11px; font-weight: 700; color: #8E8E93; text-align: right; letter-spacing: 0.3px;">الدار</th>
+                    <th style="padding: 12px 16px; font-size: 11px; font-weight: 700; color: #8E8E93; text-align: right; letter-spacing: 0.3px;">المديرة</th>
+                    <th style="padding: 12px 16px; font-size: 11px; font-weight: 700; color: #8E8E93; text-align: right; letter-spacing: 0.3px;">المنهج</th>
+                    <th style="padding: 12px 16px; font-size: 11px; font-weight: 700; color: #8E8E93; text-align: right; letter-spacing: 0.3px;">الحالة</th>
+                    <th style="padding: 12px 16px; font-size: 11px; font-weight: 700; color: #8E8E93; text-align: center; letter-spacing: 0.3px; width: 50px;"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style="border-top: 1px solid #EDEDF0;" style-hover="background: #F8F8FA;">
+                    <td style="padding: 12px 16px; font-size: 13px; font-weight: 700; color: #1C1C1E;">دار الفرقان</td>
+                    <td style="padding: 12px 16px; font-size: 13px; color: #8E8E93;">أ. نورة العتيبي</td>
+                    <td style="padding: 12px 16px;"><span style="background: color-mix(in srgb, var(--ac,#7A1F3D) 10%, white); color: var(--ac,#7A1F3D); border-radius: 8px; padding: 3px 10px; font-size: 11px; font-weight: 700;">تبيان</span></td>
+                    <td style="padding: 12px 16px;"><span style="background: #f0fdf4; color: #15803d; border-radius: 8px; padding: 3px 10px; font-size: 11px; font-weight: 700;">نشط</span></td>
+                    <td style="padding: 12px 16px; text-align: center; position: relative;">
+                      <button onClick="{{ toggleRowMenu0 }}" style="border: none; background: none; cursor: pointer; padding: 6px 8px; border-radius: 8px; font-family: inherit; line-height: 1;" style-hover="background: #EDEDF0;">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="#8E8E93"><circle cx="8" cy="3.5" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="8" cy="12.5" r="1.3"></circle></svg>
+                      </button>
+                      <sc-if value="{{ showRowMenu0 }}" hint-placeholder-val="{{ false }}">
+                        <div style="position: absolute; left: 0; top: calc(100% + 2px); background: #fff; border-radius: 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 0 0.5px rgba(0,0,0,0.06); padding: 4px; min-width: 180px; z-index: 20;">
+                          <button onClick="{{ closeRowMenu }}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: #1C1C1E;" style-hover="background: #F2F2F7;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ac,#7A1F3D)" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            تعديل
+                          </button>
+                          <button onClick="{{ closeRowMenu }}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: #1C1C1E;" style-hover="background: #F2F2F7;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8E8E93" stroke-width="2" stroke-linecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                            عرض
+                          </button>
+                          <button onClick="{{ closeRowMenu }}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--ac,#7A1F3D);" style-hover="background: #F2F2F7;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="12" width="4" height="9" rx="1"></rect><rect x="10" y="7" width="4" height="14" rx="1"></rect><rect x="17" y="3" width="4" height="18" rx="1"></rect></svg>
+                            مؤشرات
+                          </button>
+                          <button onClick="{{ closeRowMenu }}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: #4338ca;" style-hover="background: #F2F2F7;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            تقرير
+                          </button>
+                          <button onClick="{{ closeRowMenu }}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: #15803d;" style-hover="background: #F2F2F7;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a3.8 3.8 0 00-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"></path></svg>
+                            واتساب
+                          </button>
+                          <button onClick="{{ closeRowMenu }}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: #b45309;" style-hover="background: #F2F2F7;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            تعليق
+                          </button>
+                          <div style="height: 1px; background: #F2F2F7; margin: 2px 8px;"></div>
+                          <button onClick="{{ closeRowMenu }}" style="display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: none; border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; color: #EF4444;" style-hover="background: #FEF2F2;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#EF4444" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            حذف
+                          </button>
+                        </div>
+                      </sc-if>
+                    </td>
+                  </tr>
+                  <tr style="border-top: 1px solid #EDEDF0;" style-hover="background: #F8F8FA;">
+                    <td style="padding: 12px 16px; font-size: 13px; font-weight: 700; color: #1C1C1E;">دار النور</td>
+                    <td style="padding: 12px 16px; font-size: 13px; color: #8E8E93;">أ. سارة المطيري</td>
+                    <td style="padding: 12px 16px;"><span style="background: #EFF6FF; color: #1d4ed8; border-radius: 8px; padding: 3px 10px; font-size: 11px; font-weight: 700;">قارئ</span></td>
+                    <td style="padding: 12px 16px;"><span style="background: #f0fdf4; color: #15803d; border-radius: 8px; padding: 3px 10px; font-size: 11px; font-weight: 700;">نشط</span></td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                      <button style="border: none; background: none; cursor: pointer; padding: 6px 8px; border-radius: 8px; font-family: inherit; line-height: 1;" style-hover="background: #EDEDF0;">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="#8E8E93"><circle cx="8" cy="3.5" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="8" cy="12.5" r="1.3"></circle></svg>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr style="border-top: 1px solid #EDEDF0;" style-hover="background: #F8F8FA;">
+                    <td style="padding: 12px 16px; font-size: 13px; font-weight: 700; color: #1C1C1E;">دار الإحسان</td>
+                    <td style="padding: 12px 16px; font-size: 13px; color: #8E8E93;">أ. منى الحربي</td>
+                    <td style="padding: 12px 16px;"><span style="background: #faf5ff; color: #7e22ce; border-radius: 8px; padding: 3px 10px; font-size: 11px; font-weight: 700;">كلاهما</span></td>
+                    <td style="padding: 12px 16px;"><span style="background: #fef9c3; color: #a16207; border-radius: 8px; padding: 3px 10px; font-size: 11px; font-weight: 700;">معلّق</span></td>
+                    <td style="padding: 12px 16px; text-align: center;">
+                      <button style="border: none; background: none; cursor: pointer; padding: 6px 8px; border-radius: 8px; font-family: inherit; line-height: 1;" style-hover="background: #EDEDF0;">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="#8E8E93"><circle cx="8" cy="3.5" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="8" cy="12.5" r="1.3"></circle></svg>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            </sc-if>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">غلاف التطبيق App Shell — جوال</div>
+            <div style="max-width: 375px; margin: 0 auto; background: #000; border-radius: 40px; padding: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.2);">
+              <div style="background: #F2F2F7; border-radius: 30px; overflow: hidden; height: 680px; display: flex; flex-direction: column;">
+                <!-- Status bar -->
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 20px; font-size: 12px; font-weight: 600;">
+                  <span>9:41</span>
+                  <div style="width: 80px; height: 28px; background: #000; border-radius: 14px;"></div>
+                  <div style="display: flex; gap: 4px; align-items: center;">
+                    <span style="font-size: 11px;">📶</span>
+                    <span style="font-size: 11px;">🔋</span>
+                  </div>
+                </div>
+                <!-- Header -->
+                <div style="background: var(--ac,#7A1F3D); color: #fff; padding: 14px 18px; display: flex; align-items: center; gap: 12px;">
+                  <span style="font-size: 20px;">☰</span>
+                  <span style="font-weight: 800; font-size: 17px; flex: 1;">ناظم الصغار</span>
+                  <div style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;">م</div>
+                </div>
+                <!-- Tab bar -->
+                <div style="background: #fff; display: flex; padding: 0; border-bottom: 1px solid #E5E5EA;">
+                  <div style="flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: 700; color: var(--ac,#7A1F3D); border-bottom: 2px solid var(--ac,#7A1F3D);">الرئيسية</div>
+                  <div style="flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: 500; color: #8E8E93;">الحلقات</div>
+                  <div style="flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: 500; color: #8E8E93;">المناهج</div>
+                  <div style="flex: 1; padding: 10px 0; text-align: center; font-size: 12px; font-weight: 500; color: #8E8E93;">التقارير</div>
+                </div>
+                <!-- Content -->
+                <div style="flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
+                  <!-- KPI row -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                    <div style="background: #fff; border-radius: 14px; padding: 12px 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                      <div style="font-size: 22px; font-weight: 800; color: var(--ac,#7A1F3D);">12</div>
+                      <div style="font-size: 10px; color: #8E8E93; margin-top: 2px;">الدور</div>
+                    </div>
+                    <div style="background: #fff; border-radius: 14px; padding: 12px 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                      <div style="font-size: 22px; font-weight: 800; color: var(--ac,#7A1F3D);">48</div>
+                      <div style="font-size: 10px; color: #8E8E93; margin-top: 2px;">الحلقات</div>
+                    </div>
+                    <div style="background: #fff; border-radius: 14px; padding: 12px 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                      <div style="font-size: 22px; font-weight: 800; color: var(--ac,#7A1F3D);">524</div>
+                      <div style="font-size: 10px; color: #8E8E93; margin-top: 2px;">الطالبات</div>
+                    </div>
+                  </div>
+                  <!-- Card -->
+                  <div style="background: #fff; border-radius: 14px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <div style="width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--ac,#7A1F3D) 12%, white); color: var(--ac,#7A1F3D); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">د</div>
+                      <div style="flex: 1;">
+                        <div style="font-weight: 700; font-size: 14px;">دار الفرقان</div>
+                        <div style="font-size: 11px; color: #8E8E93;">4 حلقات · 86 طالبة</div>
+                      </div>
+                      <span style="background: #f0fdf4; color: #15803d; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 700;">نشط</span>
+                    </div>
+                  </div>
+                  <div style="background: #fff; border-radius: 14px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                      <div style="width: 38px; height: 38px; border-radius: 10px; background: color-mix(in srgb, var(--ac,#7A1F3D) 12%, white); color: var(--ac,#7A1F3D); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">ن</div>
+                      <div style="flex: 1;">
+                        <div style="font-weight: 700; font-size: 14px;">دار النور</div>
+                        <div style="font-size: 11px; color: #8E8E93;">3 حلقات · 64 طالبة</div>
+                      </div>
+                      <span style="background: #f0fdf4; color: #15803d; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 700;">نشط</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- Bottom nav -->
+                <div style="background: #fff; border-top: 1px solid #E5E5EA; display: flex; padding: 8px 0 20px;">
+                  <div style="flex: 1; text-align: center;">
+                    <div style="font-size: 20px;">🏠</div>
+                    <div style="font-size: 9px; font-weight: 700; color: var(--ac,#7A1F3D); margin-top: 2px;">الرئيسية</div>
+                  </div>
+                  <div style="flex: 1; text-align: center;">
+                    <div style="font-size: 20px;">📊</div>
+                    <div style="font-size: 9px; color: #8E8E93; margin-top: 2px;">التقارير</div>
+                  </div>
+                  <div style="flex: 1; text-align: center;">
+                    <div style="font-size: 20px;">⚙️</div>
+                    <div style="font-size: 9px; color: #8E8E93; margin-top: 2px;">الإعدادات</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        </sc-if>
+
+        <!-- ============ INDICATORS ============ -->
+        <sc-if value="{{ secIndicators }}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">المؤشرات والرسوم</div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">شبكة KPI</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px;">
+              <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="9">
+                <div style="background: #FAFAFA; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;">
+                  <div style="font-size: 28px; font-weight: 800; color: var(--ac,#7A1F3D); line-height: 1.1;">{{ k.value }}</div>
+                  <div style="font-size: 12px; color: #8E8E93; margin-top: 4px;">{{ k.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+              <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 16px;">حلقات النسبة Ring %</div>
+              <div style="display: flex; gap: 20px; justify-content: space-around; flex-wrap: wrap;">
+                <sc-for list="{{ rings }}" as="r" hint-placeholder-count="3">
+                  <div style="text-align: center;">
+                    <div style="{{ r.ringStyle }}">
+                      <div style="width: 62px; height: 62px; border-radius: 50%; background: #FAFAFA; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: var(--ac,#7A1F3D);">{{ r.pct }}</div>
+                    </div>
+                    <div style="font-size: 12px; color: #8E8E93; margin-top: 8px;">{{ r.label }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+              <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 16px;">أشرطة تقدم Progress</div>
+              <div style="display: flex; flex-direction: column; gap: 14px;">
+                <sc-for list="{{ progress }}" as="p" hint-placeholder-count="4">
+                  <div>
+                    <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 5px;">
+                      <span>{{ p.label }}</span><span style="color: #8E8E93;">{{ p.pct }}%</span>
+                    </div>
+                    <div style="height: 9px; background: #F2F2F7; border-radius: 999px; overflow: hidden;">
+                      <div style="{{ p.bar }}"></div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 16px;">رسم أعمدة — أداء الدور</div>
+            <div style="display: flex; align-items: flex-end; gap: 14px; height: 160px; padding-top: 10px;">
+              <sc-for list="{{ bars }}" as="b" hint-placeholder-count="5">
+                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; justify-content: flex-end;">
+                  <span style="font-size: 12px; font-weight: 800; color: var(--ac,#7A1F3D);">{{ b.pct }}%</span>
+                  <div style="{{ b.bar }}"></div>
+                  <span style="font-size: 10px; color: #8E8E93; text-align: center;">{{ b.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+              <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 12px;">اتجاه شهري Line/Trend</div>
+              <div>{{ lineChart }}</div>
+            </div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+              <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 12px;">خطوط مصغّرة Sparklines</div>
+              <div style="display: flex; flex-direction: column; gap: 14px;">
+                <sc-for list="{{ sparks }}" as="s" hint-placeholder-count="3">
+                  <div style="display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 13px; font-weight: 700; width: 60px;">{{ s.label }}</span>
+                    <div style="flex: 1;">{{ s.svg }}</div>
+                    <span style="font-size: 13px; font-weight: 800; color: var(--ac,#7A1F3D);">{{ s.value }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- StatCard -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">بطاقة مؤشر StatCard</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;">
+              <div style="background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-right: 4px solid var(--ac,#7A1F3D);"><div style="font-size: 11px; font-weight: 700; color: #8E8E93;">إجمالي الطالبات</div><div style="font-size: 28px; font-weight: 800; color: var(--ac,#7A1F3D); margin: 4px 0;">248</div><div style="font-size: 11px; color: #16a34a; font-weight: 700;">↑ 12% عن الشهر السابق</div></div>
+              <div style="background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-right: 4px solid #16a34a;"><div style="font-size: 11px; font-weight: 700; color: #8E8E93;">نسبة الحضور</div><div style="font-size: 28px; font-weight: 800; color: #15803d; margin: 4px 0;">92%</div><div style="font-size: 11px; color: #16a34a; font-weight: 700;">↑ 3% هذا الأسبوع</div></div>
+              <div style="background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-right: 4px solid #f59e0b;"><div style="font-size: 11px; font-weight: 700; color: #8E8E93;">واجبات معلّقة</div><div style="font-size: 28px; font-weight: 800; color: #b45309; margin: 4px 0;">17</div><div style="font-size: 11px; color: #dc2626; font-weight: 700;">↓ 5 عن أمس</div></div>
+            </div>
+          </div>
+
+          <!-- Avatar -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">رمز المستخدم Avatar</div>
+            <div style="display: flex; gap: 16px; align-items: end; flex-wrap: wrap;">
+              <div style="text-align: center;"><div style="width: 56px; height: 56px; border-radius: 50%; background: color-mix(in srgb, var(--ac,#7A1F3D) 15%, white); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; color: var(--ac,#7A1F3D);">س</div><div style="font-size: 10px; color: #8E8E93; margin-top: 4px;">56px</div></div>
+              <div style="text-align: center;"><div style="width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--ac,#7A1F3D) 15%, white); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: var(--ac,#7A1F3D);">م</div><div style="font-size: 10px; color: #8E8E93; margin-top: 4px;">44px</div></div>
+              <div style="text-align: center;"><div style="width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--ac,#7A1F3D) 15%, white); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; color: var(--ac,#7A1F3D);">ن</div><div style="font-size: 10px; color: #8E8E93; margin-top: 4px;">32px</div></div>
+            </div>
+          </div>
+
+          <!-- ProgressBar -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">شريط الإنجاز ProgressBar</div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 16px;">
+              <div><div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="font-size: 12px; font-weight: 700;">حفظ القرآن</span><span style="font-size: 12px; font-weight: 700; color: var(--ac,#7A1F3D);">75%</span></div><div style="height: 8px; background: #E5E5EA; border-radius: 999px; overflow: hidden;"><div style="height: 100%; width: 75%; background: var(--ac,#7A1F3D); border-radius: 999px;"></div></div></div>
+              <div><div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="font-size: 12px; font-weight: 700;">المراجعة</span><span style="font-size: 12px; font-weight: 700; color: #16a34a;">100%</span></div><div style="height: 8px; background: #E5E5EA; border-radius: 999px; overflow: hidden;"><div style="height: 100%; width: 100%; background: #16a34a; border-radius: 999px;"></div></div></div>
+              <div><div style="display: flex; justify-content: space-between; margin-bottom: 6px;"><span style="font-size: 12px; font-weight: 700;">الواجبات</span><span style="font-size: 12px; font-weight: 700; color: #f59e0b;">40%</span></div><div style="height: 8px; background: #E5E5EA; border-radius: 999px; overflow: hidden;"><div style="height: 100%; width: 40%; background: #f59e0b; border-radius: 999px;"></div></div></div>
+            </div>
+          </div>
+
+        </section>
+        </sc-if>
+
+        <!-- ============ REPORTS ============ -->
+        <sc-if value="{{ secReports }}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div style="font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">التقارير</div>
+            <button style="background: #f0fdf4; color: #15803d; border: none; border-radius: 12px; padding: 10px 18px; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer;">تصدير CSV</button>
+          </div>
+
+          <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+            <div style="font-size: 14px; font-weight: 800; margin-bottom: 14px;">ملخص دار الفرقان</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 12px;">
+              <sc-for list="{{ reportKpis }}" as="k" hint-placeholder-count="5">
+                <div style="text-align: center; background: #F2F2F7; border-radius: 12px; padding: 12px;">
+                  <div style="font-size: 22px; font-weight: 800; color: var(--ac,#7A1F3D);">{{ k.value }}</div>
+                  <div style="font-size: 11px; color: #8E8E93;">{{ k.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">جدول خطة الأسبوع (الأحد–الخميس)</div>
+            <div style="background: #FAFAFA; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; min-width: 520px;">
+                <thead>
+                  <tr style="background: color-mix(in srgb, var(--ac,#7A1F3D) 8%, white);">
+                    <th style="text-align: right; padding: 12px 14px; font-size: 12px; color: var(--ac,#7A1F3D);">اليوم</th>
+                    <th style="text-align: right; padding: 12px 14px; font-size: 12px; color: var(--ac,#7A1F3D);">تعليمي</th>
+                    <th style="text-align: right; padding: 12px 14px; font-size: 12px; color: var(--ac,#7A1F3D);">واجب</th>
+                    <th style="text-align: right; padding: 12px 14px; font-size: 12px; color: var(--ac,#7A1F3D);">تربوي</th>
+                    <th style="text-align: center; padding: 12px 14px; font-size: 12px; color: var(--ac,#7A1F3D);">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <sc-for list="{{ daysTable }}" as="d" hint-placeholder-count="5">
+                    <tr style="border-top: 1px solid #E5E5EA;">
+                      <td style="padding: 12px 14px; font-size: 13px; font-weight: 700;">{{ d.day }}</td>
+                      <td style="padding: 12px 14px; font-size: 13px; color: #3a3a3c;">{{ d.teach }}</td>
+                      <td style="padding: 12px 14px; font-size: 13px; color: #3a3a3c;">{{ d.homework }}</td>
+                      <td style="padding: 12px 14px; font-size: 13px; color: #3a3a3c;">{{ d.edu }}</td>
+                      <td style="padding: 12px 14px; text-align: center;"><span style="{{ d.badge }}">{{ d.status }}</span></td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">تفصيل الفصول</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">
+              <sc-for list="{{ classCards }}" as="c" hint-placeholder-count="4">
+                <div style="background: #FAFAFA; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+                  <div style="font-weight: 800; font-size: 14px;">{{ c.name }}</div>
+                  <div style="font-size: 12px; color: #8E8E93; margin-bottom: 10px;">{{ c.teacher }}</div>
+                  <div style="height: 8px; background: #F2F2F7; border-radius: 999px; overflow: hidden;"><div style="{{ c.bar }}"></div></div>
+                  <div style="text-align: left; font-size: 12px; font-weight: 800; color: var(--ac,#7A1F3D); margin-top: 6px;">{{ c.pct }}%</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </section>
+        </sc-if>
+
+        <!-- ============ NOTIFY ============ -->
+        <sc-if value="{{ secNotify }}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">الإشعارات والتنبيهات</div>
+
+
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">لافتات Banners</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #f0fdf4; color: #15803d; border-radius: 12px; padding: 14px 16px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 10px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #16a34a;"></span>تم اعتماد الرصد وحفظه بنجاح.</div>
+              <div style="background: #fef2f2; color: #dc2626; border-radius: 12px; padding: 14px 16px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 10px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span>تعذّر الحفظ، تحقّق من الاتصال.</div>
+              <div style="background: #eff6ff; color: #1d4ed8; border-radius: 12px; padding: 14px 16px; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 10px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #3b82f6;"></span>يوجد اختبار مركزي جديد بانتظار الرصد.</div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">بطاقة إشعار</div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="background: #FAFAFA; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border-inline-start: 4px solid var(--ac,#7A1F3D);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-weight: 800; font-size: 14px;">زيارة إشرافية</span>
+                  <span style="font-size: 11px; color: #8E8E93;">اليوم 10:24 ص</span>
+                </div>
+                <p style="margin: 6px 0 10px; font-size: 13px; color: #3a3a3c; line-height: 1.6;">ستتم زيارة الدار يوم الأربعاء القادم للاطلاع على سير الحلقات.</p>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <span style="background: #eef2ff; color: #4338ca; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer;">تحديد كمقروء</span>
+                  <span style="background: color-mix(in srgb, var(--ac,#7A1F3D) 10%, white); color: var(--ac,#7A1F3D); border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer;">تمرير للمعلمات</span>
+                </div>
+              </div>
+              <div style="background: #FAFAFA; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); opacity: 0.6;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-weight: 700; font-size: 14px;">إشعار مقروء</span>
+                  <span style="font-size: 11px; color: #8E8E93;">أمس</span>
+                </div>
+                <p style="margin: 6px 0 0; font-size: 13px; color: #8E8E93;">تم تسليم خطة الأسبوع الثالث.</p>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">رابط واتساب</div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <span style="background: #f0fdf4; color: #15803d; border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #25D366;"></span>مراسلة ولي الأمر عبر واتساب</span>
+              <span style="background: #f0fdf4; color: #15803d; border-radius: 12px; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer;">تقرير واتساب</span>
+            </div>
+          </div>
+          <!-- Toast -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">رسالة عائمة Toast</div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <div style="background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px 20px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px;">✓ تم الحفظ بنجاح</div>
+              <div style="background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 12px; padding: 12px 20px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px;">✕ فشل في الحفظ</div>
+              <div style="background: #fffbeb; color: #b45309; border: 1px solid #fde68a; border-radius: 12px; padding: 12px 20px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px;">⚠ تنبيه: بيانات ناقصة</div>
+            </div>
+          </div>
+
+        </section>
+        </sc-if>
+
+        <!-- ============ CURRICULA MANAGEMENT ============ -->
+        <sc-if value="{{ secCurricula }}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">خطة المنهج الأسبوعية</div>
+            <div style="display: flex; gap: 8px;">
+              <button onClick="{{ exportExcel }}" style="background: #10b981; color: #fff; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;" style-hover="opacity: 0.85;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+                تصدير
+              </button>
+              <button style="background: #F2F2F7; color: #3a3a3c; border: none; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;" style-hover="background: #E5E5EA;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                طباعة
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 12px; align-items: flex-end;">
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">اختر المنهج</label>
+              <select onChange="{{ changeCurriculum }}" style="width: 100%; padding: 10px; border: 1px solid #E5E5EA; border-radius: 8px; font-family: inherit; font-size: 13px;">
+                <option value="0">منهج تبيان - تمهيدي</option>
+                <option value="1">منهج قارئ - أولي</option>
+              </select>
+            </div>
+            <div style="flex: 1;">
+              <label style="display: block; font-size: 12px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">رقم الأسبوع</label>
+              <select onChange="{{ changeWeek }}" style="width: 100%; padding: 10px; border: 1px solid #E5E5EA; border-radius: 8px; font-family: inherit; font-size: 13px;">
+                <sc-for list="{{ weekOptions }}" as="wo" hint-placeholder-count="5">
+                  <option value="{{ wo.value }}" selected="{{ wo.selected }}">{{ wo.label }}</option>
+                </sc-for>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{ weekDays }}" as="day" hint-placeholder-count="5">
+              <div style="{{ currCardStyle }}">
+                <div style="font-size: 13px; font-weight: 800; color: var(--ac, #7A1F3D); padding-top: 8px;">{{ day.name }}</div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <span style="font-size: 10px; font-weight: 700; color: #8E8E93;">الدرس التعليمي</span>
+                  <input type="text" placeholder="مثال: سورة الفجر 1-10" value="{{ day.educational }}" onChange="{{ editDay }}" style="width: 100%; padding: 8px 10px; border: 1px solid #E5E5EA; border-radius: 8px; font-family: inherit; font-size: 12px; background: #F9F9FB;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <span style="font-size: 10px; font-weight: 700; color: #8E8E93;">الواجب</span>
+                  <input type="text" placeholder="مثال: حفظ 5 آيات" value="{{ day.homework }}" onChange="{{ editDay }}" style="width: 100%; padding: 8px 10px; border: 1px solid #E5E5EA; border-radius: 8px; font-family: inherit; font-size: 12px; background: #F9F9FB;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <span style="font-size: 10px; font-weight: 700; color: #8E8E93;">الهدف التربوي</span>
+                  <input type="text" placeholder="مثال: الصدق" value="{{ day.tarbawi }}" onChange="{{ editDay }}" style="width: 100%; padding: 8px 10px; border: 1px solid #E5E5EA; border-radius: 8px; font-family: inherit; font-size: 12px; background: #F9F9FB;">
+                </div>
+                <button onClick="{{ saveDay }}" style="background: var(--ac, #7A1F3D); color: #fff; border: none; border-radius: 8px; padding: 8px; font-size: 11px; font-weight: 700; cursor: pointer; margin-top: 16px;" style-hover="opacity: 0.85;">✓</button>
+              </div>
+            </sc-for>
+          </div>
+
+
+        </section>
+        </sc-if>
+
+
+
+
+        <!-- ============ OVERLAYS & STATES ============ -->
+                <sc-if value="{{ secOverlays }}" hint-placeholder-val="{{ true }}">
+        <section style="display: flex; flex-direction: column; gap: 26px;">
+          <div style="font-size: 24px; font-weight: 800; color: var(--ac, #7A1F3D);">النوافذ والحالات</div>
+
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button onClick="{{ openModal }}" style="background: var(--ac,#7A1F3D); color: #fff; border: none; border-radius: 12px; padding: 12px 20px; font-family: inherit; font-weight: 700; cursor: pointer;">فتح نافذة Modal</button>
+            <button onClick="{{ openSheet }}" style="background: color-mix(in srgb, var(--ac,#7A1F3D) 10%, white); color: var(--ac,#7A1F3D); border: none; border-radius: 12px; padding: 12px 20px; font-family: inherit; font-weight: 700; cursor: pointer;">فتح ورقة سفلية</button>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;">
+              <div style="width: 32px; height: 32px; margin: 0 auto 12px; border: 3px solid #E5E5EA; border-top-color: var(--ac,#7A1F3D); border-radius: 50%; animation: om-spin 0.8s linear infinite;"></div>
+              <div style="font-size: 13px; color: #8E8E93;">حالة تحميل…</div>
+            </div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;">
+              <div style="width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 50%; background: #F2F2F7; display: flex; align-items: center; justify-content: center; color: #8E8E93; font-size: 22px; font-weight: 800;">؟</div>
+              <div style="font-weight: 700; font-size: 14px;">لا توجد نتائج</div>
+              <div style="font-size: 12px; color: #8E8E93; margin-top: 4px;">لم يتم العثور على بيانات مطابقة.</div>
+            </div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;">
+              <div style="width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 50%; background: #fef2f2; display: flex; align-items: center; justify-content: center; color: #dc2626; font-size: 22px; font-weight: 800;">!</div>
+              <div style="font-weight: 700; font-size: 14px; color: #dc2626;">حدث خطأ</div>
+              <div style="font-size: 12px; color: #8E8E93; margin-top: 4px;">تعذّر تحميل البيانات.</div>
+            </div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;">
+              <div style="width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 50%; background: #f0fdf4; display: flex; align-items: center; justify-content: center; color: #16a34a; font-size: 22px; font-weight: 800;">✓</div>
+              <div style="font-weight: 700; font-size: 14px; color: #15803d;">تم بنجاح</div>
+              <div style="font-size: 12px; color: #8E8E93; margin-top: 4px;">اكتملت العملية.</div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">حالة معطّلة / موقوفة</div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); opacity: 0.5; filter: grayscale(0.4);">
+              <div style="font-weight: 800; font-size: 15px;">فصل التمهيدي (موقوف)</div>
+              <div style="font-size: 13px; color: #8E8E93;">المعلمة: أ. سارة — 12 طالبة</div>
+            </div>
+          </div>
+
+          <!-- EmptyState -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">حالة فارغة — لا بيانات</div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 40px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); text-align: center;">
+              <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="margin: 0 auto 16px; display: block; opacity: 0.4;"><rect x="8" y="12" width="48" height="40" rx="6" stroke="#8E8E93" stroke-width="2.5" fill="none"></rect><line x1="20" y1="28" x2="44" y2="28" stroke="#8E8E93" stroke-width="2" stroke-linecap="round"></line><line x1="20" y1="36" x2="36" y2="36" stroke="#8E8E93" stroke-width="2" stroke-linecap="round"></line></svg>
+              <div style="font-weight: 700; font-size: 16px; color: #3a3a3c; margin-bottom: 6px;">لا توجد بيانات</div>
+              <div style="font-size: 13px; color: #8E8E93; margin-bottom: 16px;">لم يتم العثور على أي سجلات حالياً.</div>
+              <button style="background: var(--ac,#7A1F3D); color: #fff; border: none; border-radius: 10px; padding: 10px 24px; font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer;">إضافة جديد</button>
+            </div>
+          </div>
+
+          <!-- Skeleton -->
+          <div>
+            <div style="font-size: 12px; font-weight: 800; color: #8E8E93; margin-bottom: 10px;">هيكل تحميل Skeleton</div>
+            <div style="background: #FAFAFA; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 14px;">
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(90deg, #E5E5EA 25%, #F2F2F7 50%, #E5E5EA 75%); background-size: 200%; animation: om-slide 1.2s ease infinite;"></div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                  <div style="height: 14px; border-radius: 6px; background: linear-gradient(90deg, #E5E5EA 25%, #F2F2F7 50%, #E5E5EA 75%); background-size: 200%; animation: om-slide 1.2s ease 0.1s infinite; width: 60%;"></div>
+                  <div style="height: 10px; border-radius: 6px; background: linear-gradient(90deg, #E5E5EA 25%, #F2F2F7 50%, #E5E5EA 75%); background-size: 200%; animation: om-slide 1.2s ease 0.2s infinite; width: 40%;"></div>
+                </div>
+              </div>
+              <div style="height: 12px; border-radius: 6px; background: linear-gradient(90deg, #E5E5EA 25%, #F2F2F7 50%, #E5E5EA 75%); background-size: 200%; animation: om-slide 1.2s ease 0.15s infinite; width: 100%;"></div>
+              <div style="height: 12px; border-radius: 6px; background: linear-gradient(90deg, #E5E5EA 25%, #F2F2F7 50%, #E5E5EA 75%); background-size: 200%; animation: om-slide 1.2s ease 0.25s infinite; width: 80%;"></div>
+            </div>
+          </div>
+
+
+        </section>
+        </sc-if>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ toastStyle }}">{{ toastMsg }}</div>
+  </sc-if>
+
+  <!-- Modal -->
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 20px; animation: om-fade 0.15s ease;">
+      <div onClick="{{ stop }}" dir="rtl" style="background: #fff; border-radius: 24px; padding: 24px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+        <div style="font-size: 18px; font-weight: 800; color: var(--ac,#7A1F3D); margin-bottom: 16px;">إضافة دار جديدة</div>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div>
+            <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">اسم الدار</label>
+            <input placeholder="أدخل الاسم" style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; outline: none;" style-focus="border-color: var(--ac,#7A1F3D); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ac,#7A1F3D) 12%, transparent); background: #fff;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 10px; font-weight: 700; color: #8E8E93; margin-bottom: 6px;">المنهج</label>
+            <select style="width: 100%; background: #F2F2F7; border: 1.5px solid transparent; border-radius: 12px; padding: 14px; font-family: inherit; font-size: 16px; outline: none; appearance: none;">
+              <option>منهج تبيان</option><option>منهج قارئ</option><option>كلاهما</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 6px;">
+            <button onClick="{{ closeModal }}" style="flex: 1; background: var(--ac,#7A1F3D); color: #fff; border: none; border-radius: 12px; padding: 13px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">حفظ</button>
+            <button onClick="{{ closeModal }}" style="flex: 1; background: #F2F2F7; color: #3a3a3c; border: none; border-radius: 12px; padding: 13px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">إلغاء</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Bottom sheet -->
+  <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeSheet }}" style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: flex-end; justify-content: center; z-index: 60; animation: om-fade 0.15s ease;">
+      <div onClick="{{ stop }}" dir="rtl" style="background: #fff; border-radius: 24px 24px 0 0; padding: 22px; width: 100%; max-width: 480px; box-shadow: 0 -10px 40px rgba(0,0,0,0.2);">
+        <div style="width: 40px; height: 5px; background: #E5E5EA; border-radius: 999px; margin: 0 auto 16px;"></div>
+        <div style="font-size: 18px; font-weight: 800; color: var(--ac,#7A1F3D); margin-bottom: 14px;">مركز الاختبارات</div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div style="background: #F2F2F7; border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+            <div><div style="font-weight: 700; font-size: 14px;">اختبار سورة الملك</div><div style="font-size: 12px; color: #8E8E93;">الأربعاء 12 رجب</div></div>
+            <span style="background: color-mix(in srgb, var(--ac,#7A1F3D) 10%, white); color: var(--ac,#7A1F3D); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;">رصد الدرجات</span>
+          </div>
+          <div style="background: #F2F2F7; border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center;">
+            <div><div style="font-weight: 700; font-size: 14px;">اختبار جزء عمّ</div><div style="font-size: 12px; color: #8E8E93;">الخميس 13 رجب</div></div>
+            <span style="background: color-mix(in srgb, var(--ac,#7A1F3D) 10%, white); color: var(--ac,#7A1F3D); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;">رصد الدرجات</span>
+          </div>
+        </div>
+        <button onClick="{{ closeSheet }}" style="width: 100%; margin-top: 16px; background: var(--ac,#7A1F3D); color: #fff; border: none; border-radius: 12px; padding: 13px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;">إغلاق</button>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;accent&quot;: {
+    &quot;editor&quot;: &quot;color&quot;,
+    &quot;default&quot;: &quot;#7A1F3D&quot;,
+    &quot;options&quot;: [&quot;#7A1F3D&quot;, &quot;#1a365d&quot;, &quot;#065f46&quot;, &quot;#7F4BA9&quot;, &quot;#b45309&quot;],
+    &quot;tsType&quot;: &quot;string&quot;
+  }
+}">
+class Component extends DCLogic {
+  state = {
+    section: 'overview',
+    accent: null,
+    isDesktop: (typeof window !== 'undefined' && window.innerWidth >= 900),
+    sidebarOpen: false,
+    sidebarCollapsed: false,
+    tab: 0,
+    view: 'cards',
+    modalOpen: false,
+    sheetOpen: false,
+    toast: null,
+    currentCurriculum: 0,
+    currentWeek: 1,
+    weekDays: [],
+  };
+
+  componentDidMount() {
+    this._onResize = () => {
+      const d = window.innerWidth >= 900;
+      if (d !== this.state.isDesktop) this.setState({ isDesktop: d });
+    };
+    window.addEventListener('resize', this._onResize);
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this._onResize); }
+
+  showToast(type) {
+    clearTimeout(this._t);
+    this.setState({ toast: type });
+    this._t = setTimeout(() => this.setState({ toast: null }), 2600);
+  }
+
+  renderVals() {
+    const ac = this.props.accent ?? this.state.accent ?? '#7F4BA9';
+    const s = this.state.section;
+    const desktop = this.state.isDesktop;
+
+    // ---- layout ----
+    const collapsed = desktop && this.state.sidebarCollapsed;
+    const mobileOpen = !desktop && this.state.sidebarOpen;
+    const layoutStyle = desktop
+      ? 'display:flex;flex-direction:row;align-items:flex-start;flex:1;'
+      : 'display:flex;flex-direction:column;flex:1;';
+    const sidebarStyle = desktop
+      ? 'width:' + (collapsed ? '64px' : '230px') + ';flex:none;position:sticky;top:68px;align-self:flex-start;padding:20px 10px;display:flex;flex-direction:column;gap:4px;max-height:calc(100vh - 68px);overflow-y:auto;transition:width 0.2s ease;'
+      : 'position:fixed;top:0;bottom:0;right:0;width:78%;max-width:280px;background:#fff;z-index:50;padding:20px 14px;display:flex;flex-direction:column;gap:4px;overflow-y:auto;box-shadow:-8px 0 24px rgba(0,0,0,0.15);transition:transform 0.25s ease;transform:' + (mobileOpen ? 'translateX(0)' : 'translateX(100%)') + ';';
+    const contentStyle = desktop
+      ? 'flex:1;min-width:0;padding:28px 32px;'
+      : 'flex:1;padding:18px 0;display:flex;justify-content:center;';
+    const innerStyle = desktop ? 'max-width:1100px;margin:0 auto;' : 'width:100%;max-width:42rem;padding:0 16px;';
+    const showBackdrop = mobileOpen;
+
+    // ---- nav ----
+    const items = [
+      ['overview', 'نظرة عامة'],
+      ['buttons', 'الأزرار والشارات'],
+      ['forms', 'النماذج والحقول'],
+      ['layout', 'البطاقات والتبويبات'],
+      ['indicators', 'المؤشرات والرسوم'],
+      ['reports', 'التقارير'],
+      ['curricula', 'إدارة المناهج'],
+      ['notify', 'الإشعارات'],
+      ['overlays', 'النوافذ والحالات'],
+    ];
+    const navItems = items.map(([key, label]) => {
+      const active = s === key;
+      const base = 'display:flex;align-items:center;gap:9px;border:none;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap;border-radius:12px;font-size:14px;';
+      const style = desktop
+        ? base + 'padding:11px 14px;text-align:right;justify-content:flex-start;' + (active
+            ? 'background:color-mix(in srgb,' + ac + ' 12%,white);color:' + ac + ';'
+            : 'background:transparent;color:#3a3a3c;')
+        : base + 'padding:9px 14px;' + (active
+            ? 'background:' + ac + ';color:#fff;'
+            : 'background:#F2F2F7;color:#3a3a3c;');
+      const dot = 'width:7px;height:7px;border-radius:50%;flex:none;background:' + (active ? (desktop ? ac : '#fff') : '#C7C7CC') + ';';
+      const labelStyle = collapsed ? 'display:none;' : '';
+      return {
+        key, label, style, dot, labelStyle,
+        onClick: () => this.setState(desktop ? { section: key } : { section: key, sidebarOpen: false }),
+      };
+    });
+
+    // ---- swatches ----
+    const swColors = [['#7F4BA9', 'بنفسجي'], ['#7A1F3D', 'نبيذي'], ['#0f5132', 'أخضر'], ['#1e3a5f', 'كحلي'], ['#9a3412', 'نحاسي']];
+    const swatches = swColors.map(([c, name]) => ({
+      name, onClick: () => this.setState({ accent: c }),
+      style: 'width:22px;height:22px;border-radius:50%;cursor:pointer;background:' + c + ';border:2px solid ' + (ac === c ? '#fff' : 'rgba(255,255,255,0.35)') + ';box-shadow:' + (ac === c ? '0 0 0 2px rgba(255,255,255,0.9)' : 'none') + ';',
+    }));
+
+    // ---- palette ----
+    const chip = (bg) => 'height:52px;background:' + bg + ';';
+    const palette = [
+      { name: 'الأساسي', value: ac, chip: chip(ac) },
+      { name: 'أساسي فاتح', value: 'mix 12%', chip: chip('color-mix(in srgb,' + ac + ' 12%,white)') },
+      { name: 'خلفية iOS', value: '#F2F2F7', chip: chip('#F2F2F7') },
+      { name: 'نص أساسي', value: '#1C1C1E', chip: chip('#1C1C1E') },
+      { name: 'نص ثانوي', value: '#8E8E93', chip: chip('#8E8E93') },
+      { name: 'نجاح', value: '#16A34A', chip: chip('#16A34A') },
+      { name: 'خطر', value: '#EF4444', chip: chip('#EF4444') },
+      { name: 'معلومات', value: '#3B82F6', chip: chip('#3B82F6') },
+    ];
+
+    // ---- action chips ----
+    const chipStyle = (bg, col) => 'background:' + bg + ';color:' + col + ';border-radius:999px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;';
+    const actionChips = [
+      { label: 'تعديل', style: chipStyle('#faf5ff', '#7e22ce') },
+      { label: 'واتساب', style: chipStyle('#f0fdf4', '#15803d') },
+      { label: 'إشعار', style: chipStyle('#eff6ff', '#1d4ed8') },
+      { label: 'تعليق', style: chipStyle('#fffbeb', '#b45309') },
+      { label: 'تقرير', style: chipStyle('#eef2ff', '#4338ca') },
+      { label: 'مؤشرات', style: chipStyle('color-mix(in srgb,' + ac + ' 10%,white)', ac) },
+      { label: 'حذف', style: chipStyle('#fef2f2', '#dc2626') },
+    ];
+    const carActions = [
+      { label: 'مؤشرات', style: chipStyle('color-mix(in srgb,' + ac + ' 10%,white)', ac) },
+      { label: 'تقرير', style: chipStyle('#eef2ff', '#4338ca') },
+      { label: 'واتساب', style: chipStyle('#f0fdf4', '#15803d') },
+      { label: 'تعديل', style: chipStyle('#faf5ff', '#7e22ce') },
+      { label: 'تعليق', style: chipStyle('#fffbeb', '#b45309') },
+      { label: 'حذف', style: chipStyle('#fef2f2', '#dc2626') },
+    ];
+    const iconBtnStyle = (bg, fg) => 'position:relative;border:none;cursor:pointer;font-family:inherit;border-radius:10px;padding:8px;display:flex;align-items:center;justify-content:center;background:' + bg + ';color:' + fg + ';transition:transform 0.1s;';
+    const carIconActions = [
+      { label: 'مؤشرات', icon: {__html:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>'}, style: iconBtnStyle('color-mix(in srgb,' + ac + ' 10%,white)', ac) },
+      { label: 'تقرير', icon: {__html:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>'}, style: iconBtnStyle('#eef2ff', '#4338ca') },
+      { label: 'واتساب', icon: {__html:'<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>'}, style: iconBtnStyle('#f0fdf4', '#15803d') },
+      { label: 'تعديل', icon: {__html:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'}, style: iconBtnStyle('#faf5ff', '#7e22ce') },
+      { label: 'تعليق', icon: {__html:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'}, style: iconBtnStyle('#fffbeb', '#b45309') },
+      { label: 'حذف', icon: {__html:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m5 0V4a2 2 0 012-2h0a2 2 0 012 2v2"/></svg>'}, style: iconBtnStyle('#fef2f2', '#dc2626') },
+    ];
+
+    // ---- tabs demo ----
+    const tabLabels = ['الدور', 'المؤشرات', 'المناهج', 'الحسابات'];
+    const tabs = tabLabels.map((label, i) => {
+      const active = this.state.tab === i;
+      return {
+        label,
+        onClick: () => this.setState({ tab: i }),
+        style: 'border:none;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;border-radius:9px;padding:8px 16px;' + (active ? 'background:#fff;color:' + ac + ';box-shadow:0 1px 2px rgba(0,0,0,0.1);' : 'background:transparent;color:#8E8E93;'),
+      };
+    });
+    const viewBtn = (on) => 'border:none;font-family:inherit;cursor:pointer;border-radius:8px;padding:6px 8px;display:flex;align-items:center;justify-content:center;line-height:1;' + (on ? 'background:#fff;color:' + ac + ';box-shadow:0 1px 2px rgba(0,0,0,0.1);' : 'background:transparent;color:#8E8E93;');
+
+    // underline tabs
+    const tabsUnderline = tabLabels.map((label, i) => {
+      const active = this.state.tab === i;
+      return { label, onClick: () => this.setState({ tab: i }),
+        style: 'border:none;font-family:inherit;font-weight:' + (active ? '700' : '500') + ';font-size:13px;cursor:pointer;padding:10px 16px;background:transparent;color:' + (active ? ac : '#8E8E93') + ';border-bottom:2px solid ' + (active ? ac : 'transparent') + ';margin-bottom:-2px;' };
+    });
+    // pill tabs
+    const tabsPill = tabLabels.map((label, i) => {
+      const active = this.state.tab === i;
+      return { label, onClick: () => this.setState({ tab: i }),
+        style: 'border:none;font-family:inherit;font-weight:700;font-size:12px;cursor:pointer;border-radius:999px;padding:7px 16px;' + (active ? 'background:' + ac + ';color:#fff;' : 'background:#F2F2F7;color:#8E8E93;') };
+    });
+
+    // ---- KPIs ----
+    const kpis = [
+      { label: 'دور نشطة', value: '12' }, { label: 'فصول', value: '34' }, { label: 'معلمات', value: '41' },
+      { label: 'طالبات', value: '520' }, { label: 'حضور', value: '93%' }, { label: 'إنجاز', value: '87%' },
+      { label: 'واجب', value: '81%' }, { label: 'عام', value: '88%' }, { label: 'اختبارات', value: '6' },
+    ];
+
+    // ---- rings ----
+    const rings = [
+      { label: 'حضور', pct: '93%', v: 93 },
+      { label: 'إنجاز', pct: '87%', v: 87 },
+      { label: 'واجب', pct: '81%', v: 81 },
+    ].map(r => ({ ...r, ringStyle: 'width:84px;height:84px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(' + ac + ' ' + (r.v * 3.6) + 'deg,#F2F2F7 0);' }));
+
+    // ---- progress ----
+    const progColors = { 'حضور': '#16a34a', 'إنجاز': ac, 'واجب': '#f59e0b', 'تربوي': '#3b82f6' };
+    const progress = [
+      { label: 'حضور', pct: 93 }, { label: 'إنجاز', pct: 87 }, { label: 'واجب', pct: 81 }, { label: 'تربوي', pct: 76 },
+    ].map(p => ({ ...p, bar: 'height:100%;width:' + p.pct + '%;border-radius:999px;background:' + (progColors[p.label] || ac) + ';' }));
+
+    // ---- bars ----
+    const bars = [
+      { label: 'الفرقان', pct: 92 }, { label: 'النور', pct: 85 }, { label: 'الهدى', pct: 78 },
+      { label: 'اليقين', pct: 70 }, { label: 'السكينة', pct: 64 },
+    ].map(b => ({ ...b, bar: 'width:100%;height:' + b.pct + '%;border-radius:8px 8px 4px 4px;background:linear-gradient(to top,' + ac + ',color-mix(in srgb,' + ac + ' 55%,white));min-height:6px;' }));
+
+    // ---- line chart ----
+    const linePts = [30, 45, 40, 60, 55, 72, 88];
+    const w = 260, h = 90, pad = 6;
+    const maxV = 100;
+    const coords = linePts.map((v, i) => {
+      const x = pad + (i * (w - pad * 2) / (linePts.length - 1));
+      const y = h - pad - (v / maxV) * (h - pad * 2);
+      return [x, y];
+    });
+    const poly = coords.map(c => c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+    const areaPath = 'M' + coords[0][0].toFixed(1) + ',' + (h - pad) + ' L' + poly.split(' ').join(' L') + ' L' + coords[coords.length - 1][0].toFixed(1) + ',' + (h - pad) + ' Z';
+    const lineChart = React.createElement('svg', { viewBox: '0 0 ' + w + ' ' + h, style: { width: '100%', height: 'auto', display: 'block' } },
+      React.createElement('path', { d: areaPath, fill: ac, opacity: 0.1 }),
+      React.createElement('polyline', { points: poly, fill: 'none', stroke: ac, strokeWidth: 2.5, strokeLinejoin: 'round', strokeLinecap: 'round' }),
+      ...coords.map((c, i) => React.createElement('circle', { key: i, cx: c[0], cy: c[1], r: 3, fill: '#fff', stroke: ac, strokeWidth: 2 }))
+    );
+
+    // ---- sparklines ----
+    const mkSpark = (pts, color) => {
+      const sw = 120, sh = 32, sp = 3;
+      const mx = Math.max(...pts), mn = Math.min(...pts);
+      const rng = (mx - mn) || 1;
+      const cs = pts.map((v, i) => [sp + i * (sw - sp * 2) / (pts.length - 1), sh - sp - ((v - mn) / rng) * (sh - sp * 2)]);
+      const p = cs.map(c => c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ');
+      return React.createElement('svg', { viewBox: '0 0 ' + sw + ' ' + sh, style: { width: '100%', height: '32px', display: 'block' } },
+        React.createElement('polyline', { points: p, fill: 'none', stroke: color, strokeWidth: 2, strokeLinejoin: 'round', strokeLinecap: 'round' }));
+    };
+    const sparks = [
+      { label: 'حضور', value: '+4%', svg: mkSpark([70, 74, 72, 80, 78, 85, 88], '#16a34a') },
+      { label: 'إنجاز', value: '+2%', svg: mkSpark([60, 62, 58, 66, 70, 68, 74], ac) },
+      { label: 'واجب', value: '-1%', svg: mkSpark([80, 78, 82, 76, 74, 77, 73], '#ef4444') },
+    ];
+
+    // ---- report ----
+    const reportKpis = [
+      { label: 'طالبات', value: '48' }, { label: 'حضور', value: '94%' }, { label: 'إنجاز', value: '88%' },
+      { label: 'واجب', value: '82%' }, { label: 'اختبارات', value: '3' },
+    ];
+    const badgeDone = 'background:#f0fdf4;color:#15803d;border-radius:999px;padding:4px 12px;font-size:11px;font-weight:700;';
+    const badgeEmpty = 'background:#F2F2F7;color:#8E8E93;border-radius:999px;padding:4px 12px;font-size:11px;font-weight:700;';
+    const daysTable = [
+      { day: 'الأحد', teach: 'سورة الفجر 1-10', homework: 'حفظ 5 آيات', edu: 'الصدق', done: true },
+      { day: 'الاثنين', teach: 'مراجعة الفجر', homework: 'تسميع', edu: 'الأمانة', done: true },
+      { day: 'الثلاثاء', teach: 'سورة الفجر 11-20', homework: 'حفظ 6 آيات', edu: 'برّ الوالدين', done: true },
+      { day: 'الأربعاء', teach: '—', homework: '—', edu: '—', done: false },
+      { day: 'الخميس', teach: '—', homework: '—', edu: '—', done: false },
+    ].map(d => ({ ...d, status: d.done ? 'مكتمل' : 'فارغ', badge: d.done ? badgeDone : badgeEmpty }));
+
+    const classCards = [
+      { name: 'فصل التمهيدي', teacher: 'أ. نورة', pct: 92 },
+      { name: 'فصل الأول', teacher: 'أ. سارة', pct: 85 },
+      { name: 'فصل الثاني', teacher: 'أ. هند', pct: 78 },
+      { name: 'فصل الثالث', teacher: 'أ. ريم', pct: 70 },
+    ].map(c => ({ ...c, bar: 'height:100%;width:' + c.pct + '%;border-radius:999px;background:' + ac + ';' }));
+
+    const curriculaList = [
+      { name: 'منهج تبيان', level: 'تمهيدي', maxWeeks: 14 },
+      { name: 'منهج قارئ', level: 'أولي', maxWeeks: 10 },
+    ];
+
+    // بيانات الأسابيع (نموذج)
+    const allWeeks = {
+      '0': [ // تبيان
+        { week: 1, days: [
+          { name: 'الأحد', educational: 'سورة الفجر 1-10', homework: 'حفظ 5 آيات', tarbawi: 'الصدق' },
+          { name: 'الاثنين', educational: 'مراجعة', homework: 'تسميع', tarbawi: 'الأمانة' },
+          { name: 'الثلاثاء', educational: 'سورة الفجر 11-20', homework: 'حفظ 6 آيات', tarbawi: 'برّ الوالدين' },
+          { name: 'الأربعاء', educational: 'مراجعة جماعية', homework: 'كتابة', tarbawi: 'العدل' },
+          { name: 'الخميس', educational: 'اختبار', homework: 'مراجعة', tarbawi: 'الحلم' },
+        ]},
+        { week: 2, days: [
+          { name: 'الأحد', educational: 'سورة الطارق 1-17', homework: 'حفظ 8 آيات', tarbawi: 'الرحمة' },
+          { name: 'الاثنين', educational: 'مراجعة', homework: 'تسميع', tarbawi: 'الشكر' },
+          { name: 'الثلاثاء', educational: 'سورة الطارق كاملة', homework: 'حفظ', tarbawi: 'الصبر' },
+          { name: 'الأربعاء', educational: 'مراجعة', homework: 'كتابة', tarbawi: 'العفو' },
+          { name: 'الخميس', educational: 'اختبار', homework: '-', tarbawi: 'المودة' },
+        ]},
+      ],
+      '1': [ // قارئ
+        { week: 1, days: [
+          { name: 'الأحد', educational: 'آل عمران 1-20', homework: 'قراءة 10 آيات', tarbawi: 'التوكل' },
+          { name: 'الاثنين', educational: 'مراجعة', homework: 'قراءة', tarbawi: 'الإخلاص' },
+          { name: 'الثلاثاء', educational: 'آل عمران 21-40', homework: 'قراءة 10 آيات', tarbawi: 'الحكمة' },
+          { name: 'الأربعاء', educational: 'مراجعة', homework: 'تطبيق', tarbawi: 'العلم' },
+          { name: 'الخميس', educational: 'اختبار', homework: '-', tarbawi: 'الدعاء' },
+        ]},
+      ]
+    };
+
+    const currCurr = curriculaList[this.state.currentCurriculum];
+    const weekData = (allWeeks[this.state.currentCurriculum] || []).find(w => w.week === this.state.currentWeek);
+    const weekDays = weekData ? weekData.days : [];
+
+    // ---- toast ----
+    const toast = this.state.toast;
+    const toastOk = toast === 'ok';
+    const toastMsg = toastOk ? 'تم الحفظ بنجاح ✓' : (toast === 'err' ? 'حدث خطأ، حاول مجددًا' : '');
+    const toastStyle = 'position:fixed;top:78px;left:50%;transform:translateX(-50%);z-index:70;border-radius:12px;padding:12px 22px;font-weight:700;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,0.18);animation:om-slide 0.25s ease;' + (toastOk ? 'background:#16a34a;color:#fff;' : 'background:#dc2626;color:#fff;');
+
+    return {
+      swatchBarStyle: desktop
+        ? 'margin-inline-start:auto;display:flex;align-items:center;gap:8px;'
+        : 'display:none;',
+      currCardStyle: desktop
+        ? 'background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:grid;grid-template-columns:70px 1fr 1fr 1fr 56px;gap:10px;align-items:start;'
+        : 'background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;flex-direction:column;gap:10px;',
+      sidebarHeaderStyle: 'display:flex;align-items:center;gap:10px;padding:6px 4px 12px;' + (collapsed && desktop ? 'justify-content:center;' : ''),
+      accountTextStyle: collapsed && desktop ? 'display:none;' : 'flex:1;min-width:0;overflow:hidden;',
+      sidebarDividerStyle: 'height:1px;background:#E5E5EA;margin:4px 0;',
+      logoutStyle: 'display:flex;align-items:center;gap:9px;border:none;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap;border-radius:12px;font-size:14px;padding:11px 14px;background:transparent;color:#EF4444;',
+      logoutLabelStyle: collapsed ? 'display:none;' : '',
+
+      accent: ac, layoutStyle, sidebarStyle, contentStyle, innerStyle, navItems, swatches, palette,
+      showBackdrop,
+      toggleSidebar: () => this.setState(desktop ? { sidebarCollapsed: !this.state.sidebarCollapsed } : { sidebarOpen: !this.state.sidebarOpen }),
+      closeSidebarMobile: () => this.setState({ sidebarOpen: false }),
+      actionChips, carActions, carIconActions, tabs, tabsUnderline, tabsPill, kpis, rings, progress, bars, lineChart, sparks,
+      reportKpis, daysTable, classCards,
+      setTable: () => this.setState({ view: 'table' }), setCards: () => this.setState({ view: 'cards' }),
+      toggleRowMenu0: () => this.setState({ rowMenu: this.state.rowMenu === 0 ? -1 : 0 }),
+      showRowMenu0: this.state.rowMenu === 0,
+      closeRowMenu: () => this.setState({ rowMenu: -1 }),
+      isTable: this.state.view === 'table', isCards: this.state.view !== 'table',
+      tableBtn: viewBtn(this.state.view === 'table'), cardsBtn: viewBtn(this.state.view === 'cards'),
+      secOverview: s === 'overview', secButtons: s === 'buttons', secForms: s === 'forms',
+      secLayout: s === 'layout', secIndicators: s === 'indicators', secReports: s === 'reports',
+      secNotify: s === 'notify', secOverlays: s === 'overlays', secCurricula: s === 'curricula',
+      secIcons: false,
+      // component states
+      toggleDay: (e) => { const i = e.currentTarget.dataset.i; this.setState(s => ({dayPicks: {...(s.dayPicks||{0:true,1:true,2:true,3:true,4:true}), [i]: !(s.dayPicks||{0:true,1:true,2:true,3:true,4:true})[i]}})); },
+      toggleTrack: (e) => { const i = e.currentTarget.dataset.i; this.setState(s => ({trackVals: {...(s.trackVals||{0:true,1:false,2:true}), [i]: !(s.trackVals||{0:true,1:false,2:true})[i]}})); },
+      toggleSwitch: () => this.setState(s => ({switchOn: !s.switchOn})),
+      toggleChk1: () => this.setState(s => ({chk1: !s.chk1})),
+      toggleChk2: () => this.setState(s => ({chk2: !s.chk2})),
+      menuOpen: this.state.menuOpen ?? false,
+      toggleMenu: () => this.setState(s => ({menuOpen: !s.menuOpen})),
+      closeMenu: () => this.setState({menuOpen: false}),
+      // computed styles for interactive components
+      ...(() => {
+        const dp = this.state.dayPicks || {0:true,1:true,2:true,3:true,4:true};
+        const dayStyles = {};
+        for (let i = 0; i < 5; i++) {
+          dayStyles['dayStyle'+i] = dp[i]
+            ? 'width:44px;height:44px;border-radius:12px;border:2px solid '+ac+';background:'+ac+';color:#fff;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;'
+            : 'width:44px;height:44px;border-radius:12px;border:2px solid #E5E5EA;background:#fff;color:#3a3a3c;font-family:inherit;font-weight:700;font-size:13px;cursor:pointer;';
+        }
+        const tv = this.state.trackVals || {0:true,1:false,2:true};
+        const trackStyles = {};
+        for (let i = 0; i < 3; i++) {
+          trackStyles['trackStyle'+i] = tv[i]
+            ? 'padding:6px 16px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;background:#f0fdf4;color:#15803d;'
+            : 'padding:6px 16px;border-radius:8px;border:none;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;background:#fef2f2;color:#dc2626;';
+          trackStyles['trackLabel'+i] = tv[i] ? 'أنجزت ✓' : 'لم تنجز ✕';
+        }
+        const c1 = this.state.chk1 ?? true;
+        const c2 = this.state.chk2 ?? false;
+        const chkBox = (on) => 'width:22px;height:22px;border-radius:6px;border:2px solid '+(on?ac:'#C7C7CC')+';background:'+(on?ac:'#fff')+';display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex:none;';
+        const sw = this.state.switchOn ?? true;
+        return {
+          ...dayStyles, ...trackStyles,
+          chk1Style: chkBox(c1), chk1: c1,
+          chk2Style: chkBox(c2), chk2: c2,
+          switchOn: sw,
+          switchBg: 'width:52px;height:30px;border-radius:999px;border:none;cursor:pointer;position:relative;transition:background 0.2s;background:'+(sw?'#16a34a':'#C7C7CC')+';padding:0;',
+          switchKnob: 'width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);position:absolute;top:3px;transition:all 0.2s;'+(sw?'left:3px;':'left:25px;'),
+        };
+      })(),
+      curriculaList,
+      currentWeek: this.state.currentWeek,
+      weekDays,
+      changeCurriculum: (e) => this.setState({ currentCurriculum: parseInt(e.target.value), currentWeek: 1 }),
+      changeWeek: (e) => this.setState({ currentWeek: parseInt(e.target.value) || 1 }),
+      weekOptions: Array.from({ length: currCurr?.maxWeeks || 14 }, (_, i) => ({
+        value: i + 1,
+        label: `الأسبوع ${i + 1}`,
+        selected: i + 1 === this.state.currentWeek
+      })),
+      editDay: (e) => null,
+      saveDay: () => this.showToast('ok'),
+      exportExcel: () => {
+        const curr = curriculaList[this.state.currentCurriculum];
+        const csv = ['اليوم,الدرس التعليمي,الواجب,الهدف التربوي']
+          .concat(weekDays.map(d => `${d.name},${d.educational},${d.homework},${d.tarbawi}`))
+          .join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `خطة_${curr.name}_أسبوع_${this.state.currentWeek}.csv`;
+        link.click();
+        this.showToast('ok');
+      },
+      modalOpen: this.state.modalOpen, sheetOpen: this.state.sheetOpen,
+      openModal: () => this.setState({ modalOpen: true }), closeModal: () => this.setState({ modalOpen: false }),
+      openSheet: () => this.setState({ sheetOpen: true }), closeSheet: () => this.setState({ sheetOpen: false }),
+      stop: (e) => e.stopPropagation(),
+      toast: !!toast, toastMsg, toastStyle,
+      toastOk: () => this.showToast('ok'), toastErr: () => this.showToast('err'),
+    };
+  }
+}
+</script>
+</body>
+</html>

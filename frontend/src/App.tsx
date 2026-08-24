@@ -3,7 +3,10 @@ import { LoginPage } from './pages/LoginPage';
 import { MasterPage } from './pages/MasterPage';
 import { ManagerPage } from './pages/ManagerPage';
 import { TeacherPage } from './pages/TeacherPage';
+import { ToolsAuditPage } from './pages/ToolsAuditPage';
 import { Spinner } from './components/ds/Spinner';
+import { ThemeProvider } from './components/ds/theme';
+import { ToastProvider } from './components/ds/Toast';
 
 function AppRouter() {
   const { user, loading } = useAuth();
@@ -20,15 +23,29 @@ function AppRouter() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRoot />
-    </AuthProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <AppRoot />
+        </AuthProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }
 
 function AppRoot() {
   const { user, loading } = useAuth();
   const wide = !loading && !!user;
+
+  if (!loading && user && window.location.pathname === '/tools-audit') {
+    return (
+      <div className="flex justify-center" dir="rtl" lang="ar">
+        <div className="app-shell app-shell-wide">
+          <ToolsAuditPage />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex justify-center" dir="rtl" lang="ar">

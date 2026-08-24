@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Avatar, IconLogout, IconMenu } from './Charts';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 export type ShellNavItem = {
   key: string;
@@ -50,18 +51,33 @@ export function AppShell({
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  useEffect(() => {
+    if (!desktop && open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+    return undefined;
+  }, [desktop, open]);
+
   function toggleMenu() {
     if (desktop) setCollapsed((c) => !c);
     else setOpen((o) => !o);
   }
 
+  function closeMobile() {
+    if (!desktop) setOpen(false);
+  }
+
   const showLabels = desktop ? !collapsed : true;
-  const sidebarOpen = desktop || open;
+  const mobileVisible = !desktop && open;
 
   return (
     <div className="ds-app" dir="rtl">
       <header className="ds-brandbar">
-        <button type="button" className="ds-brandbar-menu" onClick={toggleMenu} aria-label="القائمة">
+        <button type="button" className="ds-brandbar-menu" onClick={toggleMenu} aria-label="القائمة" aria-expanded={desktop ? !collapsed : open}>
           <IconMenu />
         </button>
         <img src="/logo.png" alt="" className="ds-brandbar-logo" />
@@ -69,13 +85,15 @@ export function AppShell({
           <div className="ds-brandbar-title">{title}</div>
           {subtitle ? <div className="ds-brandbar-sub">{subtitle}</div> : null}
         </div>
+        {desktop ? <ThemeSwitcher compact /> : null}
       </header>
 
-      {!desktop && open ? <div className="ds-backdrop" onClick={() => setOpen(false)} /> : null}
+      {mobileVisible ? <div className="ds-backdrop" onClick={closeMobile} aria-hidden /> : null}
 
       <div className={`ds-layout ${desktop ? 'ds-layout-desktop' : ''}`}>
         <aside
-          className={`ds-sidebar ${sidebarOpen ? 'ds-sidebar-open' : ''} ${desktop && collapsed ? 'ds-sidebar-collapsed' : ''} ${desktop ? 'ds-sidebar-desk' : 'ds-sidebar-mobile'}`}
+          className={`ds-sidebar ${mobileVisible ? 'ds-sidebar-open' : ''} ${desktop && collapsed ? 'ds-sidebar-collapsed' : ''} ${desktop ? 'ds-sidebar-desk' : 'ds-sidebar-mobile'}`}
+          aria-hidden={!desktop && !open}
         >
           <div className={`ds-sidebar-user ${!showLabels ? 'justify-center' : ''}`}>
             <Avatar name={userName} size={40} />
@@ -100,7 +118,7 @@ export function AppShell({
                   className={`ds-nav-item ${isActive ? 'ds-nav-item-active' : ''}`}
                   onClick={() => {
                     onNav(item.key);
-                    if (!desktop) setOpen(false);
+                    closeMobile();
                   }}
                   title={item.label}
                 >
@@ -111,6 +129,7 @@ export function AppShell({
             })}
           </nav>
           <div className="ds-sidebar-footer">
+            {!desktop ? <ThemeSwitcher /> : null}
             <div className="ds-sidebar-divider" />
             <button type="button" className="ds-logout" onClick={onLogout} title="تسجيل خروج">
               <IconLogout />

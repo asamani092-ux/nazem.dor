@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
-import { downloadCsv } from '../lib/reports';
+import { downloadXlsx } from '../lib/export';
+import { printReport, tableHtml } from '../lib/print';
+import { matchQuery } from '../lib/search';
+import { usePageFeedback } from '../hooks/usePageFeedback';
 import {
   Field,
   Input,
@@ -15,7 +18,6 @@ import {
   StatCard,
   Badge,
   Card,
-  ActionChip,
   DataTable,
   RingStat,
   ProgressBar,
@@ -24,6 +26,17 @@ import {
   LineTrend,
   SearchInput,
   SectionTitle,
+  ExportBar,
+  IconButton,
+  ActionMenu,
+  PaginatedList,
+  IconChart,
+  IconReport,
+  IconWhatsApp,
+  IconBell,
+  IconEdit,
+  IconSuspend,
+  IconDelete,
 } from '../components/ds';
 
 type Dar = {
@@ -129,10 +142,10 @@ function buildWeekSlots(plans: CurriculumRow[], level: string, week: number): We
 
 export function MasterPage() {
   const { user, logout } = useAuth();
+  const { banner, notify, clearBanner } = usePageFeedback();
   const [tab, setTab] = useState<Tab>('dars');
   const [dars, setDars] = useState<Dar[]>([]);
   const [q, setQ] = useState('');
-  const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editDar, setEditDar] = useState<Dar | null>(null);
@@ -182,7 +195,13 @@ export function MasterPage() {
     tarbawi: '',
   });
 
-  const filtered = useMemo(() => dars.filter((d) => d.name.includes(q.trim())), [dars, q]);
+  const filtered = useMemo(
+    () =>
+      dars.filter((d) =>
+        matchQuery(q, [d.name, d.managerName, d.managerPhone, d.curriculum, d.status, d.location]),
+      ),
+    [dars, q],
+  );
   const maxWeek = useMemo(() => {
     let m = 1;
     for (const p of curriculum) {
@@ -202,7 +221,7 @@ export function MasterPage() {
       const res = await api<{ data: Dar[] }>('/api/master/dars');
       setDars(res.data);
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'خطأ');
+      notify(e instanceof Error ? e.message : 'خطأ', 'error');
     } finally {
       setBusy(false);
     }
@@ -227,17 +246,17 @@ export function MasterPage() {
   }, []);
 
   useEffect(() => {
-    if (tab === 'indicators') void loadIndicators().catch((e) => setMsg(e.message));
-    if (tab === 'curriculum') void loadCurriculum().catch((e) => setMsg(e.message));
+    if (tab === 'indicators') void loadIndicators().catch((e) => notify(e.message, 'error'));
+    if (tab === 'curriculum') void loadCurriculum().catch((e) => notify(e.message, 'error'));
     if (tab === 'accounts' && user?.role === 'SUPER_MASTER') {
-      void loadUsersMeta().catch((e) => setMsg(e.message));
+      void loadUsersMeta().catch((e) => notify(e.message, 'error'));
     }
   }, [tab, user?.role]);
 
   useEffect(() => {
     if (tab !== 'accounts' || user?.role !== 'SUPER_MASTER') return;
     const t = setTimeout(() => {
-      void loadAccounts().catch((e) => setMsg(e.message));
+      void loadAccounts().catch((e) => notify(e.message, 'error'));
     }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- بحث مؤجّل فقط
@@ -259,12 +278,12 @@ export function MasterPage() {
     setBusy(true);
     try {
       const res = await api<{ message: string }>('/api/master/dars', { method: 'POST', json: form });
-      setMsg(res.message || 'تمت الإضافة');
+      notify(res.message || 'تمت الإضافة');
       setShowAdd(false);
       setForm({ name: '', curriculum: 'منهج تبيان', managerName: '', managerPhone: '', location: '' });
       await load();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'خطأ');
+      notify(e instanceof Error ? e.message : 'خطأ', 'error');
     } finally {
       setBusy(false);
     }
@@ -284,7 +303,7 @@ export function MasterPage() {
       },
     });
     setEditDar(null);
-    setMsg('تم تحديث الدار');
+    notify('تم تحديث الدار');
     await load();
   }
 
@@ -332,7 +351,7 @@ export function MasterPage() {
       .slice(0, 8)
       .map((c) => `• ${c.name} (${c.level}): ${c.studentCount} طالبة | عام %${c.overallRate}`)
       .join('\n');
-    setMsg(
+    notify(
       `طالبات: ${d.totalStudents} | نشطات: ${d.activeStudents} | فصول: ${d.classesCount}\n` +
         `حضور %${d.attendanceRate} | إنجاز %${d.completionRate} | واجب %${d.homeworkRate} | عام %${d.overallRate}\n` +
         (lines ? `\nتفصيل الفصول:\n${lines}` : ''),
@@ -340,18 +359,18 @@ export function MasterPage() {
   }
 
   async function saveExam() {
-    if (!exam.title.trim() || exam.title.trim().length < 2) return setMsg('عنوان الاختبار مطلوب');
-    if (!exam.date || !exam.link) return setMsg('أكمل التاريخ والرابط');
+    if (!exam.title.trim() || exam.title.trim().length < 2) return notify('عنوان الاختبار مطلوب', 'error');
+    if (!exam.date || !exam.link) return notify('أكمل التاريخ والرابط', 'error');
     await api('/api/master/exams', { method: 'POST', json: exam });
     setShowExam(false);
     setExam({ targetDarId: 'الكل', date: '', link: '', title: '' });
-    setMsg('تم نشر الاختبار');
+    notify('تم نشر الاختبار');
   }
 
   async function sendAlert() {
     await api('/api/master/alerts', { method: 'POST', json: alertForm });
     setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE' });
-    setMsg('تم إرسال الإشعار');
+    notify('تم إرسال الإشعار');
   }
 
   function openAddAccount(type: 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT' = 'MASTER') {
@@ -386,7 +405,7 @@ export function MasterPage() {
 
   async function saveAccount() {
     if (!accountForm.name.trim() || !accountForm.phone.trim()) {
-      setMsg('الاسم والجوال مطلوبان');
+      notify('الاسم والجوال مطلوبان', 'error');
       return;
     }
     if (accountEditorMode === 'add') {
@@ -400,7 +419,7 @@ export function MasterPage() {
           classId: accountForm.classId || undefined,
         },
       });
-      setMsg(res.message || 'تمت الإضافة');
+      notify(res.message || 'تمت الإضافة');
     } else {
       await api(`/api/master/users/${accountForm.id}`, {
         method: 'PUT',
@@ -412,7 +431,7 @@ export function MasterPage() {
           classId: accountForm.classId || undefined,
         },
       });
-      setMsg('تم تحديث الحساب');
+      notify('تم تحديث الحساب');
     }
     setShowAccountEditor(false);
     await loadAccounts();
@@ -428,14 +447,14 @@ export function MasterPage() {
   }
 
   async function deleteAccount(row: AccountRow) {
-    if (row.type === 'SUPER_MASTER') return setMsg('لا يمكن حذف مدير النظام');
+    if (row.type === 'SUPER_MASTER') return notify('لا يمكن حذف مدير النظام', 'error');
     if (!confirm(`حذف ${row.typeLabel}: ${row.name}؟`)) return;
     await api(`/api/master/users/${row.id}?kind=${row.kind}`, {
       method: 'DELETE',
       json: { kind: row.kind },
     });
     setAccountMenuId(null);
-    setMsg('تم الحذف');
+    notify('تم الحذف');
     await loadAccounts();
   }
 
@@ -446,21 +465,21 @@ export function MasterPage() {
 
   async function savePlan() {
     if (!planForm.educational.trim()) {
-      setMsg('الدرس التعليمي مطلوب');
+      notify('الدرس التعليمي مطلوب', 'error');
       return;
     }
     const existed = curriculum.some(
       (p) => p.level === planForm.level && p.week === Number(planForm.week) && p.day === planForm.day,
     );
     if (planEditorMode === 'add' && existed) {
-      setMsg('يوجد خطة لهذا اليوم — التعديل فقط، لا يمكن الإضافة فوق يوم ممتلئ');
+      notify('يوجد خطة لهذا اليوم — التعديل فقط، لا يمكن الإضافة فوق يوم ممتلئ', 'error');
       return;
     }
     await api('/api/master/curriculum', {
       method: 'POST',
       json: { ...planForm, week: Number(planForm.week), homework: formatHomework(planForm.homework) },
     });
-    setMsg(planEditorMode === 'edit' || existed ? 'تم تحديث الخطة' : 'تمت إضافة الخطة');
+    notify(planEditorMode === 'edit' || existed ? 'تم تحديث الخطة' : 'تمت إضافة الخطة');
     setShowPlanEditor(false);
     setPlanMenuDay(null);
     setPlanViewLevel(planForm.level);
@@ -478,12 +497,12 @@ export function MasterPage() {
   function openAddPlan(day?: string) {
     const target = day || firstEmptyDay();
     if (!target) {
-      setMsg('جميع أيام هذا الأسبوع ممتلئة — عدّلي يوماً موجوداً فقط');
+      notify('جميع أيام هذا الأسبوع ممتلئة — عدّلي يوماً موجوداً فقط', 'error');
       return;
     }
     const filled = weekSlots.some((s) => s.day === target && s.plan);
     if (filled) {
-      setMsg('يوجد خطة لهذا اليوم — استخدمي التعديل فقط');
+      notify('يوجد خطة لهذا اليوم — استخدمي التعديل فقط', 'error');
       return;
     }
     setPlanEditorMode('add');
@@ -516,7 +535,7 @@ export function MasterPage() {
   async function deletePlan(plan: CurriculumRow) {
     if (!confirm(`حذف خطة ${plan.day} — أسبوع ${plan.week}؟`)) return;
     await api(`/api/master/curriculum/${plan.id}`, { method: 'DELETE' });
-    setMsg('تم حذف الخطة');
+    notify('تم حذف الخطة');
     setPlanMenuDay(null);
     setCurriculumLoaded(false);
     await loadCurriculum(true);
@@ -574,7 +593,154 @@ export function MasterPage() {
     { key: 'indicators', label: 'المؤشرات' },
     { key: 'curriculum', label: 'المناهج' },
     ...(user?.role === 'SUPER_MASTER' ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
+    ...(user?.role === 'SUPER_MASTER' ? [{ key: 'tools-audit', label: 'تقييم الأدوات' }] : []),
   ];
+
+  function exportIndicatorsXlsx() {
+    if (!indicators) return;
+    downloadXlsx('indicators.xlsx', [
+      {
+        name: 'ملخص',
+        rows: [
+          {
+            دور_نشطة: indicators.darsActive,
+            فصول: indicators.classesCount,
+            معلمات: indicators.teachersCount,
+            طالبات: indicators.studentsActive,
+            حضور: indicators.attendanceRate,
+            إنجاز: indicators.completionRate,
+            واجب: indicators.homeworkRate,
+            عام: indicators.overallRate,
+            اختبارات: indicators.examsCount,
+          },
+        ],
+      },
+      {
+        name: 'اداء_الدور',
+        rows: indicators.perDar.map((d) => ({
+          الدار: d.name,
+          المنهج: d.curriculum,
+          الحالة: d.status,
+          طالبات: d.activeStudents,
+          فصول: d.classesCount,
+          حضور: d.attendanceRate,
+          إنجاز: d.completionRate,
+          واجب: d.homeworkRate,
+          عام: d.overallRate,
+        })),
+      },
+    ]);
+  }
+
+  function printIndicators() {
+    if (!indicators) return;
+    const html =
+      tableHtml(
+        ['المؤشر', 'القيمة'],
+        [
+          ['دور نشطة', String(indicators.darsActive)],
+          ['فصول', String(indicators.classesCount)],
+          ['معلمات', String(indicators.teachersCount)],
+          ['طالبات', String(indicators.studentsActive)],
+          ['حضور %', String(indicators.attendanceRate)],
+          ['إنجاز %', String(indicators.completionRate)],
+          ['واجب %', String(indicators.homeworkRate)],
+          ['عام %', String(indicators.overallRate)],
+        ],
+      ) +
+      tableHtml(
+        ['الدار', 'المنهج', 'طالبات', 'فصول', 'عام %'],
+        indicators.perDar.map((d) => [
+          d.name,
+          d.curriculum,
+          String(d.activeStudents),
+          String(d.classesCount),
+          String(d.overallRate),
+        ]),
+      );
+    printReport('مؤشرات الإشراف العام', html);
+  }
+
+  function exportCurriculumXlsx() {
+    downloadXlsx('curriculum-plans.xlsx', CURRICULUM_LEVELS.map((level) => ({
+      name: level,
+      rows: curriculum
+        .filter((p) => p.level === level)
+        .map((p) => ({
+          أسبوع: p.week,
+          يوم: p.day,
+          تعليمي: p.educational,
+          واجب: formatHomework(p.homework),
+          تربوي: p.tarbawi || '',
+        })),
+    })));
+  }
+
+  function printCurriculumWeek() {
+    const html = tableHtml(
+      ['اليوم', 'التعليمي', 'الواجب', 'التربوي', 'الحالة'],
+      weekSlots.map((s) => [
+        s.day,
+        s.plan?.educational || '—',
+        s.plan ? formatHomework(s.plan.homework) : '—',
+        s.plan?.tarbawi || '—',
+        s.plan ? 'مكتمل' : 'فارغ',
+      ]),
+    );
+    printReport(`خطة ${planViewLevel} — أسبوع ${planViewWeek}`, html);
+  }
+
+  function exportDarReportXlsx(r: DarReport) {
+    downloadXlsx(`report-${r.dar.name}.xlsx`, [
+      {
+        name: 'ملخص',
+        rows: [
+          {
+            الدار: r.dar.name,
+            المنهج: r.dar.curriculum,
+            طالبات: r.summary.totalStudents,
+            نشطات: r.summary.activeStudents,
+            فصول: r.summary.classesCount,
+            حضور: r.summary.attendanceRate,
+            إنجاز: r.summary.completionRate,
+            واجب: r.summary.homeworkRate,
+            عام: r.summary.overallRate,
+          },
+        ],
+      },
+      { name: 'طالبات', rows: r.students },
+      { name: 'اختبارات', rows: r.examGrades },
+    ]);
+  }
+
+  function printDarReport(r: DarReport) {
+    const summary = tableHtml(
+      ['البيان', 'القيمة'],
+      [
+        ['الدار', r.dar.name],
+        ['المنهج', r.dar.curriculum],
+        ['طالبات', String(r.summary.totalStudents)],
+        ['نشطات', String(r.summary.activeStudents)],
+        ['فصول', String(r.summary.classesCount)],
+        ['حضور %', String(r.summary.attendanceRate)],
+        ['إنجاز %', String(r.summary.completionRate)],
+        ['واجب %', String(r.summary.homeworkRate)],
+        ['عام %', String(r.summary.overallRate)],
+      ],
+    );
+    const students = tableHtml(
+      ['الطالبة', 'الفصل', 'المستوى', 'حضور %', 'إنجاز %', 'اختبارات %'],
+      r.students.map((s) => [
+        String(s.name ?? ''),
+        String(s.className ?? ''),
+        String(s.level ?? ''),
+        String(s.attendanceRate ?? ''),
+        String(s.completionRate ?? ''),
+        String(s.examAvg ?? ''),
+      ]),
+    );
+    printReport(`تقرير ${r.dar.name}`, `${summary}<h2>الطالبات</h2>${students}`);
+  }
 
   const emptyDays = weekSlots.filter((s) => !s.plan).map((s) => s.day);
 
@@ -586,7 +752,13 @@ export function MasterPage() {
       userRole={user?.role || ''}
       nav={masterNav}
       active={tab}
-      onNav={(k) => setTab(k as Tab)}
+      onNav={(k) => {
+        if (k === 'tools-audit') {
+          window.location.href = '/tools-audit';
+          return;
+        }
+        setTab(k as Tab);
+      }}
       onLogout={logout}
     >
         {tab === 'dars' ? (
@@ -605,33 +777,13 @@ export function MasterPage() {
           </>
         ) : null}
 
-      {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
+      {banner ? <Banner tone={banner.tone} onClose={clearBanner}>{banner.text}</Banner> : null}
 
       {tab === 'indicators' && indicators ? (
         <div className="space-y-4">
           <SectionTitle
             action={
-              <button
-                className="ds-btn ds-btn-primary !w-auto !px-4 !py-2 !text-sm"
-                onClick={() =>
-                  downloadCsv(
-                    'indicators-dars.csv',
-                    indicators.perDar.map((d) => ({
-                      الدار: d.name,
-                      المنهج: d.curriculum,
-                      الحالة: d.status,
-                      طالبات: d.activeStudents,
-                      فصول: d.classesCount,
-                      حضور: d.attendanceRate,
-                      إنجاز: d.completionRate,
-                      واجب: d.homeworkRate,
-                      عام: d.overallRate,
-                    })),
-                  )
-                }
-              >
-                تصدير CSV
-              </button>
+              <ExportBar onExcel={() => exportIndicatorsXlsx()} onPrint={() => printIndicators()} excelLabel="تصدير Excel" />
             }
           >
             المؤشرات
@@ -734,7 +886,7 @@ export function MasterPage() {
                 واجب %{d.homeworkRate} | عام %{d.overallRate}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <ActionChip tone="report" label="تقرير الدار" onClick={() => void openReport(d.id)} />
+                <IconButton label="تقرير الدار" tone="report" onClick={() => void openReport(d.id)}><IconReport /></IconButton>
               </div>
             </Card>
           ))}
@@ -746,7 +898,7 @@ export function MasterPage() {
           <div className="ds-card ds-card-pad space-y-3 p-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-extrabold text-primary">خطط المنهج</h3>
-              <div className="flex items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <ViewToggle
                   mode={planViewMode}
                   onTable={() => {
@@ -757,6 +909,11 @@ export function MasterPage() {
                     setPlanViewMode('cards');
                     setPlanMenuDay(null);
                   }}
+                />
+                <ExportBar
+                  onExcel={() => exportCurriculumXlsx()}
+                  onPrint={() => printCurriculumWeek()}
+                  excelLabel="تصدير Excel"
                 />
                 {emptyDays.length > 0 ? (
                   <Button variant="primary" className="!w-auto !px-3 !py-2 !text-xs" onClick={() => openAddPlan()}>
@@ -981,7 +1138,8 @@ export function MasterPage() {
               <div className="mt-1 text-xs text-ios-muted">لم يتم العثور على دار مطابقة.</div>
             </Card>
           ) : null}
-          {filtered.map((dar) => (
+          {filtered.length ? (
+            <PaginatedList key={q} items={filtered} pageSize={12} renderItem={(dar) => (
             <Card key={dar.id} className={dar.status === 'معلق' ? 'suspended-card' : ''}>
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-lg font-extrabold text-primary">د</div>
@@ -994,17 +1152,20 @@ export function MasterPage() {
                   </div>
                 </div>
               </div>
-              <div className="mt-3.5 flex flex-wrap gap-2">
-                <ActionChip label="مؤشرات" tone="primary" onClick={() => void showStats(dar.id)} />
-                <ActionChip label="تقرير" tone="report" onClick={() => void openReport(dar.id)} />
-                <ActionChip label="واتساب" tone="wa" href={waLink(dar.managerPhone)} />
-                <ActionChip label="إشعار" tone="info" onClick={() => setAlertForm({ darId: dar.id, title: '', content: '', kind: 'NOTICE' })} />
-                <ActionChip label="تعديل" tone="edit" onClick={() => setEditDar({ ...dar })} />
-                <ActionChip label={dar.status === 'معلق' ? 'تنشيط' : 'تعليق'} tone="suspend" onClick={() => void suspendToggle(dar)} />
-                <ActionChip label="حذف" tone="delete" onClick={() => void deleteDar(dar.id)} />
+              <div className="mt-3.5 flex flex-wrap gap-1.5">
+                <IconButton label="مؤشرات" tone="primary" onClick={() => void showStats(dar.id)}><IconChart /></IconButton>
+                <IconButton label="تقرير" tone="report" onClick={() => void openReport(dar.id)}><IconReport /></IconButton>
+                <IconButton label="واتساب" tone="wa" href={waLink(dar.managerPhone)}><IconWhatsApp /></IconButton>
+                <IconButton label="إشعار" tone="alert" onClick={() => setAlertForm({ darId: dar.id, title: '', content: '', kind: 'NOTICE' })}><IconBell /></IconButton>
+                <IconButton label="تعديل" tone="edit" onClick={() => setEditDar({ ...dar })}><IconEdit /></IconButton>
+                <IconButton label={dar.status === 'معلق' ? 'تنشيط' : 'تعليق'} tone="alert" onClick={() => void suspendToggle(dar)}><IconSuspend /></IconButton>
+                {user?.role === 'SUPER_MASTER' ? (
+                  <IconButton label="حذف" tone="delete" onClick={() => void deleteDar(dar.id)}><IconDelete /></IconButton>
+                ) : null}
               </div>
             </Card>
-          ))}
+            )} />
+          ) : null}
         </div>
       ) : null}
 
@@ -1075,7 +1236,12 @@ export function MasterPage() {
       {report ? (
         <Modal title={`تقرير: ${report.dar.name}`} onClose={() => setReport(null)}>
           <div className="space-y-3 text-sm">
-            <p className="text-xs text-gray-500">
+            <ExportBar
+              onExcel={() => exportDarReportXlsx(report)}
+              onPrint={() => printDarReport(report)}
+              excelLabel="تصدير Excel"
+            />
+            <p className="text-xs text-ios-muted">
               {report.dar.curriculum} | المديرة {report.dar.managerName}
             </p>
             <p className="font-bold text-primary">
@@ -1085,30 +1251,11 @@ export function MasterPage() {
               حضور %{report.summary.attendanceRate} | إنجاز %{report.summary.completionRate} | واجب %{report.summary.homeworkRate} |
               عام %{report.summary.overallRate}
             </p>
-            <p className="text-[10px] text-gray-500">مستويات مسموحة: {report.dar.allowedLevels.join('، ')}</p>
-            <button
-              className="ds-btn ds-btn-primary"
-              onClick={() =>
-                downloadCsv(
-                  `report-${report.dar.name}.csv`,
-                  report.students.map((s) => ({
-                    الطالبة: s.name,
-                    الفصل: s.className,
-                    المستوى: s.level,
-                    الحالة: s.status,
-                    حضور: s.attendanceRate,
-                    إنجاز: s.completionRate,
-                    واجب: s.homeworkRate,
-                    متوسط_اختبارات: s.examAvg,
-                  })),
-                )
-              }
-            >
-              تصدير CSV للطالبات
-            </button>
-            <div className="max-h-60 space-y-2 overflow-y-auto">
-              {report.students.slice(0, 30).map((s) => (
-                <div key={String(s.id)} className="rounded-xl border p-2 text-[10px]">
+            <PaginatedList
+              items={report.students}
+              pageSize={15}
+              renderItem={(s) => (
+                <div key={String(s.id)} className="rounded-xl border border-ios-border p-2 text-[11px]">
                   <p className="font-bold">
                     {String(s.name)} — {String(s.className)}
                   </p>
@@ -1116,8 +1263,8 @@ export function MasterPage() {
                     حضور %{String(s.attendanceRate)} | إنجاز %{String(s.completionRate)} | اختبارات %{String(s.examAvg)}
                   </p>
                 </div>
-              ))}
-            </div>
+              )}
+            />
           </div>
         </Modal>
       ) : null}
@@ -1161,7 +1308,7 @@ export function MasterPage() {
                       (p) => p.level === planForm.level && p.week === Number(planForm.week) && p.day === day,
                     );
                     if (clash) {
-                      setMsg('يوجد خطة لهذا اليوم — استخدمي التعديل فقط');
+                      notify('يوجد خطة لهذا اليوم — استخدمي التعديل فقط', 'error');
                       return;
                     }
                   }
@@ -1318,7 +1465,7 @@ export function MasterPage() {
                 </select>
               </Field>
             ) : null}
-            <button className="ds-btn ds-btn-primary" onClick={() => void saveAccount().catch((e) => setMsg(e.message))}>
+            <button className="ds-btn ds-btn-primary" onClick={() => void saveAccount().catch((e) => notify(e.message, 'error'))}>
               {accountEditorMode === 'edit' ? 'حفظ التعديل' : 'إضافة'}
             </button>
           </div>
