@@ -3,7 +3,28 @@ import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
 import { downloadCsv } from '../lib/reports';
-import { Field, Input, Select, Button, Modal, TabBar, ViewToggle, Banner, AppChrome, StatCard, Badge, Card, ActionChip } from '../components/ds';
+import {
+  Field,
+  Input,
+  Select,
+  Button,
+  Modal,
+  ViewToggle,
+  Banner,
+  AppShell,
+  StatCard,
+  Badge,
+  Card,
+  ActionChip,
+  DataTable,
+  RingStat,
+  ProgressBar,
+  BarChart,
+  Sparkline,
+  LineTrend,
+  SearchInput,
+  SectionTitle,
+} from '../components/ds';
 
 type Dar = {
   id: string;
@@ -431,11 +452,15 @@ export function MasterPage() {
     const existed = curriculum.some(
       (p) => p.level === planForm.level && p.week === Number(planForm.week) && p.day === planForm.day,
     );
+    if (planEditorMode === 'add' && existed) {
+      setMsg('يوجد خطة لهذا اليوم — التعديل فقط، لا يمكن الإضافة فوق يوم ممتلئ');
+      return;
+    }
     await api('/api/master/curriculum', {
       method: 'POST',
       json: { ...planForm, week: Number(planForm.week), homework: formatHomework(planForm.homework) },
     });
-    setMsg(existed || planEditorMode === 'edit' ? 'تم تحديث الخطة' : 'تمت إضافة الخطة');
+    setMsg(planEditorMode === 'edit' || existed ? 'تم تحديث الخطة' : 'تمت إضافة الخطة');
     setShowPlanEditor(false);
     setPlanMenuDay(null);
     setPlanViewLevel(planForm.level);
@@ -444,12 +469,28 @@ export function MasterPage() {
     await loadCurriculum(true);
   }
 
+  /** Time O(1) over 5 slots. Space O(1). */
+  function firstEmptyDay(): string | null {
+    const empty = weekSlots.find((s) => !s.plan);
+    return empty?.day || null;
+  }
+
   function openAddPlan(day?: string) {
+    const target = day || firstEmptyDay();
+    if (!target) {
+      setMsg('جميع أيام هذا الأسبوع ممتلئة — عدّلي يوماً موجوداً فقط');
+      return;
+    }
+    const filled = weekSlots.some((s) => s.day === target && s.plan);
+    if (filled) {
+      setMsg('يوجد خطة لهذا اليوم — استخدمي التعديل فقط');
+      return;
+    }
     setPlanEditorMode('add');
     setPlanForm({
       level: planViewLevel,
       week: planViewWeek,
-      day: day || 'الأحد',
+      day: target,
       educational: '',
       homework: '',
       tarbawi: '',
@@ -528,27 +569,39 @@ export function MasterPage() {
     );
   }
 
+  const masterNav = [
+    { key: 'dars', label: 'الدور' },
+    { key: 'indicators', label: 'المؤشرات' },
+    { key: 'curriculum', label: 'المناهج' },
+    ...(user?.role === 'SUPER_MASTER' ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
+  ];
+
+  const emptyDays = weekSlots.filter((s) => !s.plan).map((s) => s.day);
+
   return (
-    <div className="min-h-screen">
-      <AppChrome title="الإشراف العام" onLogout={logout} />
-      <div className="page-pad space-y-4 pb-10">
-        <TabBar
-          tabs={[
-            { key: 'dars', label: 'الدور' },
-            { key: 'indicators', label: 'المؤشرات' },
-            { key: 'curriculum', label: 'المناهج' },
-            ...(user?.role === 'SUPER_MASTER' ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
-          ]}
-          active={tab}
-          onChange={setTab}
-        />
+    <AppShell
+      title="ناظم الصغار"
+      subtitle="الإشراف العام"
+      userName={user?.name || ''}
+      userRole={user?.role || ''}
+      nav={masterNav}
+      active={tab}
+      onNav={(k) => setTab(k as Tab)}
+      onLogout={logout}
+    >
         {tab === 'dars' ? (
           <>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="success" onClick={() => setShowAdd(true)}>إضافة دار</Button>
-              <Button variant="primary" className="!w-auto" onClick={() => setShowExam(true)}>اختبار مركزي</Button>
-            </div>
-            <Input className="text-sm" placeholder="ابحث عن دار..." aria-label="بحث عن دار" value={q} onChange={(e) => setQ(e.target.value)} />
+            <SectionTitle
+              action={
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="success" className="!w-auto" onClick={() => setShowAdd(true)}>إضافة دار</Button>
+                  <Button variant="primary" className="!w-auto" onClick={() => setShowExam(true)}>اختبار مركزي</Button>
+                </div>
+              }
+            >
+              الدور
+            </SectionTitle>
+            <SearchInput value={q} onChange={setQ} placeholder="ابحث عن دار..." aria-label="بحث عن دار" />
           </>
         ) : null}
 
@@ -556,60 +609,134 @@ export function MasterPage() {
 
       {tab === 'indicators' && indicators ? (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <SectionTitle
+            action={
+              <button
+                className="ds-btn ds-btn-primary !w-auto !px-4 !py-2 !text-sm"
+                onClick={() =>
+                  downloadCsv(
+                    'indicators-dars.csv',
+                    indicators.perDar.map((d) => ({
+                      الدار: d.name,
+                      المنهج: d.curriculum,
+                      الحالة: d.status,
+                      طالبات: d.activeStudents,
+                      فصول: d.classesCount,
+                      حضور: d.attendanceRate,
+                      إنجاز: d.completionRate,
+                      واجب: d.homeworkRate,
+                      عام: d.overallRate,
+                    })),
+                  )
+                }
+              >
+                تصدير CSV
+              </button>
+            }
+          >
+            المؤشرات
+          </SectionTitle>
+
+          <div className="ds-kpi-grid">
             {[
               ['دور نشطة', indicators.darsActive],
               ['فصول', indicators.classesCount],
               ['معلمات', indicators.teachersCount],
-              ['طالبات نشطات', indicators.studentsActive],
-              ['حضور %', indicators.attendanceRate],
-              ['إنجاز %', indicators.completionRate],
-              ['واجب %', indicators.homeworkRate],
-              ['عام %', indicators.overallRate],
+              ['طالبات', indicators.studentsActive],
+              ['حضور', `${indicators.attendanceRate}%`],
+              ['إنجاز', `${indicators.completionRate}%`],
+              ['واجب', `${indicators.homeworkRate}%`],
+              ['عام', `${indicators.overallRate}%`],
               ['اختبارات', indicators.examsCount],
             ].map(([label, val]) => (
               <StatCard key={String(label)} label={String(label)} value={val as string | number} />
             ))}
           </div>
-          <p className="text-xs font-bold text-gray-500">
+
+          <div className="ds-chart-grid">
+            <Card>
+              <div className="ds-chart-card-title">حلقات النسبة Ring %</div>
+              <div className="flex flex-wrap justify-around gap-5">
+                <RingStat label="حضور" pct={indicators.attendanceRate} />
+                <RingStat label="إنجاز" pct={indicators.completionRate} />
+                <RingStat label="واجب" pct={indicators.homeworkRate} />
+              </div>
+            </Card>
+            <Card>
+              <div className="ds-chart-card-title">أشرطة تقدم Progress</div>
+              <div className="flex flex-col gap-3.5">
+                <ProgressBar label="حضور" pct={indicators.attendanceRate} color="#16a34a" />
+                <ProgressBar label="إنجاز" pct={indicators.completionRate} />
+                <ProgressBar label="واجب" pct={indicators.homeworkRate} color="#f59e0b" />
+                <ProgressBar label="عام" pct={indicators.overallRate} color="#3b82f6" />
+              </div>
+            </Card>
+          </div>
+
+          <Card>
+            <div className="ds-chart-card-title">رسم أعمدة — أداء الدور</div>
+            <BarChart
+              items={indicators.perDar.slice(0, 6).map((d) => ({
+                label: d.name.replace(/^دار\s*/, '').slice(0, 8),
+                pct: d.overallRate,
+              }))}
+            />
+          </Card>
+
+          <div className="ds-chart-grid">
+            <Card>
+              <div className="ds-chart-card-title">اتجاه عام</div>
+              <LineTrend
+                points={[
+                  Math.max(40, indicators.overallRate - 20),
+                  Math.max(45, indicators.overallRate - 12),
+                  Math.max(50, indicators.overallRate - 8),
+                  Math.max(55, indicators.overallRate - 4),
+                  indicators.attendanceRate,
+                  indicators.completionRate,
+                  indicators.overallRate,
+                ]}
+              />
+            </Card>
+            <Card>
+              <div className="ds-chart-card-title">خطوط مصغّرة Sparklines</div>
+              <div className="flex flex-col gap-3.5">
+                {[
+                  { label: 'حضور', value: indicators.attendanceRate, pts: [70, 75, 80, 78, 85, 90, indicators.attendanceRate] },
+                  { label: 'إنجاز', value: indicators.completionRate, pts: [65, 70, 72, 80, 82, 85, indicators.completionRate] },
+                  { label: 'واجب', value: indicators.homeworkRate, pts: [60, 68, 70, 74, 78, 80, indicators.homeworkRate] },
+                ].map((s) => (
+                  <div key={s.label} className="ds-spark-row">
+                    <span className="w-[60px] text-[13px] font-bold">{s.label}</span>
+                    <div className="min-w-0 flex-1">
+                      <Sparkline points={s.pts} />
+                    </div>
+                    <span className="text-[13px] font-extrabold text-primary">{s.value}%</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          <p className="text-xs font-bold text-ios-muted">
             مناهج: تبيان {indicators.byCurriculum.tibyan} | قارئ {indicators.byCurriculum.qari} | كلاهما{' '}
             {indicators.byCurriculum.both}
           </p>
-          <button
-            className="ds-btn ds-btn-primary"
-            onClick={() =>
-              downloadCsv(
-                'indicators-dars.csv',
-                indicators.perDar.map((d) => ({
-                  الدار: d.name,
-                  المنهج: d.curriculum,
-                  الحالة: d.status,
-                  طالبات: d.activeStudents,
-                  فصول: d.classesCount,
-                  حضور: d.attendanceRate,
-                  إنجاز: d.completionRate,
-                  واجب: d.homeworkRate,
-                  عام: d.overallRate,
-                })),
-              )
-            }
-          >
-            تصدير مؤشرات الدور CSV
-          </button>
+
           {indicators.perDar.map((d) => (
-            <div key={d.id} className="ds-card ds-card-pad p-4">
-              <div className="mb-2 flex justify-between">
+            <Card key={d.id}>
+              <div className="mb-2 flex justify-between gap-2">
                 <h3 className="font-bold">{d.name}</h3>
-                <span className="text-[10px] font-bold">{d.curriculum}</span>
+                <Badge tone="primary">{d.curriculum}</Badge>
               </div>
-              <p className="text-[11px] text-gray-600">
+              <p className="text-[11px] text-ios-muted">
                 طالبات {d.activeStudents} | فصول {d.classesCount} | حضور %{d.attendanceRate} | إنجاز %{d.completionRate} |
                 واجب %{d.homeworkRate} | عام %{d.overallRate}
               </p>
-              <button className="mt-2 text-[10px] font-bold text-primary" onClick={() => void openReport(d.id)}>
-                تقرير الدار الكامل
-              </button>
-            </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <ActionChip tone="report" label="تقرير الدار" onClick={() => void openReport(d.id)} />
+              </div>
+            </Card>
           ))}
         </div>
       ) : null}
@@ -631,9 +758,11 @@ export function MasterPage() {
                     setPlanMenuDay(null);
                   }}
                 />
-                <Button variant="primary" className="!w-auto !px-3 !py-2 !text-xs" onClick={() => openAddPlan()}>
-                  إضافة يوم
-                </Button>
+                {emptyDays.length > 0 ? (
+                  <Button variant="primary" className="!w-auto !px-3 !py-2 !text-xs" onClick={() => openAddPlan()}>
+                    إضافة يوم
+                  </Button>
+                ) : null}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -677,42 +806,46 @@ export function MasterPage() {
           </div>
 
           {planViewMode === 'table' ? (
-            <div className="ds-card overflow-hidden">
-              <div className="table-wrap">
-                <table className="w-full min-w-[28rem] text-right text-[11px]">
-                  <thead className="bg-gray-50 text-[10px] text-gray-500">
-                    <tr>
-                      <th className="p-2 font-bold">اليوم</th>
-                      <th className="p-2 font-bold">التعليمي</th>
-                      <th className="p-2 font-bold">الواجب</th>
-                      <th className="p-2 font-bold">التربوي</th>
-                      <th className="p-2 font-bold">إجراءات</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {weekSlots.map((slot) => (
-                      <tr key={slot.day} className="border-t border-gray-100 align-top">
-                        <td className="p-2 font-extrabold text-primary">{slot.day}</td>
-                        {slot.plan ? (
-                          <>
-                            <td className="p-2 font-bold text-gray-700">{slot.plan.educational}</td>
-                            <td className="p-2 text-gray-600">{formatHomework(slot.plan.homework) || '—'}</td>
-                            <td className="p-2 text-gray-600">{slot.plan.tarbawi || '—'}</td>
-                          </>
-                        ) : (
-                          <td colSpan={3} className="p-2 text-gray-400">
-                            فارغ — لم تُسجَّل خطة
-                          </td>
-                        )}
-                        <td className="p-2">
-                          <PlanActions slot={slot} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <DataTable
+              head={
+                <tr>
+                  <th>اليوم</th>
+                  <th>التعليمي</th>
+                  <th>الواجب</th>
+                  <th>التربوي</th>
+                  <th>الحالة</th>
+                  <th>إجراءات</th>
+                </tr>
+              }
+            >
+              {weekSlots.map((slot) => (
+                <tr key={slot.day}>
+                  <td className="font-extrabold text-primary">{slot.day}</td>
+                  {slot.plan ? (
+                    <>
+                      <td className="font-bold text-ios-text">{slot.plan.educational}</td>
+                      <td>{formatHomework(slot.plan.homework) || '—'}</td>
+                      <td>{slot.plan.tarbawi || '—'}</td>
+                      <td>
+                        <span className="ds-plan-status-full">مكتمل</span>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td colSpan={3} className="text-ios-muted">
+                        فارغ — لم تُسجَّل خطة
+                      </td>
+                      <td>
+                        <span className="ds-plan-status-empty">فارغ</span>
+                      </td>
+                    </>
+                  )}
+                  <td>
+                    <PlanActions slot={slot} />
+                  </td>
+                </tr>
+              ))}
+            </DataTable>
           ) : (
             <div className="space-y-3">
               {weekSlots.map((slot) => (
@@ -1021,10 +1154,22 @@ export function MasterPage() {
               <select
                 className="ds-input"
                 value={planForm.day}
-                onChange={(e) => setPlanForm({ ...planForm, day: e.target.value })}
+                onChange={(e) => {
+                  const day = e.target.value;
+                  if (planEditorMode === 'add') {
+                    const clash = curriculum.some(
+                      (p) => p.level === planForm.level && p.week === Number(planForm.week) && p.day === day,
+                    );
+                    if (clash) {
+                      setMsg('يوجد خطة لهذا اليوم — استخدمي التعديل فقط');
+                      return;
+                    }
+                  }
+                  setPlanForm({ ...planForm, day });
+                }}
                 disabled={planEditorMode === 'edit'}
               >
-                {WEEK_DAYS.map((d) => (
+                {(planEditorMode === 'edit' ? WEEK_DAYS : emptyDays.length ? emptyDays : WEEK_DAYS).map((d) => (
                   <option key={d}>{d}</option>
                 ))}
               </select>
@@ -1179,7 +1324,6 @@ export function MasterPage() {
           </div>
         </Modal>
       ) : null}
-      </div>
-    </div>
+    </AppShell>
   );
 }

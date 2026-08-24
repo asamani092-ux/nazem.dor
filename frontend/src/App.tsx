@@ -21,11 +21,20 @@ function AppRouter() {
 export default function App() {
   return (
     <AuthProvider>
-      <div className="flex justify-center" dir="rtl" lang="ar">
-        <div className="app-shell">
-          <AppRouter />
-        </div>
-      </div>
+      <AppRoot />
     </AuthProvider>
+  );
+}
+
+function AppRoot() {
+  const { user, loading } = useAuth();
+  const wide = !loading && !!user;
+
+  return (
+    <div className="flex justify-center" dir="rtl" lang="ar">
+      <div className={wide ? 'app-shell app-shell-wide' : 'app-shell'}>
+        <AppRouter />
+      </div>
+    </div>
   );
 }

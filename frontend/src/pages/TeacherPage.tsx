@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
-import { Field, Input, Select, Button, Banner, AppChrome, BottomSheet, TrackToggle, DayButton, Card, ActionChip } from '../components/ds';
+import { Field, Input, Select, Button, Banner, AppShell, BottomSheet, TrackToggle, DayButton, Card, ActionChip } from '../components/ds';
 
 type Student = { id: string; name: string; parentPhone: string };
 type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
@@ -198,13 +198,23 @@ export function TeacherPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <AppChrome
-        title={user?.className || 'فصل التحفيظ'}
-        subtitle={`المعلمة: أ. ${user?.name} | ${user?.classLevel}`}
-        onLogout={logout}
-      />
-      <div className="page-pad space-y-4 pb-10">
+    <AppShell
+      title="ناظم الصغار"
+      subtitle={user?.className || 'فصل التحفيظ'}
+      userName={user?.name || ''}
+      userRole={user?.role || ''}
+      contextLine={user?.classLevel}
+      nav={[
+        { key: 'track', label: 'الرصد' },
+        { key: 'exams', label: 'الاختبارات' },
+      ]}
+      active={examsOpen ? 'exams' : 'track'}
+      onNav={(k) => {
+        if (k === 'exams') void openExams();
+        else setExamsOpen(false);
+      }}
+      onLogout={logout}
+    >
       {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
         {alerts.map((a, i) => (
           <div
@@ -329,7 +339,6 @@ export function TeacherPage() {
             </button>
           </>
         ) : null}
-      </div>
 
       {examsOpen ? (
         <BottomSheet
@@ -377,6 +386,6 @@ export function TeacherPage() {
           <Button variant="primary" className="mt-4" onClick={() => setExamsOpen(false)}>إغلاق</Button>
         </BottomSheet>
       ) : null}
-    </div>
+    </AppShell>
   );
 }

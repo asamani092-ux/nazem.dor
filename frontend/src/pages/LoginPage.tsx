@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth';
-import { Field, Input, Card } from '../components/ds';
+import { Field, Input } from '../components/ds';
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -22,14 +22,14 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-8 sm:px-6">
-      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[18px] bg-white shadow-lg">
-        <img src="/favicon.svg" alt="" className="h-12 w-12" aria-hidden="true" />
-      </div>
-      <h1 className="mb-2 text-2xl font-extrabold text-primary sm:text-[28px]">دور التحفيظ</h1>
-      <p className="mb-8 text-center text-sm text-ios-muted sm:mb-10">نظام إدارة دور التحفيظ النسائية — ناظم الصغار</p>
-      <form onSubmit={onSubmit} className="w-full max-w-md">
-        <Card className="space-y-4">
+    <div className="ds-login">
+      <form onSubmit={onSubmit} className="ds-login-card">
+        <div className="ds-login-brand">
+          <img src="/logo.png" alt="" className="ds-login-logo" />
+          <div className="ds-login-title">ناظم الصغار</div>
+          <div className="ds-login-sub">نظام إدارة دور التحفيظ — بريدة</div>
+        </div>
+        <div className="ds-login-fields">
           <Field label="رقم الجوال">
             <Input
               className="text-left font-semibold tracking-widest"
@@ -37,6 +37,7 @@ export function LoginPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="05XXXXXXXX"
+              inputMode="numeric"
               required
               error={!!error}
             />
@@ -45,7 +46,7 @@ export function LoginPage() {
           <button className="ds-btn ds-btn-primary" disabled={busy} type="submit">
             {busy ? 'جاري الدخول...' : 'تسجيل الدخول'}
           </button>
-        </Card>
+        </div>
       </form>
     </div>
   );

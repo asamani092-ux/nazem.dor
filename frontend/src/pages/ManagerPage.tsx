@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { downloadCsv, LEVELS_BY_CURRICULUM } from '../lib/reports';
-import { Field, Input, Select, Button, Modal, TabBar, Banner, AppChrome, Badge, Card, ActionChip } from '../components/ds';
+import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, ActionChip, SectionTitle, StatCard, RingStat, ProgressBar } from '../components/ds';
 
 type Cls = {
   id: string;
@@ -151,31 +151,25 @@ export function ManagerPage() {
   const unread = alerts.filter((a) => !a.isRead).length;
 
   return (
-    <div className="min-h-screen">
-      <AppChrome
-        title={meta?.darName || user?.darName || 'دار التحفيظ'}
-        subtitle={
-          meta
-            ? `مرحباً بك، أ. ${user?.name} — ${meta.curriculum}`
-            : `مرحباً بك، أ. ${user?.name}`
-        }
-        onLogout={logout}
-      />
-      <div className="page-pad space-y-4 pb-10">
-        <TabBar
-          tabs={[
-            { key: 'classes', label: 'الفصول' },
-            { key: 'students', label: 'الطالبات' },
-            { key: 'alerts', label: `التنبيهات${unread ? ` (${unread})` : ''}` },
-            { key: 'reports', label: 'التقارير' },
-          ]}
-          active={tab}
-          onChange={(k) => {
-            setTab(k);
-            if (k === 'reports') void loadReport().catch((e) => setMsg(e.message));
-          }}
-        />
-
+    <AppShell
+      title="ناظم الصغار"
+      subtitle={meta?.darName || user?.darName || 'دار التحفيظ'}
+      userName={user?.name || ''}
+      userRole={user?.role || ''}
+      contextLine={meta?.curriculum || user?.darName}
+      nav={[
+        { key: 'classes', label: 'الفصول' },
+        { key: 'students', label: 'الطالبات' },
+        { key: 'alerts', label: unread ? `التنبيهات (${unread})` : 'التنبيهات' },
+        { key: 'reports', label: 'التقارير' },
+      ]}
+      active={tab}
+      onNav={(k) => {
+        setTab(k as typeof tab);
+        if (k === 'reports') void loadReport().catch((e) => setMsg(e.message));
+      }}
+      onLogout={logout}
+    >
       {msg ? <Banner tone="success" onClose={() => setMsg('')}>{msg}</Banner> : null}
         {tab === 'classes' ? (
           <>
@@ -322,41 +316,55 @@ export function ManagerPage() {
 
         {tab === 'reports' && report ? (
           <div className="space-y-4">
-            <div className="ds-card ds-card-pad space-y-2 p-4">
-              <h3 className="font-bold text-primary">تقرير الدار</h3>
-              <p className="text-xs text-gray-500">
+            <SectionTitle
+              action={
+                <button
+                  className="ds-btn ds-btn-primary !w-auto !px-4 !py-2 !text-sm"
+                  onClick={() =>
+                    downloadCsv(
+                      `dar-report.csv`,
+                      report.students.map((s) => ({
+                        الطالبة: s.name,
+                        الفصل: s.className,
+                        المستوى: s.level,
+                        حضور: s.attendanceRate,
+                        إنجاز: s.completionRate,
+                        واجب: s.homeworkRate,
+                        اختبارات: s.examAvg,
+                      })),
+                    )
+                  }
+                >
+                  تصدير CSV
+                </button>
+              }
+            >
+              التقارير
+            </SectionTitle>
+            <Card className="space-y-3">
+              <p className="text-xs text-ios-muted">
                 {report.dar.name} | {report.dar.curriculum}
               </p>
-              <p className="text-sm font-bold">
-                طالبات {report.summary.totalStudents} | نشطات {report.summary.activeStudents} | فصول {report.summary.classesCount}
-              </p>
-              <p className="text-xs">
-                حضور %{report.summary.attendanceRate} | إنجاز %{report.summary.completionRate} | واجب %{report.summary.homeworkRate} |
-                عام %{report.summary.overallRate}
-              </p>
-              <p className="text-[10px] text-gray-500">مستويات المنهج: {report.dar.allowedLevels.join('، ')}</p>
-              <button
-                className="ds-btn ds-btn-primary"
-                onClick={() =>
-                  downloadCsv(
-                    `dar-report.csv`,
-                    report.students.map((s) => ({
-                      الطالبة: s.name,
-                      الفصل: s.className,
-                      المستوى: s.level,
-                      حضور: s.attendanceRate,
-                      إنجاز: s.completionRate,
-                      واجب: s.homeworkRate,
-                      اختبارات: s.examAvg,
-                    })),
-                  )
-                }
-              >
-                تصدير CSV
-              </button>
-            </div>
+              <div className="ds-kpi-grid">
+                <StatCard label="طالبات" value={report.summary.totalStudents} />
+                <StatCard label="نشطات" value={report.summary.activeStudents} />
+                <StatCard label="فصول" value={report.summary.classesCount} />
+                <StatCard label="عام %" value={report.summary.overallRate} />
+              </div>
+              <div className="flex flex-wrap justify-around gap-4 py-2">
+                <RingStat label="حضور" pct={report.summary.attendanceRate} />
+                <RingStat label="إنجاز" pct={report.summary.completionRate} />
+                <RingStat label="واجب" pct={report.summary.homeworkRate} />
+              </div>
+              <div className="space-y-3">
+                <ProgressBar label="حضور" pct={report.summary.attendanceRate} color="#16a34a" />
+                <ProgressBar label="إنجاز" pct={report.summary.completionRate} />
+                <ProgressBar label="واجب" pct={report.summary.homeworkRate} color="#f59e0b" />
+              </div>
+              <p className="text-[10px] text-ios-muted">مستويات المنهج: {report.dar.allowedLevels.join('، ')}</p>
+            </Card>
             {report.classBreakdown.map((c) => (
-              <div key={String(c.id)} className="ds-card ds-card-pad p-3 text-[11px]">
+              <Card key={String(c.id)} className="text-[11px]">
                 <p className="font-bold">
                   {String(c.name)} — {String(c.level)} (أ. {String(c.teacherName)})
                 </p>
@@ -364,11 +372,10 @@ export function ManagerPage() {
                   طالبات {String(c.studentCount)} | حضور %{String(c.attendanceRate)} | إنجاز %{String(c.completionRate)} | عام %
                   {String(c.overallRate)}
                 </p>
-              </div>
+              </Card>
             ))}
           </div>
         ) : null}
-      </div>
 
       {showClass ? (
         <Modal title="إضافة فصل" onClose={() => setShowClass(false)}>
@@ -535,6 +542,6 @@ export function ManagerPage() {
           </div>
         </Modal>
       ) : null}
-    </div>
+    </AppShell>
   );
 }
