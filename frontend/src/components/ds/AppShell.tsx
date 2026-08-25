@@ -84,7 +84,9 @@ export function AppShell({
         <button type="button" className="ds-brandbar-menu" onClick={toggleMenu} aria-label={mobileVisible ? 'إغلاق القائمة' : 'القائمة'} aria-expanded={desktop ? !collapsed : open}>
           {mobileVisible ? <IconClose /> : <IconMenu />}
         </button>
-        <img src={logoDor} alt="الدور النسائية" className="ds-brandbar-logo" />
+        <span className="ds-logo-badge ds-logo-badge-header">
+          <img src={logoDor} alt="الدور النسائية" className="ds-brandbar-logo" />
+        </span>
         <div className="min-w-0 flex-1">
           <div className="ds-brandbar-title">{title}</div>
           {subtitle ? <div className="ds-brandbar-sub">{subtitle}</div> : null}
@@ -107,7 +109,9 @@ export function AppShell({
           ) : null}
           {mobileVisible || (desktop && !collapsed) ? (
             <div className="ds-sidebar-logo-wrap">
-              <img src={logoDor} alt="الدور النسائية" className="ds-sidebar-logo" />
+              <span className="ds-logo-badge ds-logo-badge-sidebar">
+                <img src={logoDor} alt="الدور النسائية" className="ds-sidebar-logo" />
+              </span>
             </div>
           ) : null}
           <div className={`ds-sidebar-user ${!showLabels ? 'justify-center' : ''}`}>
