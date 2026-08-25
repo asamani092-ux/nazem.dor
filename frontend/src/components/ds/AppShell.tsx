@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Avatar, IconLogout, IconMenu } from './Charts';
-import { TabBar } from './TabBar';
 import { ThemeSwitcher } from './ThemeSwitcher';
 
 export type ShellNavItem = {
@@ -141,12 +140,7 @@ export function AppShell({
         </aside>
 
         <main className="ds-main">
-          <div className="ds-main-inner">
-            {nav.length > 0 ? (
-              <TabBar tabs={nav} active={active} onChange={onNav} className="ds-main-tabs" />
-            ) : null}
-            {children}
-          </div>
+          <div className="ds-main-inner">{children}</div>
         </main>
       </div>
     </div>

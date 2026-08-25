@@ -874,12 +874,6 @@ body {
   gap: 16px;
 }
 
-.ds-main-tabs {
-  display: flex;
-  width: 100%;
-  margin-bottom: 8px;
-}
-
 .ds-layout-desktop .ds-main-inner {
   max-width: 1100px;
   margin: 0 auto;
