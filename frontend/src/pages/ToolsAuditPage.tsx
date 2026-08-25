@@ -40,6 +40,8 @@ const TOOLS: ToolDef[] = [
   { id: 'calendar', name: 'تقويم الزيارات والاختبارات', category: 'صفحات' },
   { id: 'excel-import', name: 'استيراد Excel للطالبات', category: 'صفحات' },
   { id: 'file-upload', name: 'رفع ملف DS', category: 'مكوّنات' },
+  { id: 'exams', name: 'مركز الاختبارات', category: 'صفحات' },
+];
 
 function loadStored(): Record<string, AuditEntry> {
   try {
