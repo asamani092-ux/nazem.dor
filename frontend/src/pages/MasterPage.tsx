@@ -183,6 +183,7 @@ export function MasterPage() {
   const [calendarDetail, setCalendarDetail] = useState<CalendarEvent | null>(null);
   const [calendarDayEvents, setCalendarDayEvents] = useState<CalendarEvent[]>([]);
   const [accountMenuRow, setAccountMenuRow] = useState<string | null>(null);
+  const [darTableMenuRow, setDarTableMenuRow] = useState<string | null>(null);
   const [darStats, setDarStats] = useState<{
     id: string;
     name: string;
@@ -1376,18 +1377,27 @@ export function MasterPage() {
                     </Badge>
                   </td>
                   <td>
-                    <div className="ds-table-actions">
-                      <IconButton label="مؤشرات" tone="primary" onClick={() => void showStats(dar.id)}><IconChart /></IconButton>
-                      <IconButton label="تقرير" tone="report" onClick={() => void openReport(dar.id)}><IconReport /></IconButton>
-                      <IconButton label="واتساب" tone="wa" href={waLink(dar.managerPhone)}><IconWhatsApp /></IconButton>
-                      <IconButton label="إشعار" tone="alert" onClick={() => openDarAlertSheet(dar)}><IconBell /></IconButton>
-                      <IconButton label="اختبار" tone="primary" onClick={() => openDarExam(dar)}><IconExam /></IconButton>
-                      <IconButton label="تعديل" tone="edit" onClick={() => setEditDar({ ...dar })}><IconEdit /></IconButton>
-                      <IconButton label={dar.status === 'معلق' ? 'تنشيط' : 'تعليق'} tone={dar.status === 'معلق' ? 'wa' : 'alert'} onClick={() => void suspendToggle(dar)}><IconSuspend /></IconButton>
-                      {user?.role === 'SUPER_MASTER' ? (
-                        <IconButton label="حذف" tone="delete" onClick={() => void deleteDar(dar.id)}><IconDelete /></IconButton>
-                      ) : null}
-                    </div>
+                    <ActionMenu
+                      open={darTableMenuRow === dar.id}
+                      onToggle={() => setDarTableMenuRow(darTableMenuRow === dar.id ? null : dar.id)}
+                      onClose={() => setDarTableMenuRow(null)}
+                      items={[
+                        { key: 'stats', label: 'مؤشرات', onClick: () => void showStats(dar.id) },
+                        { key: 'report', label: 'تقرير', onClick: () => void openReport(dar.id) },
+                        { key: 'wa', label: 'واتساب', href: waLink(dar.managerPhone) },
+                        { key: 'alert', label: 'إشعار', onClick: () => openDarAlertSheet(dar) },
+                        { key: 'exam', label: 'اختبار', onClick: () => openDarExam(dar) },
+                        { key: 'edit', label: 'تعديل', onClick: () => setEditDar({ ...dar }) },
+                        {
+                          key: 'status',
+                          label: dar.status === 'معلق' ? 'تنشيط' : 'تعليق',
+                          onClick: () => void suspendToggle(dar),
+                        },
+                        ...(user?.role === 'SUPER_MASTER'
+                          ? [{ key: 'delete', label: 'حذف', tone: 'danger' as const, onClick: () => void deleteDar(dar.id) }]
+                          : []),
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
