@@ -702,13 +702,27 @@ body {
 }
 
 .ds-brandbar-logo {
-  width: 48px;
-  height: 48px;
+  height: 52px;
+  width: auto;
+  max-width: 56px;
   border-radius: 0;
   object-fit: contain;
   background: transparent;
   padding: 0;
   flex: none;
+}
+
+.ds-sidebar-logo-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 4px 8px 12px;
+}
+
+.ds-sidebar-logo {
+  height: 88px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
 }
 
 .ds-sidebar-close-row {

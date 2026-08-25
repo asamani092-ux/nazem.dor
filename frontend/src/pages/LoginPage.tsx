@@ -29,7 +29,6 @@ export function LoginPage() {
           <ThemeSwitcher compact corner />
         </div>
         <div className="ds-login-brand">
-          <img src="/logo.png" alt="" className="ds-login-logo" />
           <div className="ds-login-title">ناظم الصغار</div>
           <div className="ds-login-sub">نظام إدارة دور التحفيظ — بريدة</div>
         </div>
