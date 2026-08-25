@@ -702,14 +702,15 @@ body {
 }
 
 .ds-brandbar-logo {
-  height: 52px;
+  height: 56px;
   width: auto;
-  max-width: 56px;
-  border-radius: 0;
+  max-width: 80px;
+  border-radius: 8px;
   object-fit: contain;
   background: transparent;
   padding: 0;
   flex: none;
+  display: block;
 }
 
 .ds-sidebar-logo-wrap {
@@ -719,10 +720,11 @@ body {
 }
 
 .ds-sidebar-logo {
-  height: 88px;
+  height: 104px;
   width: auto;
   max-width: 100%;
   object-fit: contain;
+  display: block;
 }
 
 .ds-sidebar-close-row {

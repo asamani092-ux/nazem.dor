@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Avatar, IconClose, IconLogout, IconMenu } from './Charts';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import logoDor from '../../assets/logoDor.png';
 
 export type ShellNavItem = {
   key: string;
@@ -83,7 +84,7 @@ export function AppShell({
         <button type="button" className="ds-brandbar-menu" onClick={toggleMenu} aria-label={mobileVisible ? 'إغلاق القائمة' : 'القائمة'} aria-expanded={desktop ? !collapsed : open}>
           {mobileVisible ? <IconClose /> : <IconMenu />}
         </button>
-        <img src="/logoDor.png" alt="الدور النسائية" className="ds-brandbar-logo" />
+        <img src={logoDor} alt="الدور النسائية" className="ds-brandbar-logo" />
         <div className="min-w-0 flex-1">
           <div className="ds-brandbar-title">{title}</div>
           {subtitle ? <div className="ds-brandbar-sub">{subtitle}</div> : null}
@@ -106,7 +107,7 @@ export function AppShell({
           ) : null}
           {mobileVisible || (desktop && !collapsed) ? (
             <div className="ds-sidebar-logo-wrap">
-              <img src="/logoDor.png" alt="الدور النسائية" className="ds-sidebar-logo" />
+              <img src={logoDor} alt="الدور النسائية" className="ds-sidebar-logo" />
             </div>
           ) : null}
           <div className={`ds-sidebar-user ${!showLabels ? 'justify-center' : ''}`}>
