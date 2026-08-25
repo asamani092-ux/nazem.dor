@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AppShell, Button, Card, SectionTitle } from '../components/ds';
+import { Button, Card, SectionTitle } from '../components/ds';
 import { useAuth } from '../auth';
 
 const STORAGE_KEY = 'nazem_tools_audit_v2';
@@ -62,8 +62,8 @@ function mergeAudit(stored: Record<string, AuditEntry>): Record<string, AuditEnt
   return next;
 }
 
-export function ToolsAuditPage() {
-  const { user, logout } = useAuth();
+export function ToolsAuditPanel() {
+  const { user } = useAuth();
   const [audit, setAudit] = useState<Record<string, AuditEntry>>(() => mergeAudit(loadStored()));
   const [copied, setCopied] = useState(false);
 
@@ -107,16 +107,7 @@ export function ToolsAuditPage() {
   const categories = [...new Set(TOOLS.map((t) => t.category))];
 
   return (
-    <AppShell
-      title="ناظم الصغار"
-      subtitle="تقييم الأدوات (مؤقت)"
-      userName={user?.name || ''}
-      userRole={user?.role || ''}
-      nav={[{ key: 'audit', label: 'تقييم الأدوات' }]}
-      active="audit"
-      onNav={() => undefined}
-      onLogout={logout}
-    >
+    <>
       <SectionTitle
         action={
           <Button variant="primary" className="!w-auto" onClick={() => void copyReport()}>
@@ -164,6 +155,6 @@ export function ToolsAuditPage() {
         </Card>
       ))}
       <Card className="text-xs text-ios-muted whitespace-pre-wrap font-mono">{report}</Card>
-    </AppShell>
+    </>
   );
 }

@@ -7,6 +7,7 @@ import { printReport, tableHtml } from '../lib/print';
 import { matchQuery } from '../lib/search';
 import { monthEnd, monthStart, type CalendarEvent } from '../lib/calendar';
 import { usePageFeedback } from '../hooks/usePageFeedback';
+import { ToolsAuditPanel } from './ToolsAuditPage';
 import {
   Field,
   Input,
@@ -110,7 +111,7 @@ type WeekSlot = {
   plan: CurriculumRow | null;
 };
 
-type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar';
+type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'tools-audit';
 type DarViewMode = 'cards' | 'table';
 type PlanViewMode = 'table' | 'cards';
 type AccountFilter = 'ALL' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
@@ -148,7 +149,10 @@ function buildWeekSlots(plans: CurriculumRow[], level: string, week: number): We
 export function MasterPage() {
   const { user, logout } = useAuth();
   const { banner, notify, clearBanner } = usePageFeedback();
-  const [tab, setTab] = useState<Tab>('dars');
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window !== 'undefined' && window.location.pathname === '/tools-audit') return 'tools-audit';
+    return 'dars';
+  });
   const [dars, setDars] = useState<Dar[]>([]);
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
@@ -647,7 +651,7 @@ export function MasterPage() {
     { key: 'indicators', label: 'المؤشرات' },
     { key: 'curriculum', label: 'المناهج' },
     ...(user?.role === 'SUPER_MASTER' ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
-    ...(user?.role === 'SUPER_MASTER' ? [{ key: 'tools-audit', label: 'تقييم الأدوات' }] : []),
+    ...(user?.role === 'SUPER_MASTER' ? [{ key: 'tools-audit' as Tab, label: 'تقييم الأدوات' }] : []),
   ];
 
   function exportIndicatorsXlsx() {
@@ -806,13 +810,7 @@ export function MasterPage() {
       userRole={user?.role || ''}
       nav={masterNav}
       active={tab}
-      onNav={(k) => {
-        if (k === 'tools-audit') {
-          window.location.href = '/tools-audit';
-          return;
-        }
-        setTab(k as Tab);
-      }}
+      onNav={(k) => setTab(k as Tab)}
       onLogout={logout}
     >
         {tab === 'dars' ? (
@@ -1193,6 +1191,13 @@ export function MasterPage() {
           ) : (
             <p className="py-8 text-center text-sm text-gray-400">لا توجد نتائج</p>
           )}
+        </div>
+      ) : null}
+
+      {tab === 'tools-audit' && user?.role === 'SUPER_MASTER' ? (
+        <div className="space-y-4">
+          <SectionTitle>تقييم الأدوات</SectionTitle>
+          <ToolsAuditPanel />
         </div>
       ) : null}
 
