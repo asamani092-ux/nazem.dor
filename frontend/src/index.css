@@ -666,6 +666,13 @@ body {
   background: var(--color-primary);
 }
 
+.ds-brandbar-theme {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 2;
+}
+
 .ds-brandbar-menu {
   width: 34px;
   height: 34px;
@@ -996,6 +1003,14 @@ body {
   border-radius: 24px;
   padding: 36px 28px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+.ds-login-theme-corner {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
 }
 
 .ds-login-brand {
@@ -1236,21 +1251,31 @@ body {
   display: none;
 }
 
-.ds-login-theme {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 8px;
+.ds-theme-corner .ds-theme-popover {
+  left: 0;
+  transform: none;
 }
 
-.ds-login-theme .ds-theme-trigger {
+.ds-brandbar-theme .ds-theme-trigger {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.ds-brandbar-theme .ds-theme-popover {
+  left: 0;
+  transform: none;
+}
+
+.ds-login-theme-corner .ds-theme-trigger {
   border-color: color-mix(in srgb, var(--color-primary) 25%, transparent);
   background: var(--color-primary-soft);
   color: var(--color-primary);
 }
 
-.ds-login-theme .ds-theme-popover {
-  left: 50%;
-  transform: translateX(-50%);
+.ds-login-theme-corner .ds-theme-popover {
+  left: 0;
+  transform: none;
 }
 
 .ds-calendar {

@@ -25,13 +25,13 @@ export function LoginPage() {
   return (
     <div className="ds-login">
       <form onSubmit={onSubmit} className="ds-login-card">
+        <div className="ds-login-theme-corner">
+          <ThemeSwitcher corner />
+        </div>
         <div className="ds-login-brand">
           <img src="/logo.png" alt="" className="ds-login-logo" />
           <div className="ds-login-title">ناظم الصغار</div>
           <div className="ds-login-sub">نظام إدارة دور التحفيظ — بريدة</div>
-          <div className="ds-login-theme">
-            <ThemeSwitcher />
-          </div>
         </div>
         <div className="ds-login-fields">
           <Field label="رقم الجوال">

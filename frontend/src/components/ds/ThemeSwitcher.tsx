@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { THEME_COLORS, useTheme } from './theme';
 
-export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
+export function ThemeSwitcher({ compact = false, corner = false }: { compact?: boolean; corner?: boolean }) {
   const { accent, setAccent } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -18,7 +18,7 @@ export function ThemeSwitcher({ compact = false }: { compact?: boolean }) {
   const current = THEME_COLORS.find((c) => c.hex.toLowerCase() === accent.toLowerCase());
 
   return (
-    <div className={`ds-theme-switcher ${compact ? 'ds-theme-compact' : ''}`} ref={ref}>
+    <div className={`ds-theme-switcher ${compact ? 'ds-theme-compact' : ''} ${corner ? 'ds-theme-corner' : ''}`} ref={ref}>
       <button
         type="button"
         className="ds-theme-trigger"

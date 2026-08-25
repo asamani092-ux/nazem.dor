@@ -77,6 +77,9 @@ export function AppShell({
   return (
     <div className="ds-app" dir="rtl">
       <header className="ds-brandbar">
+        <div className="ds-brandbar-theme">
+          <ThemeSwitcher compact corner />
+        </div>
         <button type="button" className="ds-brandbar-menu" onClick={toggleMenu} aria-label="القائمة" aria-expanded={desktop ? !collapsed : open}>
           <IconMenu />
         </button>
@@ -85,7 +88,6 @@ export function AppShell({
           <div className="ds-brandbar-title">{title}</div>
           {subtitle ? <div className="ds-brandbar-sub">{subtitle}</div> : null}
         </div>
-        {desktop ? <ThemeSwitcher compact /> : null}
       </header>
 
       {mobileVisible ? <div className="ds-backdrop" onClick={closeMobile} aria-hidden /> : null}
@@ -129,7 +131,6 @@ export function AppShell({
             })}
           </nav>
           <div className="ds-sidebar-footer">
-            {!desktop ? <ThemeSwitcher /> : null}
             <div className="ds-sidebar-divider" />
             <button type="button" className="ds-logout" onClick={onLogout} title="تسجيل خروج">
               <IconLogout />
