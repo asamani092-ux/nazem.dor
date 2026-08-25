@@ -1180,6 +1180,11 @@ body {
   margin: 0 0 10px;
 }
 
+.ds-theme-popover-compact {
+  min-width: auto;
+  padding: 10px;
+}
+
 .ds-theme-compact .ds-theme-label {
   display: none;
 }

@@ -27,11 +27,11 @@ export function ThemeSwitcher({ compact = false, corner = false }: { compact?: b
         aria-label="تغيير اللون"
       >
         <span className="ds-theme-trigger-dot" style={{ background: accent }} />
-        <span className="ds-theme-trigger-label">{compact ? 'اللون' : current?.label || 'اللون'}</span>
+        <span className="ds-theme-trigger-label">{compact ? 'لون' : current?.label || 'لون'}</span>
       </button>
       {open ? (
-        <div className="ds-theme-popover">
-          <p className="ds-theme-popover-title">اللون الأساسي</p>
+        <div className={`ds-theme-popover ${compact ? 'ds-theme-popover-compact' : ''}`}>
+          {!compact ? <p className="ds-theme-popover-title">اللون الأساسي</p> : null}
           <div className="ds-theme-swatches ds-theme-swatches-popover">
             {THEME_COLORS.map((c) => (
               <button

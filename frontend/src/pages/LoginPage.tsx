@@ -26,7 +26,7 @@ export function LoginPage() {
     <div className="ds-login">
       <form onSubmit={onSubmit} className="ds-login-card">
         <div className="ds-login-theme-corner">
-          <ThemeSwitcher corner />
+          <ThemeSwitcher compact corner />
         </div>
         <div className="ds-login-brand">
           <img src="/logo.png" alt="" className="ds-login-logo" />
