@@ -3,7 +3,7 @@ import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { LEVELS_BY_CURRICULUM } from '../lib/reports';
 import { usePageFeedback } from '../hooks/usePageFeedback';
-import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, SectionTitle, StatCard, RingStat, ProgressBar, ExportBar, NotificationCard, IconButton, IconEdit, IconWhatsApp, IconChart, IconSuspend, IconDelete, CalendarMonth, BottomSheet, FileUpload } from '../components/ds';
+import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, SectionTitle, StatCard, RingStat, ProgressBar, ExportBar, NotificationCard, IconButton, IconEdit, IconWhatsApp, IconChart, IconReport, IconSuspend, IconDelete, CalendarMonth, BottomSheet, FileUpload } from '../components/ds';
 import { downloadXlsx, downloadTemplateXlsx, parseXlsxFile } from '../lib/export';
 import { printReport, tableHtml } from '../lib/print';
 import { monthStart, monthRangeParams, type CalendarEvent } from '../lib/calendar';
@@ -58,6 +58,15 @@ export function ManagerPage() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [calendarDetail, setCalendarDetail] = useState<CalendarEvent | null>(null);
   const [importPreview, setImportPreview] = useState<Array<{ name: string; phone: string }>>([]);
+  const [classStats, setClassStats] = useState<{
+    id: string;
+    name: string;
+    studentCount: number;
+    attendanceRate: number;
+    completionRate: number;
+    homeworkRate: number;
+    overallRate: number;
+  } | null>(null);
 
   const levels = meta?.allowedLevels || LEVELS_BY_CURRICULUM.BOTH;
 
@@ -169,7 +178,7 @@ export function ManagerPage() {
     if (filterClass) await loadStudents(filterClass);
   }
 
-  async function showClassStats(id: string) {
+  async function showClassStats(cls: Cls) {
     const res = await api<{
       data: {
         studentCount: number;
@@ -178,10 +187,26 @@ export function ManagerPage() {
         homeworkRate: number;
         overallRate: number;
       };
-    }>(`/api/manager/classes/${id}/stats`);
-    const d = res.data;
-    notify(
-      `طالبات: ${d.studentCount}\nحضور %${d.attendanceRate} | إنجاز %${d.completionRate} | واجب %${d.homeworkRate} | عام %${d.overallRate}`,
+    }>(`/api/manager/classes/${cls.id}/stats`);
+    setClassStats({
+      id: cls.id,
+      name: cls.name,
+      ...res.data,
+    });
+  }
+
+  function printClassReport() {
+    if (!classStats) return;
+    printReport(
+      `تقرير الفصل — ${classStats.name}`,
+      tableHtml([
+        ['المؤشر', 'القيمة'],
+        ['طالبات', String(classStats.studentCount)],
+        ['حضور', `${classStats.attendanceRate}%`],
+        ['إنجاز', `${classStats.completionRate}%`],
+        ['واجب', `${classStats.homeworkRate}%`],
+        ['عام', `${classStats.overallRate}%`],
+      ]),
     );
   }
 
@@ -241,9 +266,13 @@ export function ManagerPage() {
                   </div>
                 </div>
                 <div className="ds-dar-action-grid">
-                  <button type="button" className="ds-dar-action-tile" onClick={() => void showClassStats(c.id)}>
+                  <button type="button" className="ds-dar-action-tile" onClick={() => void showClassStats(c)}>
                     <span className="ds-dar-action-label">مؤشرات</span>
                     <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconChart className="h-6 w-6" /></span>
+                  </button>
+                  <button type="button" className="ds-dar-action-tile" onClick={() => void showClassStats(c)}>
+                    <span className="ds-dar-action-label">تقرير</span>
+                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-report"><IconReport className="h-6 w-6" /></span>
                   </button>
                   <button type="button" className="ds-dar-action-tile" onClick={() => setEditClass({ ...c })}>
                     <span className="ds-dar-action-label">تعديل</span>
@@ -253,6 +282,18 @@ export function ManagerPage() {
                     <span className="ds-dar-action-label">واتساب</span>
                     <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-wa"><IconWhatsApp className="h-6 w-6" /></span>
                   </a>
+                  <button
+                    type="button"
+                    className="ds-dar-action-tile"
+                    onClick={() => {
+                      setTab('students');
+                      setFilterClass(c.id);
+                      void loadStudents(c.id);
+                    }}
+                  >
+                    <span className="ds-dar-action-label">طالبات</span>
+                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-report text-sm font-extrabold">{c.studentCount}</span>
+                  </button>
                   <button
                     type="button"
                     className="ds-dar-action-tile"
@@ -659,6 +700,28 @@ export function ManagerPage() {
             تذكير المعلمات
           </Button>
         </BottomSheet>
+      ) : null}
+
+      {classStats ? (
+        <Modal title={`مؤشرات: ${classStats.name}`} onClose={() => setClassStats(null)} wide>
+          <div className="space-y-4">
+            <div className="ds-kpi-grid">
+              <StatCard label="طالبات" value={classStats.studentCount} />
+              <StatCard label="حضور" value={`${classStats.attendanceRate}%`} />
+              <StatCard label="إنجاز" value={`${classStats.completionRate}%`} />
+              <StatCard label="واجب" value={`${classStats.homeworkRate}%`} />
+              <StatCard label="عام" value={`${classStats.overallRate}%`} />
+            </div>
+            <div className="flex flex-wrap justify-around gap-4">
+              <RingStat label="حضور" pct={classStats.attendanceRate} />
+              <RingStat label="إنجاز" pct={classStats.completionRate} />
+              <RingStat label="واجب" pct={classStats.homeworkRate} />
+            </div>
+            <Button variant="primary" className="!w-auto" onClick={printClassReport}>
+              طباعة التقرير
+            </Button>
+          </div>
+        </Modal>
       ) : null}
 
       {forward ? (

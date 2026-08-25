@@ -635,6 +635,31 @@ export async function masterRoutes(app: FastifyInstance) {
     return { status: 'success', data: events };
   });
 
+  app.get('/curriculum/levels', guard, async () => {
+    const rows = await prisma.curriculumLevel.findMany({ orderBy: { sortOrder: 'asc' } });
+    if (rows.length) {
+      return { status: 'success', data: rows.map((r) => r.name) };
+    }
+    const distinct = await prisma.curriculumPlan.findMany({
+      select: { level: true },
+      distinct: ['level'],
+      orderBy: { level: 'asc' },
+    });
+    return { status: 'success', data: distinct.map((d) => d.level) };
+  });
+
+  app.post('/curriculum/levels', guard, async (request) => {
+    const body = z.object({ name: z.string().min(1) }).parse(request.body);
+    const name = body.name.trim();
+    const count = await prisma.curriculumLevel.count();
+    await prisma.curriculumLevel.upsert({
+      where: { name },
+      create: { name, sortOrder: count + 1 },
+      update: {},
+    });
+    return { status: 'success', data: { name } };
+  });
+
   app.get('/curriculum', guard, async () => {
     const rows = await prisma.curriculumPlan.findMany({
       orderBy: [{ level: 'asc' }, { week: 'asc' }, { day: 'asc' }],

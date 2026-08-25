@@ -166,7 +166,7 @@ export function MasterPage() {
   const [curriculumLoaded, setCurriculumLoaded] = useState(false);
   const [indicatorsLoaded, setIndicatorsLoaded] = useState(false);
   const [planViewLevel, setPlanViewLevel] = useState<string>('تمهيدي 1');
-  const [extraLevels, setExtraLevels] = useState<string[]>([]);
+  const [curriculumLevels, setCurriculumLevels] = useState<string[]>([...CURRICULUM_LEVELS]);
   const [planViewWeek, setPlanViewWeek] = useState(1);
   const [planViewMode, setPlanViewMode] = useState<PlanViewMode>('table');
   const [planMenuDay, setPlanMenuDay] = useState<string | null>(null);
@@ -270,13 +270,31 @@ export function MasterPage() {
     setCurriculumLoaded(true);
   }
 
+  async function loadCurriculumLevels() {
+    const res = await api<{ data: string[] }>('/api/master/curriculum/levels');
+    if (res.data?.length) setCurriculumLevels(res.data);
+  }
+
+  async function addCurriculumLevel() {
+    const next = prompt('اسم المستوى الجديد (مثال: تمهيدي 3)');
+    if (!next?.trim()) return;
+    const name = next.trim();
+    await api('/api/master/curriculum/levels', { method: 'POST', json: { name } });
+    await loadCurriculumLevels();
+    setPlanViewLevel(name);
+    notify(`تم إضافة المستوى: ${name}`);
+  }
+
   useEffect(() => {
     void load();
   }, []);
 
   useEffect(() => {
     if (tab === 'indicators') void loadIndicators().catch((e) => notify(e.message, 'error'));
-    if (tab === 'curriculum') void loadCurriculum().catch((e) => notify(e.message, 'error'));
+    if (tab === 'curriculum') {
+      void loadCurriculum().catch((e) => notify(e.message, 'error'));
+      void loadCurriculumLevels().catch(() => undefined);
+    }
     if (tab === 'accounts' && user?.role === 'SUPER_MASTER') {
       void loadUsersMeta().catch((e) => notify(e.message, 'error'));
     }
@@ -389,11 +407,18 @@ export function MasterPage() {
   async function saveExam() {
     if (!exam.title.trim() || exam.title.trim().length < 2) return notify('عنوان الاختبار مطلوب', 'error');
     if (!exam.date || !exam.link) return notify('أكمل التاريخ والرابط', 'error');
+    const examDate = exam.date;
+    const examDar = exam.targetDarId;
     await api('/api/master/exams', { method: 'POST', json: exam });
     setShowExam(false);
     setExam({ targetDarId: 'الكل', date: '', link: '', title: '' });
     notify('تم نشر الاختبار');
-    if (tab === 'calendar') void loadCalendar().catch(() => undefined);
+    if (examDate) {
+      const d = new Date(examDate);
+      if (!Number.isNaN(d.getTime())) setCalendarMonth(monthStart(d));
+    }
+    if (calendarDarFilter !== 'الكل' && examDar === 'الكل') setCalendarDarFilter('الكل');
+    void loadCalendar().catch(() => undefined);
   }
 
   useEffect(() => {
@@ -437,6 +462,7 @@ export function MasterPage() {
     const content =
       alertForm.content.trim() ||
       (alertForm.kind === 'VISIT' ? 'زيارة مجدولة' : 'تنبيه عام');
+    const visitDate = alertForm.kind === 'VISIT' ? alertForm.scheduledAt : '';
     await api('/api/master/alerts', {
       method: 'POST',
       json: {
@@ -449,7 +475,11 @@ export function MasterPage() {
     });
     setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE', scheduledAt: '' });
     notify('تم إرسال الإشعار');
-    if (tab === 'calendar') await loadCalendar();
+    if (visitDate) {
+      const visitDay = new Date(visitDate);
+      if (!Number.isNaN(visitDay.getTime())) setCalendarMonth(monthStart(visitDay));
+    }
+    void loadCalendar().catch(() => undefined);
     await load();
   }
 
@@ -1009,14 +1039,7 @@ export function MasterPage() {
                 <Button
                   variant="secondary"
                   className="!w-auto !px-3 !py-2 !text-xs"
-                  onClick={() => {
-                    const next = prompt('اسم المستوى الجديد (مثال: تمهيدي 3)');
-                    if (!next?.trim()) return;
-                    const name = next.trim();
-                    setExtraLevels((prev) => (prev.includes(name) ? prev : [...prev, name]));
-                    setPlanViewLevel(name);
-                    notify(`تم إضافة المستوى: ${name} — أضيفي خططاً له`);
-                  }}
+                  onClick={() => void addCurriculumLevel()}
                 >
                   إضافة مستوى
                 </Button>
@@ -1033,7 +1056,7 @@ export function MasterPage() {
                     setPlanMenuDay(null);
                   }}
                 >
-                  {[...CURRICULUM_LEVELS, ...extraLevels].map((l) => (
+                  {[...new Set([...CURRICULUM_LEVELS, ...curriculumLevels])].map((l) => (
                     <option key={l}>{l}</option>
                   ))}
                 </select>
@@ -1227,10 +1250,7 @@ export function MasterPage() {
       ) : null}
 
       {tab === 'tools-audit' && user?.role === 'SUPER_MASTER' ? (
-        <div className="space-y-4">
-          <SectionTitle>تقييم الأدوات</SectionTitle>
-          <ToolsAuditPanel />
-        </div>
+        <ToolsAuditPanel />
       ) : null}
 
       {tab === 'calendar' ? (

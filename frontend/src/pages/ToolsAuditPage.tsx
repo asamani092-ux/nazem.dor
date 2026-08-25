@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button, Card, SectionTitle } from '../components/ds';
 import { useAuth } from '../auth';
 
-const STORAGE_KEY = 'nazem_tools_audit_v2';
+const STORAGE_KEY = 'nazem_tools_audit_v3';
 
 type ToolDef = { id: string; name: string; category: string };
 type AuditEntry = { rating: number; notes: string };
@@ -43,15 +43,27 @@ const TOOLS: ToolDef[] = [
   { id: 'exams', name: 'مركز الاختبارات', category: 'صفحات' },
 ];
 
-function loadStored(): Record<string, AuditEntry> {
+function parseStored(raw: string | null): Record<string, AuditEntry> {
+  if (!raw) return {};
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, AuditEntry>;
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
     return {};
   }
+}
+
+function loadStored(): Record<string, AuditEntry> {
+  const current = parseStored(localStorage.getItem(STORAGE_KEY));
+  if (Object.keys(current).length) return current;
+  const legacy = {
+    ...parseStored(localStorage.getItem('nazem_tools_audit_v2')),
+    ...parseStored(localStorage.getItem('nazem_tools_audit_v1')),
+  };
+  if (Object.keys(legacy).length) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(legacy));
+  }
+  return legacy;
 }
 
 function mergeAudit(stored: Record<string, AuditEntry>): Record<string, AuditEntry> {
@@ -104,22 +116,40 @@ export function ToolsAuditPanel() {
     window.setTimeout(() => setCopied(false), 2000);
   }
 
+  function resetAudit() {
+    if (!confirm('مسح كل التقييم والبدء من جديد؟')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('nazem_tools_audit_v2');
+    localStorage.removeItem('nazem_tools_audit_v1');
+    setAudit(mergeAudit({}));
+    setCopied(false);
+  }
+
   const categories = [...new Set(TOOLS.map((t) => t.category))];
 
   return (
     <>
       <SectionTitle
         action={
-          <Button variant="primary" className="!w-auto" onClick={() => void copyReport()}>
-            {copied ? 'تم النسخ' : 'نسخ التقرير'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" className="!w-auto" onClick={resetAudit}>
+              مسح التقييم
+            </Button>
+            <Button variant="primary" className="!w-auto" onClick={() => void copyReport()}>
+              {copied ? 'تم النسخ' : 'نسخ التقرير'}
+            </Button>
+          </div>
         }
       >
         تقييم الأدوات
       </SectionTitle>
-      <p className="text-xs text-ios-muted">
-        الملاحظات تُحفظ محلياً ولا تُحذف عند التحديث. احذف هذه الصفحة قبل النشر.
-      </p>
+      <Card className="space-y-2 text-sm text-ios-muted">
+        <p className="font-bold text-ios-text">ما هذا التبويب؟</p>
+        <p>
+          قائمة مراجعة داخلية لمكوّنات الواجهة (أزرار، جداول، صفحات…) — ليس أدوات خارجية.
+          اختبري كل عنصر وقيّميه من 1–5 ثم انسخي التقرير. يُحذف هذا التبويب قبل النشر.
+        </p>
+      </Card>
       {categories.map((cat) => (
         <Card key={cat} className="space-y-3">
           <h3 className="font-extrabold text-primary">{cat}</h3>

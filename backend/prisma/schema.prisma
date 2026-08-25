@@ -144,6 +144,13 @@ model CurriculumPlan {
   @@index([level, week])
 }
 
+model CurriculumLevel {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
 model Alert {
   id          String    @id @default(cuid())
   kind        AlertKind @default(NOTICE)

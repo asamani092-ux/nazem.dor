@@ -43,7 +43,8 @@ export function sameDay(a: Date, b: Date): boolean {
 }
 
 export function eventsOnDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
-  return events.filter((e) => sameDay(new Date(e.scheduledAt), day));
+  const dayStr = formatDateParam(day);
+  return events.filter((e) => formatDateParam(new Date(e.scheduledAt)) === dayStr);
 }
 
 export function buildMonthGrid(month: Date): Date[] {
