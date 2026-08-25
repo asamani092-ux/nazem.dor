@@ -6,7 +6,7 @@ import { usePageFeedback } from '../hooks/usePageFeedback';
 import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, SectionTitle, StatCard, RingStat, ProgressBar, ExportBar, NotificationCard, IconButton, IconEdit, IconWhatsApp, IconChart, IconSuspend, IconDelete, CalendarMonth, BottomSheet, FileUpload } from '../components/ds';
 import { downloadXlsx, downloadTemplateXlsx, parseXlsxFile } from '../lib/export';
 import { printReport, tableHtml } from '../lib/print';
-import { monthEnd, monthStart, type CalendarEvent } from '../lib/calendar';
+import { monthStart, monthRangeParams, type CalendarEvent } from '../lib/calendar';
 
 type Cls = {
   id: string;
@@ -86,8 +86,7 @@ export function ManagerPage() {
   }, [tab, calendarMonth]);
 
   async function loadCalendar() {
-    const from = monthStart(calendarMonth).toISOString();
-    const to = monthEnd(calendarMonth).toISOString();
+    const { from, to } = monthRangeParams(calendarMonth);
     const res = await api<{ data: CalendarEvent[] }>(`/api/manager/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
     setCalendarEvents(res.data);
   }

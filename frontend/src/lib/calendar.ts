@@ -19,6 +19,21 @@ export function monthEnd(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
 }
 
+/** YYYY-MM-DD بالتوقيت المحلي — بدون انزياح UTC */
+export function formatDateParam(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+export function monthRangeParams(month: Date): { from: string; to: string } {
+  return {
+    from: formatDateParam(monthStart(month)),
+    to: formatDateParam(monthEnd(month)),
+  };
+}
+
 export function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
 }

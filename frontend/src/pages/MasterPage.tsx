@@ -5,7 +5,7 @@ import { useAuth } from '../auth';
 import { downloadXlsx } from '../lib/export';
 import { printReport, tableHtml } from '../lib/print';
 import { matchQuery } from '../lib/search';
-import { monthEnd, monthStart, type CalendarEvent } from '../lib/calendar';
+import { monthStart, monthRangeParams, type CalendarEvent } from '../lib/calendar';
 import { usePageFeedback } from '../hooks/usePageFeedback';
 import { ToolsAuditPanel } from './ToolsAuditPage';
 import {
@@ -38,6 +38,7 @@ import {
   IconReport,
   IconWhatsApp,
   IconBell,
+  IconExam,
   IconEdit,
   IconSuspend,
   IconDelete,
@@ -181,6 +182,7 @@ export function MasterPage() {
   const [calendarDetail, setCalendarDetail] = useState<CalendarEvent | null>(null);
   const [calendarDayEvents, setCalendarDayEvents] = useState<CalendarEvent[]>([]);
   const [accountMenuRow, setAccountMenuRow] = useState<string | null>(null);
+  const [darMenuRow, setDarMenuRow] = useState<string | null>(null);
   const [showAccountEditor, setShowAccountEditor] = useState(false);
   const [accountEditorMode, setAccountEditorMode] = useState<'add' | 'edit'>('add');
   const [accountForm, setAccountForm] = useState({
@@ -390,23 +392,26 @@ export function MasterPage() {
   }, [tab, calendarMonth, calendarDarFilter]);
 
   async function loadCalendar() {
-    const from = monthStart(calendarMonth).toISOString();
-    const to = monthEnd(calendarMonth).toISOString();
+    const { from, to } = monthRangeParams(calendarMonth);
     const params = new URLSearchParams({ from, to });
     if (calendarDarFilter && calendarDarFilter !== 'الكل') params.set('darId', calendarDarFilter);
     const res = await api<{ data: CalendarEvent[] }>(`/api/master/calendar?${params}`);
     setCalendarEvents(res.data);
   }
 
-  function openScheduleVisit(dar: Dar) {
-    const title = `زيارة ميدانية: ${dar.name}`;
+  function openDarAlertSheet(dar: Dar) {
     setAlertForm({
       darId: dar.id,
-      title,
+      title: '',
       content: '',
-      kind: 'VISIT',
+      kind: 'NOTICE',
       scheduledAt: new Date().toISOString().slice(0, 10),
     });
+  }
+
+  function openDarExam(dar: Dar) {
+    setExam({ targetDarId: dar.id, date: '', link: '', title: '' });
+    setShowExam(true);
   }
 
   async function sendAlert() {
@@ -414,12 +419,19 @@ export function MasterPage() {
       notify('تاريخ الزيارة مطلوب', 'error');
       return;
     }
+    if (!alertForm.title.trim() || alertForm.title.trim().length < 2) {
+      notify('العنوان مطلوب', 'error');
+      return;
+    }
+    const content =
+      alertForm.content.trim() ||
+      (alertForm.kind === 'VISIT' ? 'زيارة مجدولة' : 'تنبيه عام');
     await api('/api/master/alerts', {
       method: 'POST',
       json: {
         darId: alertForm.darId,
         title: alertForm.title,
-        content: alertForm.content,
+        content,
         kind: alertForm.kind,
         scheduledAt: alertForm.kind === 'VISIT' ? alertForm.scheduledAt : undefined,
       },
@@ -1242,30 +1254,54 @@ export function MasterPage() {
           ) : null}
           {filtered.length && darViewMode === 'cards' ? (
             <PaginatedList key={q} items={filtered} pageSize={12} renderItem={(dar) => (
-            <Card key={dar.id} className={dar.status === 'معلق' ? 'suspended-card' : ''}>
+            <Card key={dar.id} className={`ds-dar-card ${dar.status === 'معلق' ? 'suspended-card' : ''}`}>
+              <div className="ds-dar-badges">
+                <Badge tone={dar.curriculum.includes('قارئ') ? 'info' : 'primary'}>{dar.curriculum.replace('منهج ', '')}</Badge>
+                <Badge tone={dar.status === 'معلق' ? 'warning' : 'success'}>{dar.status === 'معلق' ? 'معلّق' : 'نشط'}</Badge>
+              </div>
               <div className="flex items-start gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-lg font-extrabold text-primary">د</div>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-base font-extrabold">{dar.name}</h2>
-                  <p className="mt-0.5 text-[13px] text-ios-muted">المديرة: {dar.managerName}</p>
-                  {dar.location ? <p className="mt-0.5 text-[11px] text-ios-muted">الموقع: {dar.location}</p> : null}
-                  {dar.lastVisit ? <p className="mt-0.5 text-[11px] text-ios-muted">آخر زيارة: {dar.lastVisit}</p> : null}
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    <Badge tone={dar.curriculum.includes('قارئ') ? 'info' : 'primary'}>{dar.curriculum.replace('منهج ', '')}</Badge>
-                    <Badge tone={dar.status === 'معلق' ? 'warning' : 'success'}>{dar.status === 'معلق' ? 'معلّق' : 'نشط'}</Badge>
-                  </div>
+                  <p className="mt-1 text-[15px] font-extrabold text-ios-text">المديرة: {dar.managerName}</p>
+                  {dar.location ? <p className="mt-1 text-sm font-semibold text-ios-muted">الحي: {dar.location}</p> : null}
+                  {dar.lastVisit ? <p className="mt-1 text-[11px] text-ios-muted">آخر زيارة: {dar.lastVisit}</p> : null}
                 </div>
               </div>
-              <div className="mt-3.5 flex flex-wrap gap-1.5">
-                <IconButton label="مؤشرات" tone="primary" onClick={() => void showStats(dar.id)}><IconChart /></IconButton>
-                <IconButton label="تقرير" tone="report" onClick={() => void openReport(dar.id)}><IconReport /></IconButton>
-                <IconButton label="واتساب" tone="wa" href={waLink(dar.managerPhone)}><IconWhatsApp /></IconButton>
-                <IconButton label="زيارة" tone="alert" onClick={() => openScheduleVisit(dar)}><IconBell /></IconButton>
-                <IconButton label="إشعار" tone="alert" onClick={() => setAlertForm({ darId: dar.id, title: '', content: '', kind: 'NOTICE', scheduledAt: '' })}><IconBell /></IconButton>
-                <IconButton label="تعديل" tone="edit" onClick={() => setEditDar({ ...dar })}><IconEdit /></IconButton>
-                <IconButton label={dar.status === 'معلق' ? 'تنشيط' : 'تعليق'} tone="alert" onClick={() => void suspendToggle(dar)}><IconSuspend /></IconButton>
+              <div className="ds-dar-action-grid">
+                <button type="button" className="ds-dar-action-tile" onClick={() => void showStats(dar.id)}>
+                  <span className="ds-dar-action-label">مؤشرات</span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconChart className="h-[22px] w-[22px]" /></span>
+                </button>
+                <button type="button" className="ds-dar-action-tile" onClick={() => void openReport(dar.id)}>
+                  <span className="ds-dar-action-label">تقرير</span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-report"><IconReport className="h-[22px] w-[22px]" /></span>
+                </button>
+                <a className="ds-dar-action-tile" href={waLink(dar.managerPhone)} target="_blank" rel="noreferrer">
+                  <span className="ds-dar-action-label">واتساب</span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-wa"><IconWhatsApp className="h-[22px] w-[22px]" /></span>
+                </a>
+                <button type="button" className="ds-dar-action-tile" onClick={() => openDarAlertSheet(dar)}>
+                  <span className="ds-dar-action-label">إشعار</span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-alert"><IconBell className="h-[22px] w-[22px]" /></span>
+                </button>
+                <button type="button" className="ds-dar-action-tile" onClick={() => openDarExam(dar)}>
+                  <span className="ds-dar-action-label">اختبار</span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconExam className="h-[22px] w-[22px]" /></span>
+                </button>
+                <button type="button" className="ds-dar-action-tile" onClick={() => setEditDar({ ...dar })}>
+                  <span className="ds-dar-action-label">تعديل</span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-edit"><IconEdit className="h-[22px] w-[22px]" /></span>
+                </button>
+                <button type="button" className="ds-dar-action-tile" onClick={() => void suspendToggle(dar)}>
+                  <span className="ds-dar-action-label">{dar.status === 'معلق' ? 'تنشيط' : 'تعليق'}</span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-alert"><IconSuspend className="h-[22px] w-[22px]" /></span>
+                </button>
                 {user?.role === 'SUPER_MASTER' ? (
-                  <IconButton label="حذف" tone="delete" onClick={() => void deleteDar(dar.id)}><IconDelete /></IconButton>
+                  <button type="button" className="ds-dar-action-tile" onClick={() => void deleteDar(dar.id)}>
+                    <span className="ds-dar-action-label">حذف</span>
+                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-delete"><IconDelete className="h-[22px] w-[22px]" /></span>
+                  </button>
                 ) : null}
               </div>
             </Card>
@@ -1279,7 +1315,7 @@ export function MasterPage() {
                   <th>المديرة</th>
                   <th>الجوال</th>
                   <th>المنهج</th>
-                  <th>الموقع</th>
+                  <th>الحي</th>
                   <th>آخر زيارة</th>
                   <th>الحالة</th>
                   <th>إجراءات</th>
@@ -1300,10 +1336,27 @@ export function MasterPage() {
                     </Badge>
                   </td>
                   <td>
-                    <div className="flex flex-wrap gap-1">
-                      <IconButton label="زيارة" tone="alert" onClick={() => openScheduleVisit(dar)}><IconBell /></IconButton>
-                      <IconButton label="تقرير" tone="report" onClick={() => void openReport(dar.id)}><IconReport /></IconButton>
-                    </div>
+                    <ActionMenu
+                      open={darMenuRow === dar.id}
+                      onToggle={() => setDarMenuRow(darMenuRow === dar.id ? null : dar.id)}
+                      onClose={() => setDarMenuRow(null)}
+                      items={[
+                        { key: 'stats', label: 'مؤشرات', onClick: () => void showStats(dar.id) },
+                        { key: 'report', label: 'تقرير', onClick: () => void openReport(dar.id) },
+                        { key: 'wa', label: 'واتساب', href: waLink(dar.managerPhone) },
+                        { key: 'notify', label: 'إشعار / زيارة', onClick: () => openDarAlertSheet(dar) },
+                        { key: 'exam', label: 'اختبار', onClick: () => openDarExam(dar) },
+                        { key: 'edit', label: 'تعديل', onClick: () => setEditDar({ ...dar }) },
+                        {
+                          key: 'status',
+                          label: dar.status === 'معلق' ? 'تنشيط' : 'تعليق',
+                          onClick: () => void suspendToggle(dar),
+                        },
+                        ...(user?.role === 'SUPER_MASTER'
+                          ? [{ key: 'delete', label: 'حذف', tone: 'danger' as const, onClick: () => void deleteDar(dar.id) }]
+                          : []),
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -1331,8 +1384,8 @@ export function MasterPage() {
             <Field label="جوال المديرة">
               <input className="ds-input text-left" dir="ltr" placeholder="05XXXXXXXX" value={form.managerPhone} onChange={(e) => setForm({ ...form, managerPhone: e.target.value })} />
             </Field>
-            <Field label="الموقع / الرابط">
-              <input className="ds-input" placeholder="رابط أو وصف الموقع" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+            <Field label="الحي">
+              <input className="ds-input" placeholder="اسم الحي" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
             </Field>
             <button className="ds-btn ds-btn-primary" onClick={() => void addDar()}>
               حفظ
@@ -1360,8 +1413,8 @@ export function MasterPage() {
             <Field label="جوال المديرة">
               <input className="ds-input text-left" dir="ltr" value={editDar.managerPhone} onChange={(e) => setEditDar({ ...editDar, managerPhone: e.target.value })} />
             </Field>
-            <Field label="الموقع / الرابط">
-              <input className="ds-input" value={editDar.location} onChange={(e) => setEditDar({ ...editDar, location: e.target.value })} />
+            <Field label="الحي">
+              <input className="ds-input" placeholder="اسم الحي" value={editDar.location} onChange={(e) => setEditDar({ ...editDar, location: e.target.value })} />
             </Field>
             <Field label="الحالة">
               <select className="ds-input" value={editDar.status === 'معلق' ? 'معلق' : 'نشط'} onChange={(e) => setEditDar({ ...editDar, status: e.target.value })}>
@@ -1525,10 +1578,22 @@ export function MasterPage() {
       ) : null}
 
       {alertForm.darId ? (
-        <Modal title={alertForm.kind === 'VISIT' ? 'جدولة زيارة' : 'إشعار للدار'} onClose={() => setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE', scheduledAt: '' })}>
+        <BottomSheet title="إشعار الدار" onClose={() => setAlertForm({ darId: '', title: '', content: '', kind: 'NOTICE', scheduledAt: '' })}>
           <div className="space-y-3">
             <Field label="نوع الإشعار">
-              <select className="ds-input" value={alertForm.kind} onChange={(e) => setAlertForm({ ...alertForm, kind: e.target.value })}>
+              <select
+                className="ds-input"
+                value={alertForm.kind}
+                onChange={(e) => {
+                  const kind = e.target.value;
+                  const dar = dars.find((d) => d.id === alertForm.darId);
+                  setAlertForm({
+                    ...alertForm,
+                    kind,
+                    title: kind === 'VISIT' && dar ? `زيارة ميدانية: ${dar.name}` : alertForm.title,
+                  });
+                }}
+              >
                 <option value="NOTICE">تنبيه عام</option>
                 <option value="VISIT">زيارة ميدانية</option>
               </select>
@@ -1542,13 +1607,13 @@ export function MasterPage() {
               <input className="ds-input" placeholder="عنوان الإشعار" value={alertForm.title} onChange={(e) => setAlertForm({ ...alertForm, title: e.target.value })} />
             </Field>
             <Field label="التفاصيل">
-              <textarea className="ds-input h-24" placeholder="نص الإشعار" value={alertForm.content} onChange={(e) => setAlertForm({ ...alertForm, content: e.target.value })} />
+              <textarea className="ds-input h-24" placeholder="نص الإشعار (اختياري)" value={alertForm.content} onChange={(e) => setAlertForm({ ...alertForm, content: e.target.value })} />
             </Field>
             <button className="ds-btn ds-btn-primary" onClick={() => void sendAlert().catch((e) => notify(e.message, 'error'))}>
               إرسال
             </button>
           </div>
-        </Modal>
+        </BottomSheet>
       ) : null}
 
       {calendarDetail ? (

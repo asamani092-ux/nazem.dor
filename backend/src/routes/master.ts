@@ -529,11 +529,12 @@ export async function masterRoutes(app: FastifyInstance) {
       .parse(request.body);
 
     const isAll = body.targetDarId === 'الكل';
+    const { parseScheduledDate } = await import('../lib/calendar.js');
     const exam = await prisma.exam.create({
       data: {
         title: body.title.trim(),
         darId: isAll ? null : body.targetDarId,
-        examDate: new Date(body.date),
+        examDate: parseScheduledDate(body.date),
         link: body.link,
       },
     });
@@ -545,13 +546,14 @@ export async function masterRoutes(app: FastifyInstance) {
       .object({
         darId: z.string(),
         title: z.string().min(2),
-        content: z.string().min(2),
+        content: z.string().optional(),
         kind: z.enum(['NOTICE', 'VISIT']).optional(),
         scheduledAt: z.string().optional(),
       })
       .parse(request.body);
 
     const isVisit = body.kind === 'VISIT';
+    const content = (body.content || '').trim() || body.title.trim();
     if (isVisit && !body.scheduledAt) {
       return reply.code(400).send({ status: 'error', message: 'تاريخ الزيارة مطلوب' });
     }
@@ -561,13 +563,14 @@ export async function masterRoutes(app: FastifyInstance) {
       return reply.code(400).send({ status: 'error', message: 'الزيارة تتطلب تحديد دار' });
     }
 
+    const { parseScheduledDate } = await import('../lib/calendar.js');
     await prisma.alert.create({
       data: {
         darId: isAll ? null : body.darId,
         title: body.title,
-        content: body.content,
+        content,
         kind: isVisit ? 'VISIT' : 'NOTICE',
-        scheduledAt: isVisit && body.scheduledAt ? new Date(body.scheduledAt) : null,
+        scheduledAt: isVisit && body.scheduledAt ? parseScheduledDate(body.scheduledAt) : null,
       },
     });
     return { status: 'success' };
@@ -598,7 +601,9 @@ export async function masterRoutes(app: FastifyInstance) {
       prisma.alert.findMany({
         where: {
           AND: [
-            ...(darFilter ? [{ darId: darFilter }] : []),
+            ...(darFilter
+              ? [{ OR: [{ darId: darFilter }, { darId: null }] }]
+              : []),
             {
               OR: [
                 { kind: 'VISIT', scheduledAt: { gte: start, lte: end } },

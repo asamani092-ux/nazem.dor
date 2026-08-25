@@ -55,11 +55,30 @@ export function examToEvent(e: Exam, darName?: string, isRead?: boolean): Calend
   };
 }
 
+function parseLocalDateOnly(value: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!m) throw new Error('invalid_range');
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) throw new Error('invalid_range');
+  return new Date(y, mo - 1, d);
+}
+
+/** يدعم YYYY-MM-DD أو ISO — بداية/نهاية اليوم محلياً */
 export function parseDateRange(from: string, to: string) {
-  const start = new Date(from);
-  const end = new Date(to);
+  const start = parseLocalDateOnly(from);
+  start.setHours(0, 0, 0, 0);
+  const end = parseLocalDateOnly(to);
+  end.setHours(23, 59, 59, 999);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
     throw new Error('invalid_range');
   }
   return { start, end };
+}
+
+export function parseScheduledDate(value: string): Date {
+  const day = parseLocalDateOnly(value);
+  day.setHours(12, 0, 0, 0);
+  return day;
 }
