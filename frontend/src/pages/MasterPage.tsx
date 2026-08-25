@@ -1271,36 +1271,36 @@ export function MasterPage() {
               <div className="ds-dar-action-grid">
                 <button type="button" className="ds-dar-action-tile" onClick={() => void showStats(dar.id)}>
                   <span className="ds-dar-action-label">مؤشرات</span>
-                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconChart className="h-[22px] w-[22px]" /></span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconChart className="h-6 w-6" /></span>
                 </button>
                 <button type="button" className="ds-dar-action-tile" onClick={() => void openReport(dar.id)}>
                   <span className="ds-dar-action-label">تقرير</span>
-                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-report"><IconReport className="h-[22px] w-[22px]" /></span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-report"><IconReport className="h-6 w-6" /></span>
                 </button>
                 <a className="ds-dar-action-tile" href={waLink(dar.managerPhone)} target="_blank" rel="noreferrer">
                   <span className="ds-dar-action-label">واتساب</span>
-                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-wa"><IconWhatsApp className="h-[22px] w-[22px]" /></span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-wa"><IconWhatsApp className="h-6 w-6" /></span>
                 </a>
                 <button type="button" className="ds-dar-action-tile" onClick={() => openDarAlertSheet(dar)}>
                   <span className="ds-dar-action-label">إشعار</span>
-                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-alert"><IconBell className="h-[22px] w-[22px]" /></span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-alert"><IconBell className="h-6 w-6" /></span>
                 </button>
                 <button type="button" className="ds-dar-action-tile" onClick={() => openDarExam(dar)}>
                   <span className="ds-dar-action-label">اختبار</span>
-                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconExam className="h-[22px] w-[22px]" /></span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconExam className="h-6 w-6" /></span>
                 </button>
                 <button type="button" className="ds-dar-action-tile" onClick={() => setEditDar({ ...dar })}>
                   <span className="ds-dar-action-label">تعديل</span>
-                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-edit"><IconEdit className="h-[22px] w-[22px]" /></span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-edit"><IconEdit className="h-6 w-6" /></span>
                 </button>
                 <button type="button" className="ds-dar-action-tile" onClick={() => void suspendToggle(dar)}>
                   <span className="ds-dar-action-label">{dar.status === 'معلق' ? 'تنشيط' : 'تعليق'}</span>
-                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-alert"><IconSuspend className="h-[22px] w-[22px]" /></span>
+                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-alert"><IconSuspend className="h-6 w-6" /></span>
                 </button>
                 {user?.role === 'SUPER_MASTER' ? (
                   <button type="button" className="ds-dar-action-tile" onClick={() => void deleteDar(dar.id)}>
                     <span className="ds-dar-action-label">حذف</span>
-                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-delete"><IconDelete className="h-[22px] w-[22px]" /></span>
+                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-delete"><IconDelete className="h-6 w-6" /></span>
                   </button>
                 ) : null}
               </div>

@@ -1610,8 +1610,8 @@ body {
 
 .ds-dar-action-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
   margin-top: 14px;
 }
 
@@ -1619,7 +1619,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   border: none;
   background: none;
   padding: 0;
@@ -1627,22 +1627,27 @@ body {
   font-family: inherit;
   text-decoration: none;
   color: inherit;
+  min-width: 0;
 }
 
 .ds-dar-action-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   color: var(--color-ios-muted);
-  line-height: 1.2;
+  line-height: 1.15;
+  text-align: center;
+  max-width: 100%;
 }
 
 .ds-dar-action-btn {
   width: 100%;
-  min-height: 48px;
+  aspect-ratio: 1;
+  max-height: 52px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: none;
 }
 
 @media print {
