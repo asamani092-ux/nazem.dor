@@ -31,10 +31,12 @@ export function ViewToggle({
   mode,
   onTable,
   onCards,
+  onStats,
 }: {
-  mode: 'table' | 'cards';
+  mode: 'table' | 'cards' | 'stats';
   onTable: () => void;
   onCards: () => void;
+  onStats?: () => void;
 }) {
   return (
     <div className="ds-view-toggle">
@@ -44,6 +46,11 @@ export function ViewToggle({
       <button type="button" className={`ds-view-btn ${mode === 'cards' ? 'ds-view-btn-active' : ''}`} onClick={onCards}>
         بطاقات
       </button>
+      {onStats ? (
+        <button type="button" className={`ds-view-btn ${mode === 'stats' ? 'ds-view-btn-active' : ''}`} onClick={onStats}>
+          مؤشرات
+        </button>
+      ) : null}
     </div>
   );
 }

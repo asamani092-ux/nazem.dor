@@ -63,36 +63,14 @@ function buildPrintHtml(title: string, bodyHtml: string, primary: string): strin
 </html>`;
 }
 
-function triggerPrint(doc: Document, win?: Window) {
-  const run = () => {
-    try {
-      if (win) win.focus();
-      else doc.defaultView?.focus();
-      doc.defaultView?.print();
-    } catch {
-      /* ignore */
-    }
-  };
-  window.setTimeout(run, 450);
-}
-
 /** Time O(1). Space O(n) for HTML string length. */
 export function printReport(title: string, bodyHtml: string) {
   const primary = printPrimary();
   const html = buildPrintHtml(title, bodyHtml, primary);
 
-  const popup = window.open('', '_blank', 'noopener,noreferrer');
-  if (popup) {
-    popup.document.open();
-    popup.document.write(html);
-    popup.document.close();
-    triggerPrint(popup.document, popup);
-    return;
-  }
-
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
   document.body.appendChild(iframe);
 
   const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -105,11 +83,19 @@ export function printReport(title: string, bodyHtml: string) {
   doc.write(html);
   doc.close();
 
-  triggerPrint(doc, iframe.contentWindow);
+  const win = iframe.contentWindow;
+  const run = () => {
+    try {
+      win?.focus();
+      win?.print();
+    } catch {
+      /* ignore */
+    }
+  };
 
-  window.setTimeout(() => {
-    iframe.remove();
-  }, 2000);
+  // انتظر تحميل الخط ثم اطبع من الـ iframe فقط (بدون تبويب جديد)
+  window.setTimeout(run, 300);
+  window.setTimeout(() => iframe.remove(), 2500);
 }
 
 export function tableHtml(headers: string[], rows: string[][]): string {

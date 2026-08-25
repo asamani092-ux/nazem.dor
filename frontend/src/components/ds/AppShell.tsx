@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Avatar, IconLogout, IconMenu } from './Charts';
+import { Avatar, IconClose, IconLogout, IconMenu } from './Charts';
 import { ThemeSwitcher } from './ThemeSwitcher';
 
 export type ShellNavItem = {
@@ -80,10 +80,10 @@ export function AppShell({
         <div className="ds-brandbar-theme">
           <ThemeSwitcher compact corner />
         </div>
-        <button type="button" className="ds-brandbar-menu" onClick={toggleMenu} aria-label="القائمة" aria-expanded={desktop ? !collapsed : open}>
-          <IconMenu />
+        <button type="button" className="ds-brandbar-menu" onClick={toggleMenu} aria-label={mobileVisible ? 'إغلاق القائمة' : 'القائمة'} aria-expanded={desktop ? !collapsed : open}>
+          {mobileVisible ? <IconClose /> : <IconMenu />}
         </button>
-        <img src="/logo.png" alt="" className="ds-brandbar-logo" />
+        <img src="/logo.png" alt="ناظم الصغار" className="ds-brandbar-logo" />
         <div className="min-w-0 flex-1">
           <div className="ds-brandbar-title">{title}</div>
           {subtitle ? <div className="ds-brandbar-sub">{subtitle}</div> : null}
@@ -97,6 +97,13 @@ export function AppShell({
           className={`ds-sidebar ${mobileVisible ? 'ds-sidebar-open' : ''} ${desktop && collapsed ? 'ds-sidebar-collapsed' : ''} ${desktop ? 'ds-sidebar-desk' : 'ds-sidebar-mobile'}`}
           aria-hidden={!desktop && !open}
         >
+          {!desktop ? (
+            <div className="ds-sidebar-close-row">
+              <button type="button" className="ds-sidebar-close" onClick={closeMobile} aria-label="إغلاق القائمة">
+                <IconClose />
+              </button>
+            </div>
+          ) : null}
           <div className={`ds-sidebar-user ${!showLabels ? 'justify-center' : ''}`}>
             <Avatar name={userName} size={40} />
             {showLabels ? (

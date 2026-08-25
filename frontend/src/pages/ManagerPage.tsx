@@ -227,50 +227,59 @@ export function ManagerPage() {
               إضافة فصل جديد
             </Button>
             {classes.map((c) => (
-              <Card key={c.id} className={c.status === 'موقوف' ? 'suspended-card' : ''}>
-                <div className="mb-3 flex justify-between gap-2">
-                  <div>
-                    <h4 className="font-extrabold">أ. {c.teacherName}</h4>
-                    <p className="text-[13px] text-ios-muted">
-                      {c.name} | {c.level}
-                    </p>
-                    <div className="mt-2">
-                      <Badge tone={c.status === 'موقوف' ? 'danger' : 'success'}>{c.status === 'موقوف' ? 'موقوف' : 'نشط'}</Badge>
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <div className="mx-auto flex h-8 w-8 items-center justify-center rounded-full bg-primary-soft font-black text-primary">
-                      {c.studentCount}
-                    </div>
-                    <span className="text-[7px] font-bold text-ios-muted">طالبات</span>
+              <Card key={c.id} className={`ds-dar-card ${c.status === 'موقوف' ? 'suspended-card' : ''}`}>
+                <div className="ds-dar-badges">
+                  <Badge tone="primary">{c.level}</Badge>
+                  <Badge tone={c.status === 'موقوف' ? 'warning' : 'success'}>{c.status === 'موقوف' ? 'موقوف' : 'نشط'}</Badge>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-lg font-extrabold text-primary">ف</div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-base font-extrabold">{c.name}</h4>
+                    <p className="mt-1 text-[15px] font-extrabold text-ios-text">المعلمة: {c.teacherName}</p>
+                    <p className="mt-1 text-sm font-semibold text-ios-muted">طالبات: {c.studentCount}</p>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <IconButton label="مؤشرات" tone="primary" onClick={() => void showClassStats(c.id)}><IconChart /></IconButton>
-                  <IconButton label="تعديل" tone="edit" onClick={() => setEditClass({ ...c })}><IconEdit /></IconButton>
-                  <IconButton label="واتساب" tone="wa" href={waLink(c.teacherPhone)}><IconWhatsApp /></IconButton>
-                  <IconButton
-                    label={c.status === 'موقوف' ? 'تنشيط' : 'تعطيل'}
-                    tone="alert"
+                <div className="ds-dar-action-grid">
+                  <button type="button" className="ds-dar-action-tile" onClick={() => void showClassStats(c.id)}>
+                    <span className="ds-dar-action-label">مؤشرات</span>
+                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconChart className="h-6 w-6" /></span>
+                  </button>
+                  <button type="button" className="ds-dar-action-tile" onClick={() => setEditClass({ ...c })}>
+                    <span className="ds-dar-action-label">تعديل</span>
+                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-edit"><IconEdit className="h-6 w-6" /></span>
+                  </button>
+                  <a className="ds-dar-action-tile" href={waLink(c.teacherPhone)} target="_blank" rel="noreferrer">
+                    <span className="ds-dar-action-label">واتساب</span>
+                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-wa"><IconWhatsApp className="h-6 w-6" /></span>
+                  </a>
+                  <button
+                    type="button"
+                    className="ds-dar-action-tile"
+                    data-activate={c.status === 'موقوف' ? '1' : undefined}
                     onClick={async () => {
                       await api(`/api/manager/classes/${c.id}/${c.status === 'موقوف' ? 'activate' : 'suspend'}`, { method: 'POST' });
+                      notify(c.status === 'موقوف' ? 'تم تنشيط الفصل' : 'تم تعطيل الفصل');
                       await load();
                     }}
                   >
-                    <IconSuspend />
-                  </IconButton>
+                    <span className="ds-dar-action-label">{c.status === 'موقوف' ? 'تنشيط' : 'تعطيل'}</span>
+                    <span className={`ds-dar-action-btn ds-icon-btn ${c.status === 'موقوف' ? 'ds-icon-btn-wa ds-activate-pulse' : 'ds-icon-btn-alert'}`}><IconSuspend className="h-6 w-6" /></span>
+                  </button>
                   {c.status === 'موقوف' ? (
-                    <IconButton
-                      label="حذف"
-                      tone="delete"
+                    <button
+                      type="button"
+                      className="ds-dar-action-tile"
                       onClick={async () => {
                         if (!confirm('حذف الفصل؟')) return;
                         await api(`/api/manager/classes/${c.id}`, { method: 'DELETE' });
+                        notify('تم حذف الفصل');
                         await load();
                       }}
                     >
-                      <IconDelete />
-                    </IconButton>
+                      <span className="ds-dar-action-label">حذف</span>
+                      <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-delete"><IconDelete className="h-6 w-6" /></span>
+                    </button>
                   ) : null}
                 </div>
               </Card>
@@ -613,7 +622,7 @@ export function ManagerPage() {
                 />
               </div>
             ))}
-            {stuRows.length < 10 ? (
+            {stuRows.length < 50 ? (
               <button className="w-full rounded-xl bg-blue-50 py-2 text-xs font-bold text-blue-600" onClick={() => setStuRows([...stuRows, { name: '', phone: '' }])}>
                 + طالبة أخرى
               </button>

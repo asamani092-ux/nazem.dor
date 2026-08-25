@@ -17,6 +17,8 @@ import {
   IconReport,
   NotificationCard,
   FileUpload,
+  ViewToggle,
+  DataTable,
 } from '../components/ds';
 import { IconWhatsApp } from '../components/ds/Icons';
 import { useToast } from '../components/ds/Toast';
@@ -48,6 +50,7 @@ export function TeacherPage() {
   const [states, setStates] = useState<Record<string, TrackState>>({});
   const [file, setFile] = useState<File | null>(null);
   const [examsOpen, setExamsOpen] = useState(false);
+  const [trackView, setTrackView] = useState<'cards' | 'table'>('cards');
   const [examTab, setExamTab] = useState<'pending' | 'graded'>('pending');
   const [pendingExams, setPendingExams] = useState<Exam[]>([]);
   const [gradedExams, setGradedExams] = useState<GradedExam[]>([]);
@@ -189,16 +192,19 @@ export function TeacherPage() {
   }
 
   async function openExams() {
-    if (!students.length) {
-      notify('لا توجد طالبات في الفصل', 'error');
-      return;
+    try {
+      const res = await api<{ data: { pending: Exam[]; graded: GradedExam[] } }>('/api/teacher/exams');
+      setPendingExams(res.data.pending);
+      setGradedExams(res.data.graded);
+      setExamsOpen(true);
+      setGrading(null);
+      setExamTab('pending');
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'تعذر فتح الاختبارات', 'error');
+      setExamsOpen(true);
+      setPendingExams([]);
+      setGradedExams([]);
     }
-    const res = await api<{ data: { pending: Exam[]; graded: GradedExam[] } }>('/api/teacher/exams');
-    setPendingExams(res.data.pending);
-    setGradedExams(res.data.graded);
-    setExamsOpen(true);
-    setGrading(null);
-    setExamTab('pending');
   }
 
   function startGrading(ex: Exam, existing?: GradedExam) {
@@ -343,35 +349,78 @@ export function TeacherPage() {
                 <FileUpload label="مرفق (اختياري)" fileName={file?.name} onChange={setFile} accept="image/*,.pdf" />
               </div>
 
-              {students.map((s, idx) => {
-                const st = states[s.id];
-                return (
-                  <div key={s.id} className="ds-card ds-card-pad p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h3 className="text-sm font-extrabold">{idx + 1}. {s.name}</h3>
-                      <div className="flex gap-2">
-                        <IconButton label="تقرير" tone="report" onClick={() => void sendReport(s)}><IconReport /></IconButton>
-                        <IconButton label="واتساب" tone="wa" href={waLink(s.parentPhone)}><IconWhatsApp /></IconButton>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-extrabold text-primary">رصد الطالبات</h3>
+                <ViewToggle mode={trackView} onTable={() => setTrackView('table')} onCards={() => setTrackView('cards')} />
+              </div>
+
+              {trackView === 'cards' ? (
+                students.map((s, idx) => {
+                  const st = states[s.id];
+                  if (!st) return null;
+                  return (
+                    <div key={s.id} className="ds-card ds-card-pad p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <h3 className="text-sm font-extrabold">{idx + 1}. {s.name}</h3>
+                        <div className="flex gap-2">
+                          <IconButton label="تقرير" tone="report" onClick={() => void sendReport(s)}><IconReport /></IconButton>
+                          <IconButton label="واتساب" tone="wa" href={waLink(s.parentPhone)}><IconWhatsApp /></IconButton>
+                        </div>
+                      </div>
+                      <div className={`mb-1 grid gap-2 text-center text-[9px] font-bold text-gray-400 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        <span>الحضور</span>
+                        <span>الإنجاز</span>
+                        <span>الواجب</span>
+                        {isAwwalia ? <span>التربوي</span> : null}
+                      </div>
+                      <div className={`grid gap-2 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                        <TrackToggle label={st.attendance} onClick={() => toggle(s.id, 'attendance')} />
+                        <TrackToggle label={st.educational} onClick={() => toggle(s.id, 'educational')} />
+                        <TrackToggle label={st.homework} onClick={() => toggle(s.id, 'homework')} />
+                        {isAwwalia ? <TrackToggle label={st.tarbawi} onClick={() => toggle(s.id, 'tarbawi')} /> : null}
                       </div>
                     </div>
-                    <div className={`mb-1 grid gap-2 text-center text-[9px] font-bold text-gray-400 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                      <span>الحضور</span>
-                      <span>الإنجاز</span>
-                      <span>الواجب</span>
-                      {isAwwalia ? <span>التربوي</span> : null}
-                    </div>
-                    <div className={`grid gap-2 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                      <TrackToggle label={st.attendance} onClick={() => toggle(s.id, 'attendance')} />
-                      <TrackToggle label={st.educational} onClick={() => toggle(s.id, 'educational')} />
-                      <TrackToggle label={st.homework} onClick={() => toggle(s.id, 'homework')} />
-                      {isAwwalia ? <TrackToggle label={st.tarbawi} onClick={() => toggle(s.id, 'tarbawi')} /> : null}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <DataTable
+                  head={
+                    <tr>
+                      <th>#</th>
+                      <th>الطالبة</th>
+                      <th>الحضور</th>
+                      <th>الإنجاز</th>
+                      <th>الواجب</th>
+                      {isAwwalia ? <th>التربوي</th> : null}
+                      <th>إجراءات</th>
+                    </tr>
+                  }
+                >
+                  {students.map((s, idx) => {
+                    const st = states[s.id];
+                    if (!st) return null;
+                    return (
+                      <tr key={s.id}>
+                        <td>{idx + 1}</td>
+                        <td className="font-bold whitespace-nowrap">{s.name}</td>
+                        <td><TrackToggle label={st.attendance} onClick={() => toggle(s.id, 'attendance')} /></td>
+                        <td><TrackToggle label={st.educational} onClick={() => toggle(s.id, 'educational')} /></td>
+                        <td><TrackToggle label={st.homework} onClick={() => toggle(s.id, 'homework')} /></td>
+                        {isAwwalia ? <td><TrackToggle label={st.tarbawi} onClick={() => toggle(s.id, 'tarbawi')} /></td> : null}
+                        <td>
+                          <div className="ds-table-actions">
+                            <IconButton label="تقرير" tone="report" onClick={() => void sendReport(s)}><IconReport /></IconButton>
+                            <IconButton label="واتساب" tone="wa" href={waLink(s.parentPhone)}><IconWhatsApp /></IconButton>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </DataTable>
+              )}
 
               <button
-                className="ds-btn ds-btn-primary !bg-[#16a34a]"
+                className="ds-btn ds-btn-primary !bg-[#16a34a] !border-[#15803d]"
                 disabled={submitting}
                 onClick={() => void submitTracking()}
               >
@@ -383,81 +432,81 @@ export function TeacherPage() {
       ) : null}
 
       {examsOpen ? (
-        <BottomSheet
-          title={grading ? `رصد: ${grading.title}` : 'الاختبارات'}
-          onClose={() => setExamsOpen(false)}
-        >
-          {!grading ? (
-            <>
-              <div className="mb-3 flex gap-2">
-                <Button variant={examTab === 'pending' ? 'primary' : 'secondary'} className="!w-auto !px-3" onClick={() => setExamTab('pending')}>
-                  معلّق ({pendingExams.length})
-                </Button>
-                <Button variant={examTab === 'graded' ? 'primary' : 'secondary'} className="!w-auto !px-3" onClick={() => setExamTab('graded')}>
-                  مُرصود ({gradedExams.length})
-                </Button>
-              </div>
-              {examTab === 'pending' ? (
-                pendingExams.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-ios-muted">لا توجد اختبارات معلقة</p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {pendingExams.map((ex) => (
-                      <div key={ex.id} className="flex items-center justify-between rounded-[14px] bg-shell p-3.5">
-                        <div>
-                          <div className="text-sm font-bold">{ex.title}</div>
-                          <div className="text-xs text-ios-muted">{ex.date}</div>
-                        </div>
-                        <Button variant="chip-primary" onClick={() => startGrading(ex)}>رصد</Button>
-                      </div>
-                    ))}
-                  </div>
-                )
-              ) : gradedExams.length === 0 ? (
-                <p className="py-6 text-center text-sm text-ios-muted">لا توجد اختبارات مرصودة</p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {gradedExams.map((ex) => (
-                    <div key={ex.id} className="flex items-center justify-between rounded-[14px] bg-shell p-3.5">
-                      <div>
-                        <div className="text-sm font-bold">{ex.title}</div>
-                        <div className="text-xs text-ios-muted">{ex.date} · مُرصود</div>
-                      </div>
-                      <Button variant="chip-primary" onClick={() => startGrading(ex, ex)}>تعديل</Button>
+        <div className="space-y-4">
+          <h3 className="text-lg font-extrabold text-primary">الاختبارات</h3>
+          {!students.length ? (
+            <p className="rounded-xl bg-shell p-4 text-center text-sm text-ios-muted">لا توجد طالبات في الفصل — أضيفي طالبات من حساب المديرة أولاً.</p>
+          ) : null}
+          <div className="flex gap-2">
+            <Button variant={examTab === 'pending' ? 'primary' : 'secondary'} className="!w-auto !px-3" onClick={() => setExamTab('pending')}>
+              معلّق ({pendingExams.length})
+            </Button>
+            <Button variant={examTab === 'graded' ? 'primary' : 'secondary'} className="!w-auto !px-3" onClick={() => setExamTab('graded')}>
+              مُرصود ({gradedExams.length})
+            </Button>
+          </div>
+          {examTab === 'pending' ? (
+            pendingExams.length === 0 ? (
+              <p className="py-6 text-center text-sm text-ios-muted">لا توجد اختبارات معلقة</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {pendingExams.map((ex) => (
+                  <div key={ex.id} className="flex items-center justify-between rounded-[14px] bg-shell p-3.5">
+                    <div>
+                      <div className="text-sm font-bold">{ex.title}</div>
+                      <div className="text-xs text-ios-muted">{ex.date}</div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="space-y-3">
-              {students.map((s) => (
-                <div key={s.id} className="rounded-lg bg-shell p-3 space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold">{s.name}</span>
-                    <Input
-                      type="text"
-                      className="!w-24 !py-2 text-center text-xs"
-                      aria-label={`درجة ${s.name}`}
-                      placeholder="درجة"
-                      value={scores[s.id] || ''}
-                      onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
-                    />
+                    <Button variant="chip-primary" disabled={!students.length} onClick={() => startGrading(ex)}>رصد</Button>
                   </div>
-                  <Input
-                    className="!py-2 text-xs"
-                    placeholder="ملاحظة (اختياري)"
-                    value={notes[s.id] || ''}
-                    onChange={(e) => setNotes({ ...notes, [s.id]: e.target.value })}
-                  />
+                ))}
+              </div>
+            )
+          ) : gradedExams.length === 0 ? (
+            <p className="py-6 text-center text-sm text-ios-muted">لا توجد اختبارات مرصودة</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {gradedExams.map((ex) => (
+                <div key={ex.id} className="flex items-center justify-between rounded-[14px] bg-shell p-3.5">
+                  <div>
+                    <div className="text-sm font-bold">{ex.title}</div>
+                    <div className="text-xs text-ios-muted">{ex.date} · مُرصود</div>
+                  </div>
+                  <Button variant="chip-primary" onClick={() => startGrading(ex, ex)}>تعديل</Button>
                 </div>
               ))}
-              <Button variant="primary" onClick={() => void saveGrades().catch((e) => notify(e.message, 'error'))}>
-                حفظ الاعتماد
-              </Button>
             </div>
           )}
-          <Button variant="primary" className="mt-4" onClick={() => setExamsOpen(false)}>إغلاق</Button>
+        </div>
+      ) : null}
+
+      {grading ? (
+        <BottomSheet title={`رصد: ${grading.title}`} onClose={() => setGrading(null)}>
+          <div className="space-y-3">
+            {students.map((s) => (
+              <div key={s.id} className="rounded-lg bg-shell p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold">{s.name}</span>
+                  <Input
+                    type="text"
+                    className="!w-24 !py-2 text-center text-xs"
+                    aria-label={`درجة ${s.name}`}
+                    placeholder="درجة"
+                    value={scores[s.id] || ''}
+                    onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
+                  />
+                </div>
+                <Input
+                  className="!py-2 text-xs"
+                  placeholder="ملاحظة (اختياري)"
+                  value={notes[s.id] || ''}
+                  onChange={(e) => setNotes({ ...notes, [s.id]: e.target.value })}
+                />
+              </div>
+            ))}
+            <Button variant="primary" onClick={() => void saveGrades().catch((e) => notify(e.message, 'error'))}>
+              حفظ الاعتماد
+            </Button>
+          </div>
         </BottomSheet>
       ) : null}
     </AppShell>

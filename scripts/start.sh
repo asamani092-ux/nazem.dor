@@ -14,11 +14,16 @@ npm run build
 cd "$ROOT/backend"
 test -f .env || cp .env.example .env
 npx tsc
-# أوقف نسخة قديمة على 4000 إن وُجدت
+
+# أوقف أي نسخة قديمة على 4000 بقوة (تجنب سيرفر stale بدون /calendar)
 if command -v fuser >/dev/null 2>&1; then
   fuser -k 4000/tcp 2>/dev/null || true
 fi
+if command -v lsof >/dev/null 2>&1; then
+  lsof -ti :4000 | xargs -r kill -9 2>/dev/null || true
+fi
 pkill -f "FRONTEND_DIST=.*node dist/index.js" 2>/dev/null || true
+pkill -f "node dist/index.js" 2>/dev/null || true
 sleep 1
 
 FRONTEND_DIST="$ROOT/frontend/dist" PORT=4000 node dist/index.js > /tmp/nazem-api.log 2>&1 &

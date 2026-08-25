@@ -113,7 +113,7 @@ type WeekSlot = {
 };
 
 type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'tools-audit';
-type DarViewMode = 'cards' | 'table';
+type DarViewMode = 'cards' | 'table' | 'stats';
 type PlanViewMode = 'table' | 'cards';
 type AccountFilter = 'ALL' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
 
@@ -166,6 +166,7 @@ export function MasterPage() {
   const [curriculumLoaded, setCurriculumLoaded] = useState(false);
   const [indicatorsLoaded, setIndicatorsLoaded] = useState(false);
   const [planViewLevel, setPlanViewLevel] = useState<string>('تمهيدي 1');
+  const [extraLevels, setExtraLevels] = useState<string[]>([]);
   const [planViewWeek, setPlanViewWeek] = useState(1);
   const [planViewMode, setPlanViewMode] = useState<PlanViewMode>('table');
   const [planMenuDay, setPlanMenuDay] = useState<string | null>(null);
@@ -182,7 +183,18 @@ export function MasterPage() {
   const [calendarDetail, setCalendarDetail] = useState<CalendarEvent | null>(null);
   const [calendarDayEvents, setCalendarDayEvents] = useState<CalendarEvent[]>([]);
   const [accountMenuRow, setAccountMenuRow] = useState<string | null>(null);
-  const [darMenuRow, setDarMenuRow] = useState<string | null>(null);
+  const [darStats, setDarStats] = useState<{
+    id: string;
+    name: string;
+    totalStudents: number;
+    activeStudents: number;
+    classesCount: number;
+    attendanceRate: number;
+    completionRate: number;
+    homeworkRate: number;
+    overallRate: number;
+    classBreakdown: Array<{ name: string; level: string; studentCount: number; overallRate: number }>;
+  } | null>(null);
   const [showAccountEditor, setShowAccountEditor] = useState(false);
   const [accountEditorMode, setAccountEditorMode] = useState<'add' | 'edit'>('add');
   const [accountForm, setAccountForm] = useState({
@@ -331,6 +343,7 @@ export function MasterPage() {
   }
 
   async function suspendToggle(dar: Dar) {
+    const next = dar.status === 'معلق' ? 'نشط' : 'معلق';
     await api(`/api/master/dars/${dar.id}`, {
       method: 'PUT',
       json: {
@@ -339,9 +352,10 @@ export function MasterPage() {
         managerName: dar.managerName,
         managerPhone: dar.managerPhone,
         location: dar.location,
-        status: dar.status === 'معلق' ? 'نشط' : 'معلق',
+        status: next,
       },
     });
+    notify(next === 'معلق' ? 'تم تعليق الدار' : 'تم تنشيط الدار');
     await load();
   }
 
@@ -351,6 +365,7 @@ export function MasterPage() {
   }
 
   async function showStats(id: string) {
+    const dar = dars.find((d) => d.id === id);
     const res = await api<{
       data: {
         totalStudents: number;
@@ -364,15 +379,11 @@ export function MasterPage() {
       };
     }>(`/api/master/dars/${id}/stats`);
     const d = res.data;
-    const lines = (d.classBreakdown || [])
-      .slice(0, 8)
-      .map((c) => `• ${c.name} (${c.level}): ${c.studentCount} طالبة | عام %${c.overallRate}`)
-      .join('\n');
-    notify(
-      `طالبات: ${d.totalStudents} | نشطات: ${d.activeStudents} | فصول: ${d.classesCount}\n` +
-        `حضور %${d.attendanceRate} | إنجاز %${d.completionRate} | واجب %${d.homeworkRate} | عام %${d.overallRate}\n` +
-        (lines ? `\nتفصيل الفصول:\n${lines}` : ''),
-    );
+    setDarStats({
+      id,
+      name: dar?.name || 'الدار',
+      ...d,
+    });
   }
 
   async function saveExam() {
@@ -748,13 +759,12 @@ export function MasterPage() {
 
   function printCurriculumWeek() {
     const html = tableHtml(
-      ['اليوم', 'التعليمي', 'الواجب', 'التربوي', 'الحالة'],
+      ['اليوم', 'التعليمي', 'الواجب', 'التربوي'],
       weekSlots.map((s) => [
         s.day,
         s.plan?.educational || '—',
         s.plan ? formatHomework(s.plan.homework) : '—',
         s.plan?.tarbawi || '—',
-        s.plan ? 'مكتمل' : 'فارغ',
       ]),
     );
     printReport(`خطة ${planViewLevel} — أسبوع ${planViewWeek}`, html);
@@ -834,6 +844,10 @@ export function MasterPage() {
                     mode={darViewMode}
                     onTable={() => setDarViewMode('table')}
                     onCards={() => setDarViewMode('cards')}
+                    onStats={() => {
+                      setDarViewMode('stats');
+                      void loadIndicators().catch((e) => notify(e.message, 'error'));
+                    }}
                   />
                   <Button variant="success" className="!w-auto" onClick={() => setShowAdd(true)}>إضافة دار</Button>
                   <Button variant="primary" className="!w-auto" onClick={() => setShowExam(true)}>اختبار مركزي</Button>
@@ -955,7 +969,10 @@ export function MasterPage() {
                 واجب %{d.homeworkRate} | عام %{d.overallRate}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <IconButton label="تقرير الدار" tone="report" onClick={() => void openReport(d.id)}><IconReport /></IconButton>
+                <IconButton label="تقرير الدار" tone="report" onClick={() => void openReport(d.id).then(() => undefined)}><IconReport /></IconButton>
+                <Button variant="secondary" className="!w-auto !px-3 !py-1.5 !text-xs" onClick={() => void openReport(d.id)}>
+                  فتح التقرير
+                </Button>
               </div>
             </Card>
           ))}
@@ -986,9 +1003,23 @@ export function MasterPage() {
                 />
                 {emptyDays.length > 0 ? (
                   <Button variant="primary" className="!w-auto !px-3 !py-2 !text-xs" onClick={() => openAddPlan()}>
-                    إضافة يوم
+                    إضافة خطة
                   </Button>
                 ) : null}
+                <Button
+                  variant="secondary"
+                  className="!w-auto !px-3 !py-2 !text-xs"
+                  onClick={() => {
+                    const next = prompt('اسم المستوى الجديد (مثال: تمهيدي 3)');
+                    if (!next?.trim()) return;
+                    const name = next.trim();
+                    setExtraLevels((prev) => (prev.includes(name) ? prev : [...prev, name]));
+                    setPlanViewLevel(name);
+                    notify(`تم إضافة المستوى: ${name} — أضيفي خططاً له`);
+                  }}
+                >
+                  إضافة مستوى
+                </Button>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -1002,7 +1033,7 @@ export function MasterPage() {
                     setPlanMenuDay(null);
                   }}
                 >
-                  {CURRICULUM_LEVELS.map((l) => (
+                  {[...CURRICULUM_LEVELS, ...extraLevels].map((l) => (
                     <option key={l}>{l}</option>
                   ))}
                 </select>
@@ -1039,7 +1070,6 @@ export function MasterPage() {
                   <th>التعليمي</th>
                   <th>الواجب</th>
                   <th>التربوي</th>
-                  <th>الحالة</th>
                   <th>إجراءات</th>
                 </tr>
               }
@@ -1052,19 +1082,11 @@ export function MasterPage() {
                       <td className="font-bold text-ios-text">{slot.plan.educational}</td>
                       <td>{formatHomework(slot.plan.homework) || '—'}</td>
                       <td>{slot.plan.tarbawi || '—'}</td>
-                      <td>
-                        <span className="ds-plan-status-full">مكتمل</span>
-                      </td>
                     </>
                   ) : (
-                    <>
-                      <td colSpan={3} className="text-ios-muted">
-                        فارغ — لم تُسجَّل خطة
-                      </td>
-                      <td>
-                        <span className="ds-plan-status-empty">فارغ</span>
-                      </td>
-                    </>
+                    <td colSpan={3} className="text-ios-muted">
+                      فارغ — لم تُسجَّل خطة
+                    </td>
                   )}
                   <td>
                     <PlanActions slot={slot} />
@@ -1121,12 +1143,13 @@ export function MasterPage() {
           >
             إدارة الحسابات
           </SectionTitle>
-          <div className="ds-card ds-card-pad grid gap-3 p-4 sm:grid-cols-2">
-            <Field label="العرض">
+          <div className="ds-card overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 border-b border-ios-border p-3">
               <select
-                className="ds-input py-2 text-sm"
+                className="ds-input !w-auto min-w-[120px] py-2 text-sm"
                 value={accountFilter}
                 onChange={(e) => setAccountFilter(e.target.value as AccountFilter)}
+                aria-label="فلتر النوع"
               >
                 <option value="ALL">الكل</option>
                 <option value="MASTER">مشرفة</option>
@@ -1134,17 +1157,14 @@ export function MasterPage() {
                 <option value="TEACHER">معلمة</option>
                 <option value="STUDENT">طالبة</option>
               </select>
-            </Field>
-            <Field label="بحث">
               <input
-                className="ds-input py-2 text-sm"
-                placeholder="اسم أو جوال"
+                className="ds-input min-w-[160px] flex-1 py-2 text-sm"
+                placeholder="بحث: اسم أو جوال"
                 value={accountSearch}
                 onChange={(e) => setAccountSearch(e.target.value)}
               />
-            </Field>
-          </div>
-          <p className="text-[11px] font-bold text-gray-500">{accounts.length} نتيجة</p>
+              <span className="text-[11px] font-bold text-gray-500">{accounts.length} نتيجة</span>
+            </div>
           {accounts.length ? (
             <DataTable
               head={
@@ -1152,7 +1172,8 @@ export function MasterPage() {
                   <th>الاسم</th>
                   <th>الجوال</th>
                   <th>النوع</th>
-                  <th>الدار / الفصل</th>
+                  <th>الدار</th>
+                  <th>الفصل</th>
                   <th>الحالة</th>
                   <th>إجراءات</th>
                 </tr>
@@ -1160,13 +1181,11 @@ export function MasterPage() {
             >
               {accounts.map((row) => (
                 <tr key={`${row.kind}-${row.id}`} className={row.status === 'معلق' ? 'opacity-70' : ''}>
-                  <td className="font-bold">{row.name}</td>
-                  <td dir="ltr" className="text-left">{row.phone}</td>
-                  <td>{row.typeLabel}</td>
-                  <td className="text-[11px]">
-                    {row.darName || '—'}
-                    {row.className ? ` · ${row.className}` : ''}
-                  </td>
+                  <td className="font-bold whitespace-nowrap">{row.name}</td>
+                  <td dir="ltr" className="text-left whitespace-nowrap font-semibold tracking-wide">{row.phone}</td>
+                  <td className="whitespace-nowrap">{row.typeLabel}</td>
+                  <td className="text-[12px]">{row.darName || '—'}</td>
+                  <td className="text-[12px]">{row.className || '—'}</td>
                   <td>
                     <Badge tone={row.status === 'معلق' ? 'warning' : 'success'}>
                       {row.status === 'معلق' ? 'معلق' : 'نشط'}
@@ -1203,6 +1222,7 @@ export function MasterPage() {
           ) : (
             <p className="py-8 text-center text-sm text-gray-400">لا توجد نتائج</p>
           )}
+          </div>
         </div>
       ) : null}
 
@@ -1293,9 +1313,9 @@ export function MasterPage() {
                   <span className="ds-dar-action-label">تعديل</span>
                   <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-edit"><IconEdit className="h-6 w-6" /></span>
                 </button>
-                <button type="button" className="ds-dar-action-tile" onClick={() => void suspendToggle(dar)}>
+                <button type="button" className="ds-dar-action-tile" data-activate={dar.status === 'معلق' ? '1' : undefined} onClick={() => void suspendToggle(dar)}>
                   <span className="ds-dar-action-label">{dar.status === 'معلق' ? 'تنشيط' : 'تعليق'}</span>
-                  <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-alert"><IconSuspend className="h-6 w-6" /></span>
+                  <span className={`ds-dar-action-btn ds-icon-btn ${dar.status === 'معلق' ? 'ds-icon-btn-wa ds-activate-pulse' : 'ds-icon-btn-alert'}`}><IconSuspend className="h-6 w-6" /></span>
                 </button>
                 {user?.role === 'SUPER_MASTER' ? (
                   <button type="button" className="ds-dar-action-tile" onClick={() => void deleteDar(dar.id)}>
@@ -1326,7 +1346,7 @@ export function MasterPage() {
                 <tr key={dar.id}>
                   <td className="font-bold">{dar.name}</td>
                   <td>{dar.managerName}</td>
-                  <td dir="ltr" className="text-left">{dar.managerPhone}</td>
+                  <td dir="ltr" className="text-left whitespace-nowrap">{dar.managerPhone}</td>
                   <td>{dar.curriculum.replace('منهج ', '')}</td>
                   <td className="text-[11px]">{dar.location || '—'}</td>
                   <td>{dar.lastVisit || '—'}</td>
@@ -1336,31 +1356,47 @@ export function MasterPage() {
                     </Badge>
                   </td>
                   <td>
-                    <ActionMenu
-                      open={darMenuRow === dar.id}
-                      onToggle={() => setDarMenuRow(darMenuRow === dar.id ? null : dar.id)}
-                      onClose={() => setDarMenuRow(null)}
-                      items={[
-                        { key: 'stats', label: 'مؤشرات', onClick: () => void showStats(dar.id) },
-                        { key: 'report', label: 'تقرير', onClick: () => void openReport(dar.id) },
-                        { key: 'wa', label: 'واتساب', href: waLink(dar.managerPhone) },
-                        { key: 'notify', label: 'إشعار / زيارة', onClick: () => openDarAlertSheet(dar) },
-                        { key: 'exam', label: 'اختبار', onClick: () => openDarExam(dar) },
-                        { key: 'edit', label: 'تعديل', onClick: () => setEditDar({ ...dar }) },
-                        {
-                          key: 'status',
-                          label: dar.status === 'معلق' ? 'تنشيط' : 'تعليق',
-                          onClick: () => void suspendToggle(dar),
-                        },
-                        ...(user?.role === 'SUPER_MASTER'
-                          ? [{ key: 'delete', label: 'حذف', tone: 'danger' as const, onClick: () => void deleteDar(dar.id) }]
-                          : []),
-                      ]}
-                    />
+                    <div className="ds-table-actions">
+                      <IconButton label="مؤشرات" tone="primary" onClick={() => void showStats(dar.id)}><IconChart /></IconButton>
+                      <IconButton label="تقرير" tone="report" onClick={() => void openReport(dar.id)}><IconReport /></IconButton>
+                      <IconButton label="واتساب" tone="wa" href={waLink(dar.managerPhone)}><IconWhatsApp /></IconButton>
+                      <IconButton label="إشعار" tone="alert" onClick={() => openDarAlertSheet(dar)}><IconBell /></IconButton>
+                      <IconButton label="اختبار" tone="primary" onClick={() => openDarExam(dar)}><IconExam /></IconButton>
+                      <IconButton label="تعديل" tone="edit" onClick={() => setEditDar({ ...dar })}><IconEdit /></IconButton>
+                      <IconButton label={dar.status === 'معلق' ? 'تنشيط' : 'تعليق'} tone={dar.status === 'معلق' ? 'wa' : 'alert'} onClick={() => void suspendToggle(dar)}><IconSuspend /></IconButton>
+                      {user?.role === 'SUPER_MASTER' ? (
+                        <IconButton label="حذف" tone="delete" onClick={() => void deleteDar(dar.id)}><IconDelete /></IconButton>
+                      ) : null}
+                    </div>
                   </td>
                 </tr>
               ))}
             </DataTable>
+          ) : null}
+          {filtered.length && darViewMode === 'stats' ? (
+            <div className="space-y-3">
+              {(indicators?.perDar || []).filter((d) => filtered.some((f) => f.id === d.id)).map((d) => (
+                <Card key={d.id} className="ds-dar-card">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-extrabold">{d.name}</h3>
+                    <Badge tone="primary">{d.curriculum.replace('منهج ', '')}</Badge>
+                  </div>
+                  <div className="ds-kpi-grid !gap-2">
+                    <StatCard label="طالبات" value={d.activeStudents} />
+                    <StatCard label="فصول" value={d.classesCount} />
+                    <StatCard label="حضور" value={`${d.attendanceRate}%`} />
+                    <StatCard label="إنجاز" value={`${d.completionRate}%`} />
+                    <StatCard label="واجب" value={`${d.homeworkRate}%`} />
+                    <StatCard label="عام" value={`${d.overallRate}%`} />
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <IconButton label="تفاصيل" tone="primary" onClick={() => void showStats(d.id)}><IconChart /></IconButton>
+                    <IconButton label="تقرير" tone="report" onClick={() => void openReport(d.id)}><IconReport /></IconButton>
+                  </div>
+                </Card>
+              ))}
+              {!indicators?.perDar?.length ? <p className="text-center text-sm text-ios-muted">جاري تحميل المؤشرات...</p> : null}
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -1544,6 +1580,42 @@ export function MasterPage() {
             <button className="ds-btn ds-btn-primary" onClick={() => void savePlan()}>
               {planEditorMode === 'edit' ? 'تحديث الخطة' : 'إضافة الخطة'}
             </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {darStats ? (
+        <Modal title={`مؤشرات: ${darStats.name}`} onClose={() => setDarStats(null)} wide>
+          <div className="space-y-4">
+            <div className="ds-kpi-grid">
+              <StatCard label="طالبات" value={darStats.activeStudents} />
+              <StatCard label="فصول" value={darStats.classesCount} />
+              <StatCard label="حضور" value={`${darStats.attendanceRate}%`} />
+              <StatCard label="إنجاز" value={`${darStats.completionRate}%`} />
+              <StatCard label="واجب" value={`${darStats.homeworkRate}%`} />
+              <StatCard label="عام" value={`${darStats.overallRate}%`} />
+            </div>
+            <div className="flex flex-wrap justify-around gap-4">
+              <RingStat label="حضور" pct={darStats.attendanceRate} />
+              <RingStat label="إنجاز" pct={darStats.completionRate} />
+              <RingStat label="واجب" pct={darStats.homeworkRate} />
+            </div>
+            {darStats.classBreakdown?.length ? (
+              <div className="space-y-2">
+                <h4 className="text-sm font-extrabold text-primary">تفصيل الفصول</h4>
+                {darStats.classBreakdown.map((c) => (
+                  <div key={c.name} className="flex items-center justify-between rounded-xl bg-shell px-3 py-2 text-sm">
+                    <span className="font-bold">{c.name} <span className="text-ios-muted">({c.level})</span></span>
+                    <span className="text-xs font-bold text-ios-muted">{c.studentCount} طالبة · عام %{c.overallRate}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="primary" className="!w-auto" onClick={() => { void openReport(darStats.id); setDarStats(null); }}>
+                فتح التقرير
+              </Button>
+            </div>
           </div>
         </Modal>
       ) : null}
