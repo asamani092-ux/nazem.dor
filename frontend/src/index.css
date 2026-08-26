@@ -366,6 +366,11 @@ body {
   border-top: 1px solid var(--color-ios-border);
 }
 
+.ds-phone-cell {
+  direction: ltr;
+  text-align: right;
+}
+
 /* شارات */
 .ds-badge {
   display: inline-flex;
@@ -1151,6 +1156,41 @@ body {
   color: var(--color-ios-muted);
   font-weight: 700;
   font-size: 11px;
+}
+
+.ds-curr-day-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ds-curr-day-item {
+  min-width: 0;
+  border: 1px solid var(--color-ios-border);
+  border-radius: 12px;
+  background: var(--color-shell);
+  padding: 10px;
+}
+
+.ds-curr-day-item > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--color-ios-muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ds-curr-day-item > p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .ds-curr-day-card {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ds-toast-stack {

@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { computeRates, levelsForCurriculum, normalizeHomework } from '../lib/domain.js';
+import { computeExamStats, computeRates, levelsForCurriculum, normalizeHomework } from '../lib/domain.js';
+import { getRateWeights, setRateWeights } from '../lib/settings.js';
 import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
@@ -200,13 +201,14 @@ export async function masterRoutes(app: FastifyInstance) {
   });
 
   app.get('/indicators', guard, async () => {
+    const weights = await getRateWeights();
     const dars = await prisma.dar.findMany({
       where: { status: { not: EntityStatus.DELETED } },
       select: { id: true, name: true, curriculum: true, status: true },
     });
     const activeDarIds = dars.filter((d) => d.status === EntityStatus.ACTIVE).map((d) => d.id);
 
-    const [classesCount, studentsActive, studentsTotal, trackings, examsCount, teachersCount] =
+    const [classesCount, studentsActive, studentsTotal, trackings, examsCount, teachersCount, examGrades] =
       await Promise.all([
         prisma.class.count({
           where: { darId: { in: activeDarIds }, status: EntityStatus.ACTIVE },
@@ -232,9 +234,14 @@ export async function masterRoutes(app: FastifyInstance) {
             darId: { in: activeDarIds },
           },
         }),
+        prisma.examGrade.findMany({
+          where: { darId: { in: activeDarIds } },
+          select: { score: true, darId: true },
+        }),
       ]);
 
-    const rates = computeRates(trackings);
+    const rates = computeRates(trackings, weights);
+    const examStats = computeExamStats(examGrades, examsCount);
     const byCurriculum = {
       tibyan: dars.filter((d) => d.curriculum === CurriculumType.TIBYAN && d.status === EntityStatus.ACTIVE).length,
       qari: dars.filter((d) => d.curriculum === CurriculumType.QARI && d.status === EntityStatus.ACTIVE).length,
@@ -244,7 +251,8 @@ export async function masterRoutes(app: FastifyInstance) {
     const perDar = [];
     for (const d of dars) {
       const rows = trackings.filter((t) => t.darId === d.id);
-      const r = computeRates(rows);
+      const r = computeRates(rows, weights);
+      const darExam = computeExamStats(examGrades.filter((g) => g.darId === d.id));
       const activeStudents = await prisma.student.count({
         where: { darId: d.id, status: EntityStatus.ACTIVE },
       });
@@ -259,6 +267,8 @@ export async function masterRoutes(app: FastifyInstance) {
         activeStudents,
         classesCount: classCount,
         ...r,
+        examAvg: darExam.examAvg,
+        examsGradedCount: darExam.examsGradedCount,
       });
     }
 
@@ -271,12 +281,39 @@ export async function masterRoutes(app: FastifyInstance) {
         teachersCount,
         studentsActive,
         studentsTotal,
-        examsCount,
         byCurriculum,
+        weights,
         ...rates,
+        examAvg: examStats.examAvg,
+        examsGradedCount: examStats.examsGradedCount,
+        examsCount,
         perDar,
       },
     };
+  });
+
+  app.get('/settings/weights', guard, async () => {
+    const data = await getRateWeights();
+    return { status: 'success', data };
+  });
+
+  app.post('/settings/weights', superGuard, async (request, reply) => {
+    const body = z
+      .object({
+        attendance: z.number().int().min(0).max(100),
+        completion: z.number().int().min(0).max(100),
+        homework: z.number().int().min(0).max(100),
+      })
+      .parse(request.body);
+    if (body.attendance + body.completion + body.homework !== 100) {
+      return reply.code(400).send({ status: 'error', message: 'مجموع الأوزان يجب أن يساوي 100' });
+    }
+    try {
+      const data = await setRateWeights(body);
+      return { status: 'success', data };
+    } catch (e) {
+      return reply.code(400).send({ status: 'error', message: e instanceof Error ? e.message : 'فشل الحفظ' });
+    }
   });
 
   app.get('/dars/:id/stats', guard, async (request, reply) => {
@@ -286,7 +323,8 @@ export async function masterRoutes(app: FastifyInstance) {
       return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
     }
 
-    const [classes, totalStudents, activeStudents, trackings] = await Promise.all([
+    const weights = await getRateWeights();
+    const [classes, totalStudents, activeStudents, trackings, examGrades, examsForDar] = await Promise.all([
       prisma.class.findMany({
         where: { darId: id, status: { not: EntityStatus.DELETED } },
         orderBy: { name: 'asc' },
@@ -305,13 +343,17 @@ export async function masterRoutes(app: FastifyInstance) {
           classId: true,
         },
       }),
+      prisma.examGrade.findMany({ where: { darId: id }, select: { score: true, classId: true } }),
+      prisma.exam.count({ where: { OR: [{ darId: id }, { darId: null }] } }),
     ]);
 
-    const rates = computeRates(trackings);
+    const rates = computeRates(trackings, weights);
+    const examStats = computeExamStats(examGrades, examsForDar);
     const classBreakdown = [];
     for (const c of classes) {
       const rows = trackings.filter((t) => t.classId === c.id);
-      const r = computeRates(rows);
+      const r = computeRates(rows, weights);
+      const cExam = computeExamStats(examGrades.filter((g) => g.classId === c.id));
       const studentCount = await prisma.student.count({
         where: { classId: c.id, status: EntityStatus.ACTIVE },
       });
@@ -323,6 +365,8 @@ export async function masterRoutes(app: FastifyInstance) {
         status: statusLabel(c.status),
         studentCount,
         ...r,
+        examAvg: cExam.examAvg,
+        examsGradedCount: cExam.examsGradedCount,
       });
     }
 
@@ -342,6 +386,7 @@ export async function masterRoutes(app: FastifyInstance) {
         activeStudents,
         classesCount: classes.filter((c) => c.status === EntityStatus.ACTIVE).length,
         ...rates,
+        ...examStats,
         classBreakdown,
       },
     };
@@ -354,6 +399,7 @@ export async function masterRoutes(app: FastifyInstance) {
       return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
     }
 
+    const weights = await getRateWeights();
     const classes = await prisma.class.findMany({
       where: { darId: id, status: { not: EntityStatus.DELETED } },
     });
@@ -379,22 +425,15 @@ export async function masterRoutes(app: FastifyInstance) {
       orderBy: { gradedAt: 'desc' },
     });
 
-    const rates = computeRates(trackings);
+    const rates = computeRates(trackings, weights);
+    const examStats = computeExamStats(examGrades);
     const classMap = Object.fromEntries(classes.map((c) => [c.id, c]));
 
     const studentReports = students.map((s) => {
       const rows = trackings.filter((t) => t.studentId === s.id);
-      const r = computeRates(rows);
+      const r = computeRates(rows, weights);
       const grades = examGrades.filter((g) => g.studentId === s.id);
-      let examSum = 0;
-      let examN = 0;
-      for (const g of grades) {
-        const n = parseFloat(g.score);
-        if (!Number.isNaN(n)) {
-          examSum += n;
-          examN++;
-        }
-      }
+      const sExam = computeExamStats(grades);
       return {
         id: s.id,
         name: s.name,
@@ -403,8 +442,8 @@ export async function masterRoutes(app: FastifyInstance) {
         status: statusLabel(s.status),
         parentPhone: s.parentPhone,
         ...r,
-        examAvg: examN ? Math.round(examSum / examN) : 0,
-        examsCount: examN,
+        examAvg: sExam.examAvg,
+        examsCount: sExam.examsGradedCount,
       };
     });
 
@@ -425,7 +464,9 @@ export async function masterRoutes(app: FastifyInstance) {
           activeStudents: students.filter((s) => s.status === EntityStatus.ACTIVE).length,
           classesCount: classes.filter((c) => c.status === EntityStatus.ACTIVE).length,
           ...rates,
+          ...examStats,
         },
+        weights,
         students: studentReports,
         examGrades: examGrades.map((g) => ({
           examTitle: g.examTitle,
@@ -516,6 +557,25 @@ export async function masterRoutes(app: FastifyInstance) {
       data: { name: body.name.trim(), phone, status },
     });
     return { status: 'success' };
+  });
+
+  app.get('/exams', guard, async () => {
+    const exams = await prisma.exam.findMany({
+      orderBy: { examDate: 'desc' },
+      include: { _count: { select: { grades: true } }, dar: { select: { name: true } } },
+    });
+    return {
+      status: 'success',
+      data: exams.map((e) => ({
+        id: e.id,
+        title: e.title,
+        examDate: e.examDate.toISOString(),
+        link: e.link,
+        darId: e.darId,
+        darName: e.dar?.name || 'كل الدور',
+        gradesCount: e._count.grades,
+      })),
+    };
   });
 
   app.post('/exams', guard, async (request, reply) => {

@@ -49,7 +49,8 @@ export function TeacherPage() {
   const [plan, setPlan] = useState<{ educational: string; homework: string; tarbawi: string } | null>(null);
   const [states, setStates] = useState<Record<string, TrackState>>({});
   const [file, setFile] = useState<File | null>(null);
-  const [examsOpen, setExamsOpen] = useState(false);
+  const [teacherTab, setTeacherTab] = useState<'track' | 'alerts' | 'exams'>('track');
+  const [attachments, setAttachments] = useState<Record<string, string>>({});
   const [trackView, setTrackView] = useState<'cards' | 'table'>('cards');
   const [examTab, setExamTab] = useState<'pending' | 'graded'>('pending');
   const [pendingExams, setPendingExams] = useState<Exam[]>([]);
@@ -82,6 +83,7 @@ export function TeacherPage() {
     setWeek(w);
     setDay('');
     setPlan(null);
+    setAttachments({});
     const res = await api<{ data: string[] }>(`/api/teacher/tracked-days?week=${w}`);
     setTracked(res.data);
   }
@@ -100,10 +102,14 @@ export function TeacherPage() {
         homework: string;
         educational: string;
         tarbawi: string;
+        attachment?: string;
       }>;
     }>(`/api/teacher/tracking?week=${week}&day=${encodeURIComponent(day)}`);
 
     if (prior.data.length > 0) {
+      setAttachments(
+        Object.fromEntries(prior.data.filter((row) => row.attachment).map((row) => [row.studentId, row.attachment || ''])),
+      );
       setStates((prev) => {
         const next = { ...prev };
         for (const row of prior.data) {
@@ -117,6 +123,8 @@ export function TeacherPage() {
         return next;
       });
       toast.warn('يوجد رصد سابق — سيتم التعديل عند الحفظ');
+    } else {
+      setAttachments({});
     }
   }
 
@@ -168,7 +176,7 @@ export function TeacherPage() {
         studentId: s.id,
         studentName: s.name,
         ...states[s.id],
-        attachment,
+        attachment: attachment || attachments[s.id] || '',
       }));
 
       await api('/api/teacher/tracking', {
@@ -192,16 +200,15 @@ export function TeacherPage() {
   }
 
   async function openExams() {
+    setTeacherTab('exams');
     try {
       const res = await api<{ data: { pending: Exam[]; graded: GradedExam[] } }>('/api/teacher/exams');
       setPendingExams(res.data.pending);
       setGradedExams(res.data.graded);
-      setExamsOpen(true);
       setGrading(null);
       setExamTab('pending');
     } catch (e) {
       notify(e instanceof Error ? e.message : 'تعذر فتح الاختبارات', 'error');
-      setExamsOpen(true);
       setPendingExams([]);
       setGradedExams([]);
     }
@@ -247,12 +254,12 @@ export function TeacherPage() {
     const d = res.data;
     const msgText =
       `السلام عليكم ورحمة الله وبركاته\n` +
-      `📝 تقرير الطالبة: ${student.name}\n` +
-      `🏫 الفصل: ${user?.className}\n` +
-      `📅 التاريخ: ${new Date().toLocaleDateString('en-GB')}\n\n` +
-      `🔸 نسبة الحضور: %${d.attRate}\n` +
-      `🔸 نسبة الإنجاز: %${d.compRate}\n` +
-      `🔸 متوسط الاختبارات: %${d.examRate}`;
+      `تقرير الطالبة: ${student.name}\n` +
+      `الفصل: ${user?.className || ''}\n` +
+      `التاريخ: ${new Date().toLocaleDateString('en-GB')}\n\n` +
+      `نسبة الحضور: ${d.attRate}%\n` +
+      `نسبة الإنجاز: ${d.compRate}%\n` +
+      `متوسط الاختبارات: ${d.examRate}%`;
     window.open(`${waLink(student.parentPhone)}?text=${encodeURIComponent(msgText)}`, '_blank');
   }
 
@@ -265,19 +272,20 @@ export function TeacherPage() {
       contextLine={user?.classLevel}
       nav={[
         { key: 'track', label: 'الرصد' },
+        { key: 'alerts', label: 'التنبيهات' },
         { key: 'exams', label: 'الاختبارات' },
       ]}
-      active={examsOpen ? 'exams' : 'track'}
+      active={teacherTab}
       onNav={(k) => {
         if (k === 'exams') void openExams();
-        else setExamsOpen(false);
+        else setTeacherTab(k as 'track' | 'alerts');
       }}
       onLogout={logout}
     >
       {banner ? <Banner tone={banner.tone} onClose={clearBanner}>{banner.text}</Banner> : null}
 
-      {!examsOpen ? (
-        <>
+      {teacherTab === 'alerts' ? (
+        <div className="space-y-3">
           {alerts.map((a, i) => (
             <NotificationCard
               key={a.id || i}
@@ -307,7 +315,11 @@ export function TeacherPage() {
               }
             />
           ))}
+        </div>
+      ) : null}
 
+      {teacherTab === 'track' ? (
+        <>
           <Card className="space-y-3">
             <h3 className="text-sm font-bold text-primary">خطة الرصد</h3>
             <Field label="الأسبوع">
@@ -364,7 +376,7 @@ export function TeacherPage() {
                         <h3 className="text-sm font-extrabold">{idx + 1}. {s.name}</h3>
                         <div className="flex gap-2">
                           <IconButton label="تقرير" tone="report" onClick={() => void sendReport(s)}><IconReport /></IconButton>
-                          <IconButton label="واتساب" tone="wa" href={waLink(s.parentPhone)}><IconWhatsApp /></IconButton>
+                          <IconButton label="واتساب" tone="wa" onClick={() => void sendReport(s)}><IconWhatsApp /></IconButton>
                         </div>
                       </div>
                       <div className={`mb-1 grid gap-2 text-center text-[9px] font-bold text-gray-400 ${isAwwalia ? 'grid-cols-2' : 'grid-cols-3'}`}>
@@ -379,6 +391,11 @@ export function TeacherPage() {
                         <TrackToggle label={st.homework} onClick={() => toggle(s.id, 'homework')} />
                         {isAwwalia ? <TrackToggle label={st.tarbawi} onClick={() => toggle(s.id, 'tarbawi')} /> : null}
                       </div>
+                      {attachments[s.id] ? (
+                        <a className="mt-3 inline-block text-xs font-bold text-primary" href={attachments[s.id]} target="_blank" rel="noreferrer">
+                          فتح مرفق الرصد
+                        </a>
+                      ) : null}
                     </div>
                   );
                 })
@@ -402,7 +419,14 @@ export function TeacherPage() {
                     return (
                       <tr key={s.id}>
                         <td>{idx + 1}</td>
-                        <td className="font-bold whitespace-nowrap">{s.name}</td>
+                        <td className="font-bold whitespace-nowrap">
+                          {s.name}
+                          {attachments[s.id] ? (
+                            <a className="mt-1 block text-[10px] text-primary" href={attachments[s.id]} target="_blank" rel="noreferrer">
+                              مرفق الرصد
+                            </a>
+                          ) : null}
+                        </td>
                         <td><TrackToggle label={st.attendance} onClick={() => toggle(s.id, 'attendance')} /></td>
                         <td><TrackToggle label={st.educational} onClick={() => toggle(s.id, 'educational')} /></td>
                         <td><TrackToggle label={st.homework} onClick={() => toggle(s.id, 'homework')} /></td>
@@ -410,7 +434,7 @@ export function TeacherPage() {
                         <td>
                           <div className="ds-table-actions">
                             <IconButton label="تقرير" tone="report" onClick={() => void sendReport(s)}><IconReport /></IconButton>
-                            <IconButton label="واتساب" tone="wa" href={waLink(s.parentPhone)}><IconWhatsApp /></IconButton>
+                            <IconButton label="واتساب" tone="wa" onClick={() => void sendReport(s)}><IconWhatsApp /></IconButton>
                           </div>
                         </td>
                       </tr>
@@ -431,7 +455,7 @@ export function TeacherPage() {
         </>
       ) : null}
 
-      {examsOpen ? (
+      {teacherTab === 'exams' ? (
         <div className="space-y-4">
           <h3 className="text-lg font-extrabold text-primary">الاختبارات</h3>
           {!students.length ? (
@@ -484,23 +508,28 @@ export function TeacherPage() {
           <div className="space-y-3">
             {students.map((s) => (
               <div key={s.id} className="rounded-lg bg-shell p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold">{s.name}</span>
-                  <Input
-                    type="text"
-                    className="!w-24 !py-2 text-center text-xs"
-                    aria-label={`درجة ${s.name}`}
-                    placeholder="درجة"
-                    value={scores[s.id] || ''}
-                    onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
-                  />
+                <span className="text-xs font-bold">{s.name}</span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Field label="الدرجة">
+                    <div>
+                      <Input
+                        type="text"
+                        className="!py-2 text-center text-xs"
+                        aria-label={`درجة ${s.name}`}
+                        value={scores[s.id] || ''}
+                        onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
+                      />
+                      <p className="mt-1 text-[10px] text-ios-muted">أدخلي رقماً أو اتركيها فارغة لتُسجّل غائبة</p>
+                    </div>
+                  </Field>
+                  <Field label="ملاحظة">
+                    <Input
+                      className="!py-2 text-xs"
+                      value={notes[s.id] || ''}
+                      onChange={(e) => setNotes({ ...notes, [s.id]: e.target.value })}
+                    />
+                  </Field>
                 </div>
-                <Input
-                  className="!py-2 text-xs"
-                  placeholder="ملاحظة (اختياري)"
-                  value={notes[s.id] || ''}
-                  onChange={(e) => setNotes({ ...notes, [s.id]: e.target.value })}
-                />
               </div>
             ))}
             <Button variant="primary" onClick={() => void saveGrades().catch((e) => notify(e.message, 'error'))}>

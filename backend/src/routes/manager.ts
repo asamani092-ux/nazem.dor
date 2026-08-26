@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { computeRates, isLevelAllowed, levelsForCurriculum } from '../lib/domain.js';
+import { computeExamStats, computeRates, isLevelAllowed, levelsForCurriculum } from '../lib/domain.js';
+import { getRateWeights } from '../lib/settings.js';
 import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
@@ -64,12 +65,15 @@ export async function managerRoutes(app: FastifyInstance) {
       },
     });
     const examGrades = await prisma.examGrade.findMany({ where: { darId } });
-    const rates = computeRates(trackings);
+    const weights = await getRateWeights();
+    const rates = computeRates(trackings, weights);
+    const examStats = computeExamStats(examGrades);
     const classMap = Object.fromEntries(classes.map((c) => [c.id, c]));
 
     const classBreakdown = classes.map((c) => {
       const rows = trackings.filter((t) => t.classId === c.id);
-      const r = computeRates(rows);
+      const r = computeRates(rows, weights);
+      const cExam = computeExamStats(examGrades.filter((g) => g.classId === c.id));
       return {
         id: c.id,
         name: c.name,
@@ -77,22 +81,16 @@ export async function managerRoutes(app: FastifyInstance) {
         teacherName: c.teacherName,
         studentCount: students.filter((s) => s.classId === c.id && s.status === EntityStatus.ACTIVE).length,
         ...r,
+        examAvg: cExam.examAvg,
+        examsGradedCount: cExam.examsGradedCount,
       };
     });
 
     const studentReports = students.map((s) => {
       const rows = trackings.filter((t) => t.studentId === s.id);
-      const r = computeRates(rows);
+      const r = computeRates(rows, weights);
       const grades = examGrades.filter((g) => g.studentId === s.id);
-      let examSum = 0;
-      let examN = 0;
-      for (const g of grades) {
-        const n = parseFloat(g.score);
-        if (!Number.isNaN(n)) {
-          examSum += n;
-          examN++;
-        }
-      }
+      const sExam = computeExamStats(grades);
       return {
         id: s.id,
         name: s.name,
@@ -101,8 +99,8 @@ export async function managerRoutes(app: FastifyInstance) {
         status: statusLabel(s.status),
         parentPhone: s.parentPhone,
         ...r,
-        examAvg: examN ? Math.round(examSum / examN) : 0,
-        examsCount: examN,
+        examAvg: sExam.examAvg,
+        examsCount: sExam.examsGradedCount,
       };
     });
 
@@ -120,9 +118,18 @@ export async function managerRoutes(app: FastifyInstance) {
           activeStudents: students.filter((s) => s.status === EntityStatus.ACTIVE).length,
           classesCount: classes.filter((c) => c.status === EntityStatus.ACTIVE).length,
           ...rates,
+          ...examStats,
         },
+        weights,
         classBreakdown,
         students: studentReports,
+        examGrades: examGrades.map((g) => ({
+          examTitle: g.examTitle,
+          studentName: g.studentName,
+          className: classMap[g.classId]?.name || '-',
+          score: g.score,
+          gradedAt: g.gradedAt.toLocaleDateString('en-GB'),
+        })),
       },
     };
   });
@@ -329,6 +336,7 @@ export async function managerRoutes(app: FastifyInstance) {
   app.get('/classes/:id/stats', guard, async (request, reply) => {
     const darId = darIdOf(request);
     const { id } = request.params as { id: string };
+    const weights = await getRateWeights();
     const studentCount = await prisma.student.count({
       where: { darId, classId: id, status: EntityStatus.ACTIVE },
     });
@@ -340,12 +348,18 @@ export async function managerRoutes(app: FastifyInstance) {
       },
       select: { attendance: true, educational: true, homework: true },
     });
-    const rates = computeRates(trackings);
+    const examGrades = await prisma.examGrade.findMany({
+      where: { darId, classId: id },
+      select: { score: true },
+    });
+    const rates = computeRates(trackings, weights);
+    const examStats = computeExamStats(examGrades);
     return {
       status: 'success',
       data: {
         studentCount,
         ...rates,
+        ...examStats,
       },
     };
   });

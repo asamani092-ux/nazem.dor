@@ -67,6 +67,7 @@ type Indicators = {
   completionRate: number;
   homeworkRate: number;
   overallRate: number;
+  examAvg: number;
   byCurriculum: { tibyan: number; qari: number; both: number };
   perDar: Array<{
     id: string;
@@ -79,6 +80,7 @@ type Indicators = {
     completionRate: number;
     homeworkRate: number;
     overallRate: number;
+    examAvg?: number;
   }>;
 };
 
@@ -135,6 +137,20 @@ type UsersMeta = {
   dars: Array<{ id: string; name: string; classes: Array<{ id: string; name: string; level: string; darId: string }> }>;
 };
 
+type RateWeights = {
+  attendance: number;
+  completion: number;
+  homework: number;
+};
+
+type ExamCenterRow = {
+  id: string;
+  title: string;
+  examDate: string;
+  darName: string;
+  gradesCount: number;
+};
+
 const CURRICULUM_LEVELS = ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'] as const;
 const WEEK_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'] as const;
 
@@ -171,6 +187,9 @@ export function MasterPage() {
   const [planViewMode, setPlanViewMode] = useState<PlanViewMode>('table');
   const [planMenuDay, setPlanMenuDay] = useState<string | null>(null);
   const [showPlanEditor, setShowPlanEditor] = useState(false);
+  const [showLevelEditor, setShowLevelEditor] = useState(false);
+  const [newLevelName, setNewLevelName] = useState('');
+  const [curriculumScope, setCurriculumScope] = useState<'week' | 'level' | 'all'>('week');
   const [planEditorMode, setPlanEditorMode] = useState<'add' | 'edit'>('add');
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [accountFilter, setAccountFilter] = useState<AccountFilter>('ALL');
@@ -182,6 +201,12 @@ export function MasterPage() {
   const [calendarDarFilter, setCalendarDarFilter] = useState('الكل');
   const [calendarDetail, setCalendarDetail] = useState<CalendarEvent | null>(null);
   const [calendarDayEvents, setCalendarDayEvents] = useState<CalendarEvent[]>([]);
+  const [examCenter, setExamCenter] = useState<ExamCenterRow[]>([]);
+  const [examCenterLoaded, setExamCenterLoaded] = useState(false);
+  const [indicatorSearch, setIndicatorSearch] = useState('');
+  const [indicatorCurriculum, setIndicatorCurriculum] = useState('all');
+  const [rateWeights, setRateWeights] = useState<RateWeights | null>(null);
+  const [savingWeights, setSavingWeights] = useState(false);
   const [accountMenuRow, setAccountMenuRow] = useState<string | null>(null);
   const [darTableMenuRow, setDarTableMenuRow] = useState<string | null>(null);
   const [darStats, setDarStats] = useState<{
@@ -194,7 +219,8 @@ export function MasterPage() {
     completionRate: number;
     homeworkRate: number;
     overallRate: number;
-    classBreakdown: Array<{ name: string; level: string; studentCount: number; overallRate: number }>;
+    examAvg?: number;
+    classBreakdown: Array<{ name: string; level: string; studentCount: number; overallRate: number; examAvg?: number }>;
   } | null>(null);
   const [showAccountEditor, setShowAccountEditor] = useState(false);
   const [accountEditorMode, setAccountEditorMode] = useState<'add' | 'edit'>('add');
@@ -244,6 +270,24 @@ export function MasterPage() {
     [curriculum, planViewLevel, planViewWeek],
   );
   const weekFilled = useMemo(() => weekSlots.filter((s) => s.plan).length, [weekSlots]);
+  const effectiveCurriculumLevels = useMemo(
+    () => [...new Set([...curriculumLevels, ...curriculum.map((p) => p.level)])],
+    [curriculum, curriculumLevels],
+  );
+  const filteredIndicatorDars = useMemo(() => {
+    if (!indicators) return [];
+    return indicators.perDar.filter((dar) => {
+      const curriculumMatch =
+        indicatorCurriculum === 'all' ||
+        (indicatorCurriculum === 'tibyan' && dar.curriculum.includes('تبيان') && !dar.curriculum.includes('كلاهما')) ||
+        (indicatorCurriculum === 'qari' && dar.curriculum.includes('قارئ') && !dar.curriculum.includes('كلاهما')) ||
+        (indicatorCurriculum === 'both' && dar.curriculum.includes('كلاهما'));
+      return curriculumMatch && matchQuery(indicatorSearch, [dar.name]);
+    });
+  }, [indicatorCurriculum, indicatorSearch, indicators]);
+  const weightsTotal = rateWeights
+    ? rateWeights.attendance + rateWeights.completion + rateWeights.homework
+    : 0;
 
   async function load() {
     setBusy(true);
@@ -264,6 +308,29 @@ export function MasterPage() {
     setIndicatorsLoaded(true);
   }
 
+  async function loadRateWeights() {
+    const res = await api<RateWeights | { data: RateWeights }>('/api/master/settings/weights');
+    setRateWeights('data' in res ? res.data : res);
+  }
+
+  async function saveRateWeights() {
+    if (!rateWeights) return;
+    const values = [rateWeights.attendance, rateWeights.completion, rateWeights.homework];
+    if (values.some((value) => !Number.isFinite(value) || value < 0 || value > 100) || weightsTotal !== 100) {
+      notify('يجب أن تكون الأوزان بين 0 و100 ومجموعها 100', 'error');
+      return;
+    }
+    setSavingWeights(true);
+    try {
+      await api('/api/master/settings/weights', { method: 'POST', json: rateWeights });
+      notify('تم حفظ أوزان المؤشرات');
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'تعذر حفظ الأوزان', 'error');
+    } finally {
+      setSavingWeights(false);
+    }
+  }
+
   async function loadCurriculum(force = false) {
     if (curriculumLoaded && !force) return;
     const res = await api<{ data: CurriculumRow[] }>('/api/master/curriculum');
@@ -277,12 +344,13 @@ export function MasterPage() {
   }
 
   async function addCurriculumLevel() {
-    const next = prompt('اسم المستوى الجديد (مثال: تمهيدي 3)');
-    if (!next?.trim()) return;
-    const name = next.trim();
+    const name = newLevelName.trim();
+    if (!name) return notify('اسم المستوى مطلوب', 'error');
     await api('/api/master/curriculum/levels', { method: 'POST', json: { name } });
     await loadCurriculumLevels();
     setPlanViewLevel(name);
+    setNewLevelName('');
+    setShowLevelEditor(false);
     notify(`تم إضافة المستوى: ${name}`);
   }
 
@@ -291,7 +359,10 @@ export function MasterPage() {
   }, []);
 
   useEffect(() => {
-    if (tab === 'indicators') void loadIndicators().catch((e) => notify(e.message, 'error'));
+    if (tab === 'indicators') {
+      void loadIndicators().catch((e) => notify(e.message, 'error'));
+      if (user?.role === 'SUPER_MASTER') void loadRateWeights().catch((e) => notify(e.message, 'error'));
+    }
     if (tab === 'curriculum') {
       void loadCurriculum().catch((e) => notify(e.message, 'error'));
       void loadCurriculumLevels().catch(() => undefined);
@@ -394,7 +465,8 @@ export function MasterPage() {
         completionRate: number;
         homeworkRate: number;
         overallRate: number;
-        classBreakdown: Array<{ name: string; level: string; studentCount: number; overallRate: number }>;
+        examAvg?: number;
+        classBreakdown: Array<{ name: string; level: string; studentCount: number; overallRate: number; examAvg?: number }>;
       };
     }>(`/api/master/dars/${id}/stats`);
     const d = res.data;
@@ -420,11 +492,13 @@ export function MasterPage() {
     }
     if (calendarDarFilter !== 'الكل' && examDar === 'الكل') setCalendarDarFilter('الكل');
     void loadCalendar().catch(() => undefined);
+    void loadExamCenter().catch(() => undefined);
   }
 
   useEffect(() => {
     if (tab === 'calendar') {
       void loadCalendar().catch((e) => notify(e.message, 'error'));
+      void loadExamCenter().catch(() => setExamCenterLoaded(true));
     }
   }, [tab, calendarMonth, calendarDarFilter]);
 
@@ -434,6 +508,12 @@ export function MasterPage() {
     if (calendarDarFilter && calendarDarFilter !== 'الكل') params.set('darId', calendarDarFilter);
     const res = await api<{ data: CalendarEvent[] }>(`/api/master/calendar?${params}`);
     setCalendarEvents(res.data);
+  }
+
+  async function loadExamCenter() {
+    const res = await api<{ data: ExamCenterRow[] }>('/api/master/exams');
+    setExamCenter(res.data);
+    setExamCenterLoaded(true);
   }
 
   function openDarAlertSheet(dar: Dar) {
@@ -653,49 +733,22 @@ export function MasterPage() {
   }
 
   function PlanActions({ slot }: { slot: WeekSlot }) {
-    const open = planMenuDay === slot.day;
     return (
-      <div className="relative">
-        <button
-          type="button"
-          className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[10px] font-bold text-primary"
-          onClick={() => setPlanMenuDay(open ? null : slot.day)}
-        >
-          إجراءات
-        </button>
-        {open ? (
-          <div className="absolute left-0 z-20 mt-1 min-w-[7.5rem] rounded-xl border border-gray-100 bg-white py-1 shadow-lg">
-            {slot.plan ? (
-              <>
-                <button
-                  type="button"
-                  className="block w-full px-3 py-2 text-right text-[11px] font-bold text-gray-700 hover:bg-gray-50"
-                  onClick={() => openEditPlan(slot.plan!)}
-                >
-                  تعديل
-                </button>
-                {user?.role === 'SUPER_MASTER' ? (
-                  <button
-                    type="button"
-                    className="block w-full px-3 py-2 text-right text-[11px] font-bold text-red-600 hover:bg-red-50"
-                    onClick={() => void deletePlan(slot.plan!)}
-                  >
-                    حذف
-                  </button>
-                ) : null}
-              </>
-            ) : (
-              <button
-                type="button"
-                className="block w-full px-3 py-2 text-right text-[11px] font-bold text-primary hover:bg-gray-50"
-                onClick={() => openAddPlan(slot.day)}
-              >
-                إضافة
-              </button>
-            )}
-          </div>
-        ) : null}
-      </div>
+      <ActionMenu
+        open={planMenuDay === slot.day}
+        onToggle={() => setPlanMenuDay(planMenuDay === slot.day ? null : slot.day)}
+        onClose={() => setPlanMenuDay(null)}
+        items={
+          slot.plan
+            ? [
+                { key: 'edit', label: 'تعديل', onClick: () => openEditPlan(slot.plan!) },
+                ...(user?.role === 'SUPER_MASTER'
+                  ? [{ key: 'delete', label: 'حذف', tone: 'danger' as const, onClick: () => void deletePlan(slot.plan!) }]
+                  : []),
+              ]
+            : [{ key: 'add', label: 'إضافة', onClick: () => openAddPlan(slot.day) }]
+        }
+      />
     );
   }
 
@@ -773,32 +826,76 @@ export function MasterPage() {
     printReport('مؤشرات الإشراف العام', html);
   }
 
-  function exportCurriculumXlsx() {
-    downloadXlsx('curriculum-plans.xlsx', CURRICULUM_LEVELS.map((level) => ({
-      name: level,
-      rows: curriculum
-        .filter((p) => p.level === level)
-        .map((p) => ({
-          أسبوع: p.week,
-          يوم: p.day,
-          تعليمي: p.educational,
-          واجب: formatHomework(p.homework),
-          تربوي: p.tarbawi || '',
-        })),
-    })));
+  function curriculumExportRows(rows: CurriculumRow[]) {
+    return rows.map((p) => ({
+      أسبوع: p.week,
+      يوم: p.day,
+      تعليمي: p.educational,
+      تربوي: p.tarbawi || '',
+      واجب: formatHomework(p.homework),
+    }));
   }
 
-  function printCurriculumWeek() {
-    const html = tableHtml(
-      ['اليوم', 'التعليمي', 'الواجب', 'التربوي'],
-      weekSlots.map((s) => [
-        s.day,
-        s.plan?.educational || '—',
-        s.plan ? formatHomework(s.plan.homework) : '—',
-        s.plan?.tarbawi || '—',
-      ]),
-    );
-    printReport(`خطة ${planViewLevel} — أسبوع ${planViewWeek}`, html);
+  function curriculumRowsForScope(level: string, week?: number) {
+    return curriculum
+      .filter((p) => p.level === level && (week === undefined || p.week === week))
+      .sort(
+        (a, b) =>
+          a.week - b.week ||
+          WEEK_DAYS.indexOf(a.day as (typeof WEEK_DAYS)[number]) -
+            WEEK_DAYS.indexOf(b.day as (typeof WEEK_DAYS)[number]),
+      );
+  }
+
+  function exportCurriculumXlsx() {
+    if (curriculumScope === 'all') {
+      downloadXlsx(
+        'curriculum-plans.xlsx',
+        effectiveCurriculumLevels.map((level) => ({
+          name: level,
+          rows: curriculumExportRows(curriculumRowsForScope(level)),
+        })),
+      );
+      return;
+    }
+    const week = curriculumScope === 'week' ? planViewWeek : undefined;
+    downloadXlsx(`curriculum-${planViewLevel}.xlsx`, [
+      { name: planViewLevel, rows: curriculumExportRows(curriculumRowsForScope(planViewLevel, week)) },
+    ]);
+  }
+
+  function printCurriculum() {
+    const levels = curriculumScope === 'all' ? effectiveCurriculumLevels : [planViewLevel];
+    const html = levels
+      .map((level) => {
+        const rows = curriculumRowsForScope(level, curriculumScope === 'week' ? planViewWeek : undefined);
+        const safeLevel = level.replace(
+          /[&<>"']/g,
+          (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!,
+        );
+        const heading = curriculumScope === 'all' ? `<h2>${safeLevel}</h2>` : '';
+        return (
+          heading +
+          tableHtml(
+            ['الأسبوع', 'اليوم', 'التعليمي', 'التربوي', 'الواجب'],
+            rows.map((p) => [
+              String(p.week),
+              p.day,
+              p.educational,
+              p.tarbawi || '—',
+              formatHomework(p.homework) || '—',
+            ]),
+          )
+        );
+      })
+      .join('');
+    const scopeTitle =
+      curriculumScope === 'week'
+        ? `${planViewLevel} — أسبوع ${planViewWeek}`
+        : curriculumScope === 'level'
+          ? planViewLevel
+          : 'جميع المناهج';
+    printReport(`خطة ${scopeTitle}`, html);
   }
 
   function exportDarReportXlsx(r: DarReport) {
@@ -903,6 +1000,51 @@ export function MasterPage() {
             المؤشرات
           </SectionTitle>
 
+          {user?.role === 'SUPER_MASTER' ? (
+            <Card>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-extrabold text-primary">أوزان احتساب المعدل العام</h3>
+                  <p className="mt-1 text-[10px] text-ios-muted">يجب أن يكون مجموع الأوزان 100%</p>
+                </div>
+                <Badge tone={weightsTotal === 100 ? 'success' : 'warning'}>المجموع {weightsTotal}%</Badge>
+              </div>
+              {rateWeights ? (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    ['attendance', 'الحضور'],
+                    ['completion', 'الإنجاز'],
+                    ['homework', 'الواجب'],
+                  ].map(([key, label]) => (
+                    <Field key={key} label={`${label} %`}>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={rateWeights[key as keyof RateWeights]}
+                        onChange={(e) =>
+                          setRateWeights({ ...rateWeights, [key]: Number(e.target.value) })
+                        }
+                      />
+                    </Field>
+                  ))}
+                  <div className="sm:col-span-3">
+                    <Button
+                      variant="primary"
+                      className="!w-auto"
+                      disabled={savingWeights || weightsTotal !== 100}
+                      onClick={() => void saveRateWeights()}
+                    >
+                      {savingWeights ? 'جارٍ الحفظ...' : 'حفظ الأوزان'}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-ios-muted">جارٍ تحميل الإعدادات...</p>
+              )}
+            </Card>
+          ) : null}
+
           <div className="ds-kpi-grid">
             {[
               ['دور نشطة', indicators.darsActive],
@@ -912,6 +1054,7 @@ export function MasterPage() {
               ['حضور', `${indicators.attendanceRate}%`],
               ['إنجاز', `${indicators.completionRate}%`],
               ['واجب', `${indicators.homeworkRate}%`],
+              ['متوسط الاختبارات', `${indicators.examAvg}%`],
               ['عام', `${indicators.overallRate}%`],
               ['اختبارات', indicators.examsCount],
             ].map(([label, val]) => (
@@ -926,6 +1069,7 @@ export function MasterPage() {
                 <RingStat label="حضور" pct={indicators.attendanceRate} />
                 <RingStat label="إنجاز" pct={indicators.completionRate} />
                 <RingStat label="واجب" pct={indicators.homeworkRate} />
+                <RingStat label="اختبارات" pct={indicators.examAvg} />
               </div>
             </Card>
             <Card>
@@ -934,6 +1078,7 @@ export function MasterPage() {
                 <ProgressBar label="حضور" pct={indicators.attendanceRate} color="#16a34a" />
                 <ProgressBar label="إنجاز" pct={indicators.completionRate} />
                 <ProgressBar label="واجب" pct={indicators.homeworkRate} color="#f59e0b" />
+                <ProgressBar label="اختبارات" pct={indicators.examAvg} color="#6366f1" />
                 <ProgressBar label="عام" pct={indicators.overallRate} color="#3b82f6" />
               </div>
             </Card>
@@ -989,7 +1134,28 @@ export function MasterPage() {
             {indicators.byCurriculum.both}
           </p>
 
-          {indicators.perDar.map((d) => (
+          <Card>
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
+              <SearchInput
+                value={indicatorSearch}
+                onChange={setIndicatorSearch}
+                placeholder="ابحث باسم الدار..."
+                aria-label="بحث في مؤشرات الدور"
+              />
+              <Select
+                value={indicatorCurriculum}
+                onChange={(e) => setIndicatorCurriculum(e.target.value)}
+                aria-label="فلتر المنهج"
+              >
+                <option value="all">الكل</option>
+                <option value="tibyan">تبيان</option>
+                <option value="qari">قارئ</option>
+                <option value="both">كلاهما</option>
+              </Select>
+            </div>
+          </Card>
+
+          {filteredIndicatorDars.map((d) => (
             <Card key={d.id}>
               <div className="mb-2 flex justify-between gap-2">
                 <h3 className="font-bold">{d.name}</h3>
@@ -998,15 +1164,18 @@ export function MasterPage() {
               <p className="text-[11px] text-ios-muted">
                 طالبات {d.activeStudents} | فصول {d.classesCount} | حضور %{d.attendanceRate} | إنجاز %{d.completionRate} |
                 واجب %{d.homeworkRate} | عام %{d.overallRate}
+                {typeof d.examAvg === 'number' ? ` | اختبارات %${d.examAvg}` : ''}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <IconButton label="تقرير الدار" tone="report" onClick={() => void openReport(d.id).then(() => undefined)}><IconReport /></IconButton>
-                <Button variant="secondary" className="!w-auto !px-3 !py-1.5 !text-xs" onClick={() => void openReport(d.id)}>
-                  فتح التقرير
-                </Button>
               </div>
             </Card>
           ))}
+          {!filteredIndicatorDars.length ? (
+            <Card className="ds-empty">
+              <p className="text-sm text-ios-muted">لا توجد دور مطابقة للبحث والفلتر.</p>
+            </Card>
+          ) : null}
         </div>
       ) : null}
 
@@ -1029,9 +1198,19 @@ export function MasterPage() {
                 />
                 <ExportBar
                   onExcel={() => exportCurriculumXlsx()}
-                  onPrint={() => printCurriculumWeek()}
+                  onPrint={() => printCurriculum()}
                   excelLabel="تصدير Excel"
                 />
+                <Select
+                  className="!w-auto !min-w-[150px] !py-2 !text-xs"
+                  value={curriculumScope}
+                  onChange={(e) => setCurriculumScope(e.target.value as 'week' | 'level' | 'all')}
+                  aria-label="نطاق التصدير والطباعة"
+                >
+                  <option value="week">الأسبوع الحالي</option>
+                  <option value="level">المستوى كاملًا</option>
+                  <option value="all">جميع المناهج</option>
+                </Select>
                 {emptyDays.length > 0 ? (
                   <Button variant="primary" className="!w-auto !px-3 !py-2 !text-xs" onClick={() => openAddPlan()}>
                     إضافة خطة
@@ -1040,7 +1219,7 @@ export function MasterPage() {
                 <Button
                   variant="secondary"
                   className="!w-auto !px-3 !py-2 !text-xs"
-                  onClick={() => void addCurriculumLevel()}
+                  onClick={() => setShowLevelEditor(true)}
                 >
                   إضافة مستوى
                 </Button>
@@ -1057,7 +1236,7 @@ export function MasterPage() {
                     setPlanMenuDay(null);
                   }}
                 >
-                  {[...new Set([...CURRICULUM_LEVELS, ...curriculumLevels])].map((l) => (
+                  {effectiveCurriculumLevels.map((l) => (
                     <option key={l}>{l}</option>
                   ))}
                 </select>
@@ -1129,22 +1308,39 @@ export function MasterPage() {
                         {planViewLevel} · أسبوع {planViewWeek}
                       </p>
                     </div>
-                    <PlanActions slot={slot} />
+                    <div className="flex items-center gap-2">
+                      {slot.plan ? (
+                        <>
+                          <IconButton label="تعديل الخطة" tone="edit" onClick={() => openEditPlan(slot.plan!)}>
+                            <IconEdit />
+                          </IconButton>
+                          {user?.role === 'SUPER_MASTER' ? (
+                            <IconButton label="حذف الخطة" tone="delete" onClick={() => void deletePlan(slot.plan!)}>
+                              <IconDelete />
+                            </IconButton>
+                          ) : null}
+                        </>
+                      ) : (
+                        <IconButton label="إضافة خطة" tone="primary" onClick={() => openAddPlan(slot.day)}>
+                          <span className="text-xl leading-none">+</span>
+                        </IconButton>
+                      )}
+                    </div>
                   </div>
                   {slot.plan ? (
-                    <div className="space-y-1 text-sm">
-                      <p>
-                        <span className="font-bold text-gray-500">تعليمي: </span>
-                        {slot.plan.educational}
-                      </p>
-                      <p>
-                        <span className="font-bold text-gray-500">واجب: </span>
-                        {formatHomework(slot.plan.homework) || '—'}
-                      </p>
-                      <p>
-                        <span className="font-bold text-gray-500">تربوي: </span>
-                        {slot.plan.tarbawi || '—'}
-                      </p>
+                    <div className="ds-curr-day-card">
+                      <div className="ds-curr-day-item">
+                        <span>تعليمي</span>
+                        <p>{slot.plan.educational}</p>
+                      </div>
+                      <div className="ds-curr-day-item">
+                        <span>تربوي</span>
+                        <p>{slot.plan.tarbawi || '—'}</p>
+                      </div>
+                      <div className="ds-curr-day-item">
+                        <span>واجب</span>
+                        <p>{formatHomework(slot.plan.homework) || '—'}</p>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-[11px] font-bold text-gray-400">لا توجد خطة — اختاري إضافة من الإجراءات</p>
@@ -1206,7 +1402,7 @@ export function MasterPage() {
               {accounts.map((row) => (
                 <tr key={`${row.kind}-${row.id}`} className={row.status === 'معلق' ? 'opacity-70' : ''}>
                   <td className="font-bold whitespace-nowrap">{row.name}</td>
-                  <td dir="ltr" className="text-left whitespace-nowrap font-semibold tracking-wide">{row.phone}</td>
+                  <td dir="ltr" className="ds-phone-cell whitespace-nowrap font-semibold tracking-wide">{row.phone}</td>
                   <td className="whitespace-nowrap">{row.typeLabel}</td>
                   <td className="text-[12px]">{row.darName || '—'}</td>
                   <td className="text-[12px]">{row.className || '—'}</td>
@@ -1280,6 +1476,31 @@ export function MasterPage() {
             <span className="flex items-center gap-1"><span className="ds-calendar-dot ds-calendar-dot-exam" /> اختبار</span>
             <span className="flex items-center gap-1"><span className="ds-calendar-dot ds-calendar-dot-notice" /> تنبيه</span>
           </div>
+          <Card>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-extrabold text-primary">مركز الاختبارات</h3>
+              <Badge tone="info">{examCenter.length} اختبار</Badge>
+            </div>
+            {examCenter.length ? (
+              <div className="space-y-2">
+                {examCenter.map((item) => (
+                  <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-shell p-3">
+                    <div>
+                      <p className="text-sm font-bold">{item.title}</p>
+                      <p className="mt-1 text-[10px] text-ios-muted">
+                        {item.darName || 'جميع الدور'} · {new Date(item.examDate).toLocaleDateString('ar-SA')}
+                      </p>
+                    </div>
+                    <Badge tone="primary">{item.gradesCount} مصحح</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-ios-muted">
+                {examCenterLoaded ? 'لا توجد اختبارات متاحة حاليًا.' : 'جارٍ تحميل الاختبارات...'}
+              </p>
+            )}
+          </Card>
         </div>
       ) : null}
 
@@ -1367,7 +1588,7 @@ export function MasterPage() {
                 <tr key={dar.id}>
                   <td className="font-bold">{dar.name}</td>
                   <td>{dar.managerName}</td>
-                  <td dir="ltr" className="text-left whitespace-nowrap">{dar.managerPhone}</td>
+                  <td dir="ltr" className="ds-phone-cell whitespace-nowrap">{dar.managerPhone}</td>
                   <td>{dar.curriculum.replace('منهج ', '')}</td>
                   <td className="text-[11px]">{dar.location || '—'}</td>
                   <td>{dar.lastVisit || '—'}</td>
@@ -1531,6 +1752,33 @@ export function MasterPage() {
         </Modal>
       ) : null}
 
+      {showLevelEditor ? (
+        <Modal
+          title="إضافة مستوى"
+          onClose={() => {
+            setShowLevelEditor(false);
+            setNewLevelName('');
+          }}
+        >
+          <div className="space-y-3">
+            <Field label="اسم المستوى">
+              <Input
+                value={newLevelName}
+                placeholder="مثال: تمهيدي 3"
+                onChange={(e) => setNewLevelName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void addCurriculumLevel();
+                }}
+                autoFocus
+              />
+            </Field>
+            <Button variant="primary" onClick={() => void addCurriculumLevel()}>
+              إضافة المستوى
+            </Button>
+          </div>
+        </Modal>
+      ) : null}
+
       {showPlanEditor ? (
         <Modal
           title={planEditorMode === 'edit' ? 'تحديث خطة يوم' : 'إضافة خطة يوم'}
@@ -1544,7 +1792,7 @@ export function MasterPage() {
                 onChange={(e) => setPlanForm({ ...planForm, level: e.target.value })}
                 disabled={planEditorMode === 'edit'}
               >
-                {CURRICULUM_LEVELS.map((l) => (
+                {effectiveCurriculumLevels.map((l) => (
                   <option key={l}>{l}</option>
                 ))}
               </select>
@@ -1624,11 +1872,13 @@ export function MasterPage() {
               <StatCard label="إنجاز" value={`${darStats.completionRate}%`} />
               <StatCard label="واجب" value={`${darStats.homeworkRate}%`} />
               <StatCard label="عام" value={`${darStats.overallRate}%`} />
+              {darStats.examAvg !== undefined ? <StatCard label="اختبارات" value={`${darStats.examAvg}%`} /> : null}
             </div>
             <div className="flex flex-wrap justify-around gap-4">
               <RingStat label="حضور" pct={darStats.attendanceRate} />
               <RingStat label="إنجاز" pct={darStats.completionRate} />
               <RingStat label="واجب" pct={darStats.homeworkRate} />
+              {darStats.examAvg !== undefined ? <RingStat label="اختبارات" pct={darStats.examAvg} /> : null}
             </div>
             {darStats.classBreakdown?.length ? (
               <div className="space-y-2">

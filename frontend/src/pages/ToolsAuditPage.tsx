@@ -43,6 +43,12 @@ const TOOLS: ToolDef[] = [
   { id: 'exams', name: 'مركز الاختبارات', category: 'صفحات' },
 ];
 
+const TOOL_HELP: Partial<Record<string, string>> = {
+  banner: 'جرّبي إجراء حفظ أو تعديل؛ تظهر اللافتة أعلى الصفحة بعد نجاح الإجراء أو فشله.',
+  'notify-card': 'تظهر بطاقة الإشعار في تبويب التنبيهات لدى المديرة والمعلمة.',
+  'file-upload': 'جرّبي رفع مرفق في رصد المعلمة، أو ملف الطالبات في الاستيراد لدى المديرة.',
+};
+
 function parseStored(raw: string | null): Record<string, AuditEntry> {
   if (!raw) return {};
   try {
@@ -158,7 +164,10 @@ export function ToolsAuditPanel() {
             return (
               <div key={t.id} className="rounded-xl bg-shell p-3 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-bold">{t.name}</span>
+                  <div>
+                    <span className="text-sm font-bold">{t.name}</span>
+                    {TOOL_HELP[t.id] ? <p className="mt-1 text-xs text-ios-muted">{TOOL_HELP[t.id]}</p> : null}
+                  </div>
                   <div className="flex gap-1">
                     {[1, 2, 3, 4, 5].map((n) => (
                       <button

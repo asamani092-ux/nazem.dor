@@ -21,19 +21,48 @@ type Cls = {
 type Student = { id: string; name: string; classId: string; phone: string; status: string };
 type AlertItem = { id: string; type: string; date: string; title: string; content?: string; link?: string; isRead: boolean };
 type Meta = { darName: string; curriculum: string; allowedLevels: string[] };
+type ReportSummary = {
+  totalStudents: number;
+  activeStudents: number;
+  classesCount: number;
+  attendanceRate: number;
+  completionRate: number;
+  homeworkRate: number;
+  overallRate: number;
+  examAvg?: number;
+};
+type ReportClass = {
+  id: string;
+  name: string;
+  level: string;
+  teacherName: string;
+  studentCount: number;
+  attendanceRate: number;
+  completionRate: number;
+  homeworkRate: number;
+  overallRate: number;
+  examAvg?: number;
+  [key: string]: unknown;
+};
+type ReportStudent = {
+  id?: string;
+  name?: string;
+  classId?: string;
+  className?: string;
+  examAvg?: number;
+  examsCount?: number;
+  [key: string]: unknown;
+};
 type Report = {
   dar: { name: string; curriculum: string; allowedLevels: string[] };
-  summary: {
-    totalStudents: number;
-    activeStudents: number;
-    classesCount: number;
-    attendanceRate: number;
-    completionRate: number;
-    homeworkRate: number;
-    overallRate: number;
-  };
-  classBreakdown: Array<Record<string, unknown>>;
-  students: Array<Record<string, unknown>>;
+  summary: ReportSummary;
+  classBreakdown: ReportClass[];
+  students: ReportStudent[];
+};
+type ClassReport = {
+  summary: ReportClass;
+  students: ReportStudent[];
+  examAvg?: number;
 };
 
 export function ManagerPage() {
@@ -45,6 +74,7 @@ export function ManagerPage() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [meta, setMeta] = useState<Meta | null>(null);
   const [report, setReport] = useState<Report | null>(null);
+  const [classReport, setClassReport] = useState<ClassReport | null>(null);
   const [filterClass, setFilterClass] = useState('');
   const [showClass, setShowClass] = useState(false);
   const [editClass, setEditClass] = useState<Cls | null>(null);
@@ -66,6 +96,7 @@ export function ManagerPage() {
     completionRate: number;
     homeworkRate: number;
     overallRate: number;
+    examAvg?: number;
   } | null>(null);
 
   const levels = meta?.allowedLevels || LEVELS_BY_CURRICULUM.BOTH;
@@ -186,6 +217,7 @@ export function ManagerPage() {
         completionRate: number;
         homeworkRate: number;
         overallRate: number;
+        examAvg?: number;
       };
     }>(`/api/manager/classes/${cls.id}/stats`);
     setClassStats({
@@ -195,18 +227,42 @@ export function ManagerPage() {
     });
   }
 
+  async function openClassReport(cls: Cls) {
+    const res = await api<{ data: Report }>('/api/manager/report');
+    const summary = res.data.classBreakdown.find((item) => item.id === cls.id);
+    if (!summary) throw new Error('تعذر العثور على تقرير الفصل');
+
+    const classStudents = res.data.students.filter(
+      (student) => student.classId === cls.id || (!student.classId && student.className === cls.name),
+    );
+    const examRows = classStudents.filter(
+      (student) => typeof student.examAvg === 'number' && (student.examsCount === undefined || student.examsCount > 0),
+    );
+    const derivedExamAvg = examRows.length
+      ? Math.round(examRows.reduce((sum, student) => sum + Number(student.examAvg), 0) / examRows.length)
+      : undefined;
+
+    setClassReport({
+      summary,
+      students: classStudents,
+      examAvg: typeof summary.examAvg === 'number' ? summary.examAvg : derivedExamAvg,
+    });
+  }
+
   function printClassReport() {
-    if (!classStats) return;
+    if (!classReport) return;
+    const { summary, examAvg } = classReport;
+    const rows = [
+      ['طالبات', String(summary.studentCount)],
+      ['حضور', `${summary.attendanceRate}%`],
+      ['إنجاز', `${summary.completionRate}%`],
+      ['واجب', `${summary.homeworkRate}%`],
+      ['عام', `${summary.overallRate}%`],
+    ];
+    if (examAvg !== undefined) rows.push(['متوسط الاختبارات', `${examAvg}%`]);
     printReport(
-      `تقرير الفصل — ${classStats.name}`,
-      tableHtml([
-        ['المؤشر', 'القيمة'],
-        ['طالبات', String(classStats.studentCount)],
-        ['حضور', `${classStats.attendanceRate}%`],
-        ['إنجاز', `${classStats.completionRate}%`],
-        ['واجب', `${classStats.homeworkRate}%`],
-        ['عام', `${classStats.overallRate}%`],
-      ]),
+      `تقرير الفصل — ${summary.name}`,
+      tableHtml(['المؤشر', 'القيمة'], rows),
     );
   }
 
@@ -266,11 +322,15 @@ export function ManagerPage() {
                   </div>
                 </div>
                 <div className="ds-dar-action-grid">
-                  <button type="button" className="ds-dar-action-tile" onClick={() => void showClassStats(c)}>
+                  <button type="button" className="ds-dar-action-tile" onClick={() => void showClassStats(c).catch((e) => notify(e.message, 'error'))}>
                     <span className="ds-dar-action-label">مؤشرات</span>
                     <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconChart className="h-6 w-6" /></span>
                   </button>
-                  <button type="button" className="ds-dar-action-tile" onClick={() => void showClassStats(c)}>
+                  <button
+                    type="button"
+                    className="ds-dar-action-tile"
+                    onClick={() => void openClassReport(c).catch((e) => notify(e.message, 'error'))}
+                  >
                     <span className="ds-dar-action-label">تقرير</span>
                     <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-report"><IconReport className="h-6 w-6" /></span>
                   </button>
@@ -445,8 +505,8 @@ export function ManagerPage() {
                     if (!report) return;
                     downloadXlsx(`dar-${report.dar.name}.xlsx`, [
                       { name: 'ملخص', rows: [report.summary as Record<string, unknown>] },
-                      { name: 'فصول', rows: report.classBreakdown },
-                      { name: 'طالبات', rows: report.students },
+                      { name: 'فصول', rows: report.classBreakdown as Array<Record<string, unknown>> },
+                      { name: 'طالبات', rows: report.students as Array<Record<string, unknown>> },
                     ]);
                   }}
                   onPrint={() => {
@@ -487,6 +547,7 @@ export function ManagerPage() {
                 <StatCard label="نشطات" value={report.summary.activeStudents} />
                 <StatCard label="فصول" value={report.summary.classesCount} />
                 <StatCard label="عام %" value={report.summary.overallRate} />
+                {report.summary.examAvg !== undefined ? <StatCard label="متوسط الاختبارات %" value={report.summary.examAvg} /> : null}
               </div>
               <div className="flex flex-wrap justify-around gap-4 py-2">
                 <RingStat label="حضور" pct={report.summary.attendanceRate} />
@@ -508,6 +569,7 @@ export function ManagerPage() {
                 <p>
                   طالبات {String(c.studentCount)} | حضور %{String(c.attendanceRate)} | إنجاز %{String(c.completionRate)} | عام %
                   {String(c.overallRate)}
+                  {c.examAvg !== undefined ? ` | اختبارات %${c.examAvg}` : ''}
                 </p>
               </Card>
             ))}
@@ -711,15 +773,47 @@ export function ManagerPage() {
               <StatCard label="إنجاز" value={`${classStats.completionRate}%`} />
               <StatCard label="واجب" value={`${classStats.homeworkRate}%`} />
               <StatCard label="عام" value={`${classStats.overallRate}%`} />
+              {classStats.examAvg !== undefined ? <StatCard label="متوسط الاختبارات" value={`${classStats.examAvg}%`} /> : null}
             </div>
             <div className="flex flex-wrap justify-around gap-4">
               <RingStat label="حضور" pct={classStats.attendanceRate} />
               <RingStat label="إنجاز" pct={classStats.completionRate} />
               <RingStat label="واجب" pct={classStats.homeworkRate} />
             </div>
-            <Button variant="primary" className="!w-auto" onClick={printClassReport}>
-              طباعة التقرير
-            </Button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {classReport ? (
+        <Modal title={`تقرير الفصل: ${classReport.summary.name}`} onClose={() => setClassReport(null)} wide>
+          <div className="space-y-4">
+            <ExportBar
+              onExcel={() => {
+                const summary = {
+                  ...classReport.summary,
+                  ...(classReport.examAvg !== undefined ? { examAvg: classReport.examAvg } : {}),
+                };
+                downloadXlsx(`class-${classReport.summary.name}.xlsx`, [
+                  { name: 'ملخص', rows: [summary] },
+                  { name: 'طالبات', rows: classReport.students as Array<Record<string, unknown>> },
+                ]);
+              }}
+              onPrint={printClassReport}
+              excelLabel="تصدير Excel"
+            />
+            <div className="ds-kpi-grid">
+              <StatCard label="طالبات" value={classReport.summary.studentCount} />
+              <StatCard label="حضور" value={`${classReport.summary.attendanceRate}%`} />
+              <StatCard label="إنجاز" value={`${classReport.summary.completionRate}%`} />
+              <StatCard label="واجب" value={`${classReport.summary.homeworkRate}%`} />
+              <StatCard label="عام" value={`${classReport.summary.overallRate}%`} />
+              {classReport.examAvg !== undefined ? <StatCard label="متوسط الاختبارات" value={`${classReport.examAvg}%`} /> : null}
+            </div>
+            <div className="flex flex-wrap justify-around gap-4">
+              <RingStat label="حضور" pct={classReport.summary.attendanceRate} />
+              <RingStat label="إنجاز" pct={classReport.summary.completionRate} />
+              <RingStat label="واجب" pct={classReport.summary.homeworkRate} />
+            </div>
           </div>
         </Modal>
       ) : null}
