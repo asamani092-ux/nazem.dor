@@ -53,6 +53,13 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
   };
 }
 
+/** مدير النظام + المدير العام — صلاحيات إدارية كاملة عدا المساس بحساب مدير النظام. */
+export const ADMIN_ROLES: Role[] = [Role.SUPER_MASTER, Role.GENERAL_DIRECTOR];
+
+export function isAdminRole(role: Role) {
+  return role === Role.SUPER_MASTER || role === Role.GENERAL_DIRECTOR;
+}
+
 export function requireRoles(...roles: Role[]) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     await authenticate(request, reply);

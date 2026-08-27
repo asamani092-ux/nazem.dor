@@ -1,11 +1,11 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
-import { requireRoles } from '../middleware/auth.js';
+import { ADMIN_ROLES, requireRoles } from '../middleware/auth.js';
 
-type AccountType = 'SUPER_MASTER' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
+type AccountType = 'SUPER_MASTER' | 'GENERAL_DIRECTOR' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
 
 function statusLabel(s: EntityStatus) {
   if (s === EntityStatus.ACTIVE) return 'نشط';
@@ -15,17 +15,55 @@ function statusLabel(s: EntityStatus) {
 
 function typeLabel(t: AccountType) {
   if (t === 'SUPER_MASTER') return 'مدير النظام';
+  if (t === 'GENERAL_DIRECTOR') return 'المدير العام';
   if (t === 'MASTER') return 'مشرفة';
   if (t === 'MANAGER') return 'مديرة';
   if (t === 'TEACHER') return 'معلمة';
   return 'طالبة';
 }
 
-const filterEnum = z.enum(['ALL', 'MASTER', 'MANAGER', 'TEACHER', 'STUDENT', 'SUPER_MASTER']);
+const filterEnum = z.enum([
+  'ALL',
+  'MASTER',
+  'MANAGER',
+  'TEACHER',
+  'STUDENT',
+  'SUPER_MASTER',
+  'GENERAL_DIRECTOR',
+]);
+
+/**
+ * حارس إدارة الحسابات.
+ * Time O(1) Space O(1).
+ * - الهدف SUPER_MASTER: مدير النظام فقط (تعليق/حذف ممنوعان لاحقاً).
+ * - الهدف GENERAL_DIRECTOR: مدير النظام فقط.
+ * - غير ذلك: مدير النظام أو المدير العام.
+ */
+function assertCanManage(
+  requesterRole: Role,
+  targetRole: Role,
+  reply: FastifyReply,
+): boolean {
+  if (targetRole === Role.SUPER_MASTER) {
+    if (requesterRole !== Role.SUPER_MASTER) {
+      reply.code(403).send({ status: 'error', message: 'لا يمكن إدارة حساب مدير النظام' });
+      return false;
+    }
+    return true;
+  }
+  if (targetRole === Role.GENERAL_DIRECTOR) {
+    if (requesterRole !== Role.SUPER_MASTER) {
+      reply.code(403).send({ status: 'error', message: 'إدارة المدير العام لمدير النظام فقط' });
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
 
 /** Time O(n) users+students; Space O(n) response list. */
 export async function usersAdminRoutes(app: FastifyInstance) {
-  const guard = { preHandler: requireRoles(Role.SUPER_MASTER) };
+  const guard = { preHandler: requireRoles(...ADMIN_ROLES) };
 
   app.get('/meta', guard, async () => {
     const dars = await prisma.dar.findMany({
@@ -61,6 +99,13 @@ export async function usersAdminRoutes(app: FastifyInstance) {
       })
       .parse(request.query);
 
+    const requester = request.user.role;
+    const hideSuper = requester === Role.GENERAL_DIRECTOR;
+
+    if (hideSuper && q.type === 'SUPER_MASTER') {
+      return { status: 'success', data: [] };
+    }
+
     const search = (q.search || '').trim();
     const items: Array<{
       id: string;
@@ -81,19 +126,22 @@ export async function usersAdminRoutes(app: FastifyInstance) {
       q.type === 'MASTER' ||
       q.type === 'MANAGER' ||
       q.type === 'TEACHER' ||
-      q.type === 'SUPER_MASTER';
+      q.type === 'SUPER_MASTER' ||
+      q.type === 'GENERAL_DIRECTOR';
     const wantStudents = q.type === 'ALL' || q.type === 'STUDENT';
 
     if (wantUsers) {
       const roleFilter =
-        q.type === 'ALL' || q.type === 'STUDENT'
-          ? undefined
-          : (q.type as Role);
+        q.type === 'ALL' || q.type === 'STUDENT' ? undefined : (q.type as Role);
 
       const users = await prisma.user.findMany({
         where: {
           status: { not: EntityStatus.DELETED },
-          ...(roleFilter ? { role: roleFilter } : {}),
+          ...(roleFilter
+            ? { role: roleFilter }
+            : hideSuper
+              ? { role: { not: Role.SUPER_MASTER } }
+              : {}),
           ...(search
             ? {
                 OR: [
@@ -168,9 +216,14 @@ export async function usersAdminRoutes(app: FastifyInstance) {
   });
 
   app.post('/', guard, async (request, reply) => {
+    const peekType = (request.body as { type?: string } | null)?.type;
+    if (peekType === 'GENERAL_DIRECTOR' && request.user.role !== Role.SUPER_MASTER) {
+      return reply.code(403).send({ status: 'error', message: 'إنشاء المدير العام لمدير النظام فقط' });
+    }
+
     const body = z
       .object({
-        type: z.enum(['MASTER', 'MANAGER', 'TEACHER', 'STUDENT']),
+        type: z.enum(['GENERAL_DIRECTOR', 'MASTER', 'MANAGER', 'TEACHER', 'STUDENT']),
         name: z.string().min(2),
         phone: z.string(),
         darId: z.string().optional(),
@@ -178,9 +231,33 @@ export async function usersAdminRoutes(app: FastifyInstance) {
       })
       .parse(request.body);
 
+    if (body.type === 'GENERAL_DIRECTOR' && request.user.role !== Role.SUPER_MASTER) {
+      return reply.code(403).send({ status: 'error', message: 'إنشاء المدير العام لمدير النظام فقط' });
+    }
+
     const phone = normalizePhone(body.phone);
     if (!isValidSaudiMobile(phone)) {
       return reply.code(400).send({ status: 'error', message: 'جوال غير صحيح' });
+    }
+
+    if (body.type === 'GENERAL_DIRECTOR') {
+      if (await prisma.user.findUnique({ where: { phone } })) {
+        return reply.code(400).send({ status: 'error', message: 'الجوال مستخدم' });
+      }
+      const user = await prisma.user.create({
+        data: {
+          name: body.name.trim(),
+          phone,
+          role: Role.GENERAL_DIRECTOR,
+          passwordHash: await bcrypt.hash(phone.slice(-6), 10),
+          mustChangePassword: false,
+        },
+      });
+      return {
+        status: 'success',
+        message: `تم إنشاء المدير العام. الدخول: ${phone}`,
+        data: { id: user.id, kind: 'USER' },
+      };
     }
 
     if (body.type === 'MASTER') {
@@ -368,6 +445,7 @@ export async function usersAdminRoutes(app: FastifyInstance) {
       where: { id, status: { not: EntityStatus.DELETED } },
     });
     if (!user) return reply.code(404).send({ status: 'error', message: 'الحساب غير موجود' });
+    if (!assertCanManage(request.user.role, user.role, reply)) return;
 
     const taken = await prisma.user.findFirst({ where: { phone, NOT: { id } } });
     if (taken) return reply.code(400).send({ status: 'error', message: 'الجوال مستخدم' });
@@ -440,6 +518,7 @@ export async function usersAdminRoutes(app: FastifyInstance) {
       where: { id, status: { not: EntityStatus.DELETED } },
     });
     if (!user) return reply.code(404).send({ status: 'error', message: 'الحساب غير موجود' });
+    if (!assertCanManage(request.user.role, user.role, reply)) return;
     if (user.role === Role.SUPER_MASTER && status === EntityStatus.SUSPENDED) {
       return reply.code(400).send({ status: 'error', message: 'لا يمكن تعليق مدير النظام' });
     }
@@ -476,6 +555,7 @@ export async function usersAdminRoutes(app: FastifyInstance) {
       where: { id, status: { not: EntityStatus.DELETED } },
     });
     if (!user) return reply.code(404).send({ status: 'error', message: 'الحساب غير موجود' });
+    if (!assertCanManage(request.user.role, user.role, reply)) return;
     if (user.role === Role.SUPER_MASTER) {
       return reply.code(400).send({ status: 'error', message: 'لا يمكن حذف مدير النظام' });
     }

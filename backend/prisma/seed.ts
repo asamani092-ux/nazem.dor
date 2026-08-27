@@ -11,7 +11,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function main() {
   const phone = process.env.SEED_SUPER_PHONE || '0555143246';
   const password = process.env.SEED_SUPER_PASSWORD || 'Nazem@123';
-  const name = process.env.SEED_SUPER_NAME || 'المدير العام';
+  const name = process.env.SEED_SUPER_NAME || 'مدير النظام';
+  // دور GENERAL_DIRECTOR يُنشأ يدوياً من واجهة مدير النظام — لا بذرة افتراضية.
 
   const existing = await prisma.user.findUnique({ where: { phone } });
   if (!existing) {

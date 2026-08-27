@@ -14,7 +14,7 @@ function AppRouter() {
 
   if (!user) return <LoginPage />;
 
-  if (user.role === 'SUPER_MASTER' || user.role === 'MASTER') return <MasterPage />;
+  if (user.role === 'SUPER_MASTER' || user.role === 'GENERAL_DIRECTOR' || user.role === 'MASTER') return <MasterPage />;
   if (user.role === 'MANAGER') return <ManagerPage />;
   if (user.role === 'TEACHER') return <TeacherPage />;
   return <LoginPage />;

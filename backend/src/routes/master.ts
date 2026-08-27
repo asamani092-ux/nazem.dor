@@ -5,7 +5,7 @@ import { computeExamStats, computeRates, levelsForCurriculum, normalizeHomework 
 import { getRateWeights, setRateWeights } from '../lib/settings.js';
 import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
-import { requireRoles } from '../middleware/auth.js';
+import { ADMIN_ROLES, isAdminRole, requireRoles } from '../middleware/auth.js';
 
 const curriculumMap: Record<string, CurriculumType> = {
   'منهج تبيان': CurriculumType.TIBYAN,
@@ -30,17 +30,17 @@ function statusLabel(s: EntityStatus) {
 }
 
 export async function masterRoutes(app: FastifyInstance) {
-  const guard = { preHandler: requireRoles(Role.SUPER_MASTER, Role.MASTER) };
-  const superGuard = { preHandler: requireRoles(Role.SUPER_MASTER) };
+  const guard = { preHandler: requireRoles(...ADMIN_ROLES, Role.MASTER) };
+  const superGuard = { preHandler: requireRoles(...ADMIN_ROLES) };
 
-  /** حصر رؤية الدور: المشرفة ترى دُورها المسندة فقط؛ مدير النظام يرى الكل. O(1). */
+  /** حصر رؤية الدور: المشرفة ترى دُورها المسندة فقط؛ المديرون يرون الكل. O(1). */
   function darScopeWhere(request: { user: { role: Role; id: string } }) {
     return request.user.role === Role.MASTER ? { supervisorId: request.user.id } : {};
   }
 
   /** هل يملك المستخدم صلاحية على دار معيّنة؟ */
   async function canAccessDar(request: { user: { role: Role; id: string } }, darId: string) {
-    if (request.user.role === Role.SUPER_MASTER) return true;
+    if (isAdminRole(request.user.role)) return true;
     const dar = await prisma.dar.findUnique({ where: { id: darId }, select: { supervisorId: true } });
     return !!dar && dar.supervisorId === request.user.id;
   }
@@ -898,7 +898,7 @@ export async function masterRoutes(app: FastifyInstance) {
     return { status: 'success', data: { ...row, homework: normalizeHomework(row.homework) } };
   });
 
-  app.delete('/curriculum/:id', { preHandler: requireRoles(Role.SUPER_MASTER) }, async (request, reply) => {
+  app.delete('/curriculum/:id', { preHandler: requireRoles(...ADMIN_ROLES) }, async (request, reply) => {
     const { id } = request.params as { id: string };
     try {
       await prisma.curriculumPlan.delete({ where: { id } });

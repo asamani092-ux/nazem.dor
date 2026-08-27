@@ -121,7 +121,8 @@ type WeekSlot = {
 type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'attachments' | 'tools-audit';
 type DarViewMode = 'cards' | 'table' | 'stats';
 type PlanViewMode = 'table' | 'cards';
-type AccountFilter = 'ALL' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
+type AccountFilter = 'ALL' | 'GENERAL_DIRECTOR' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT' | 'SUPER_MASTER';
+type AccountCreateType = 'GENERAL_DIRECTOR' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
 
 type AccountRow = {
   id: string;
@@ -169,6 +170,8 @@ function buildWeekSlots(plans: CurriculumRow[], level: string, week: number): We
 
 export function MasterPage() {
   const { user, logout } = useAuth();
+  const isSuperMaster = user?.role === 'SUPER_MASTER';
+  const isAdmin = isSuperMaster || user?.role === 'GENERAL_DIRECTOR';
   const { banner, notify, clearBanner } = usePageFeedback();
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== 'undefined' && window.location.pathname === '/tools-audit') return 'tools-audit';
@@ -246,7 +249,7 @@ export function MasterPage() {
   const [accountEditorMode, setAccountEditorMode] = useState<'add' | 'edit'>('add');
   const [accountForm, setAccountForm] = useState({
     kind: 'USER' as 'USER' | 'STUDENT',
-    type: 'MASTER' as 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT',
+    type: 'MASTER' as AccountCreateType,
     id: '',
     name: '',
     phone: '',
@@ -323,7 +326,7 @@ export function MasterPage() {
   }
 
   async function loadSupervisors() {
-    if (user?.role !== 'SUPER_MASTER') return;
+    if (!isAdmin) return;
     const res = await api<{ data: Supervisor[] }>('/api/master/supervisors');
     setSupervisors(res.data.filter((s) => s.status !== 'محذوف'));
   }
@@ -398,19 +401,19 @@ export function MasterPage() {
   useEffect(() => {
     if (tab === 'indicators') {
       void loadIndicators().catch((e) => notify(e.message, 'error'));
-      if (user?.role === 'SUPER_MASTER') void loadRateWeights().catch((e) => notify(e.message, 'error'));
+      if (isAdmin) void loadRateWeights().catch((e) => notify(e.message, 'error'));
     }
     if (tab === 'curriculum') {
       void loadCurriculum().catch((e) => notify(e.message, 'error'));
       void loadCurriculumLevels().catch(() => undefined);
     }
-    if (tab === 'accounts' && user?.role === 'SUPER_MASTER') {
+    if (tab === 'accounts' && isAdmin) {
       void loadUsersMeta().catch((e) => notify(e.message, 'error'));
     }
   }, [tab, user?.role]);
 
   useEffect(() => {
-    if (tab !== 'accounts' || user?.role !== 'SUPER_MASTER') return;
+    if (tab !== 'accounts' || !isAdmin) return;
     const t = setTimeout(() => {
       void loadAccounts().catch((e) => notify(e.message, 'error'));
     }, 300);
@@ -458,7 +461,7 @@ export function MasterPage() {
         status: editDar.status === 'معلق' ? 'معلق' : 'نشط',
       },
     });
-    if (user?.role === 'SUPER_MASTER') {
+    if (isAdmin) {
       await api(`/api/master/dars/${editDar.id}/supervisor`, {
         method: 'POST',
         json: { supervisorId: editDar.supervisorId || null },
@@ -623,7 +626,7 @@ export function MasterPage() {
     await load();
   }
 
-  function openAddAccount(type: 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT' = 'MASTER') {
+  function openAddAccount(type: AccountCreateType = 'MASTER') {
     setAccountEditorMode('add');
     setAccountForm({
       kind: type === 'STUDENT' ? 'STUDENT' : 'USER',
@@ -642,7 +645,7 @@ export function MasterPage() {
     setAccountEditorMode('edit');
     setAccountForm({
       kind: row.kind,
-      type: (row.type === 'STUDENT' ? 'STUDENT' : row.type) as 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT',
+      type: (row.type === 'STUDENT' ? 'STUDENT' : row.type) as AccountCreateType,
       id: row.id,
       name: row.name,
       phone: row.phone,
@@ -696,8 +699,20 @@ export function MasterPage() {
     await loadAccounts();
   }
 
+  function canEditAccount(row: AccountRow) {
+    if (row.type === 'SUPER_MASTER' || row.type === 'GENERAL_DIRECTOR') return isSuperMaster;
+    return isAdmin;
+  }
+
+  function canSuspendOrDeleteAccount(row: AccountRow) {
+    if (row.type === 'SUPER_MASTER') return false;
+    if (row.type === 'GENERAL_DIRECTOR') return isSuperMaster;
+    return isAdmin;
+  }
+
   async function deleteAccount(row: AccountRow) {
     if (row.type === 'SUPER_MASTER') return notify('لا يمكن حذف مدير النظام', 'error');
+    if (row.type === 'GENERAL_DIRECTOR' && !isSuperMaster) return notify('لا يمكن حذف المدير العام', 'error');
     if (!confirm(`حذف ${row.typeLabel}: ${row.name}؟`)) return;
     await api(`/api/master/users/${row.id}?kind=${row.kind}`, {
       method: 'DELETE',
@@ -801,7 +816,7 @@ export function MasterPage() {
           slot.plan
             ? [
                 { key: 'edit', label: 'تعديل', onClick: () => openEditPlan(slot.plan!) },
-                ...(user?.role === 'SUPER_MASTER'
+                ...(isAdmin
                   ? [{ key: 'delete', label: 'حذف', tone: 'danger' as const, onClick: () => void deletePlan(slot.plan!) }]
                   : []),
               ]
@@ -817,8 +832,8 @@ export function MasterPage() {
     { key: 'indicators', label: 'المؤشرات' },
     { key: 'attachments', label: 'المرفقات' },
     { key: 'curriculum', label: 'المناهج' },
-    ...(user?.role === 'SUPER_MASTER' ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
-    ...(user?.role === 'SUPER_MASTER' ? [{ key: 'tools-audit' as Tab, label: 'تقييم الأدوات' }] : []),
+    ...(isAdmin ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
+    ...(isAdmin ? [{ key: 'tools-audit' as Tab, label: 'تقييم الأدوات' }] : []),
   ];
 
   function exportIndicatorsXlsx() {
@@ -1085,7 +1100,7 @@ export function MasterPage() {
             المؤشرات
           </SectionTitle>
 
-          {user?.role === 'SUPER_MASTER' ? (
+          {isAdmin ? (
             <Card>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -1399,7 +1414,7 @@ export function MasterPage() {
                           <IconButton label="تعديل الخطة" tone="edit" onClick={() => openEditPlan(slot.plan!)}>
                             <IconEdit />
                           </IconButton>
-                          {user?.role === 'SUPER_MASTER' ? (
+                          {isAdmin ? (
                             <IconButton label="حذف الخطة" tone="delete" onClick={() => void deletePlan(slot.plan!)}>
                               <IconDelete />
                             </IconButton>
@@ -1437,7 +1452,7 @@ export function MasterPage() {
         </div>
       ) : null}
 
-      {tab === 'accounts' && user?.role === 'SUPER_MASTER' ? (
+      {tab === 'accounts' && isAdmin ? (
         <div className="space-y-4">
           <SectionTitle
             action={
@@ -1457,6 +1472,8 @@ export function MasterPage() {
                 aria-label="فلتر النوع"
               >
                 <option value="ALL">الكل</option>
+                {isSuperMaster ? <option value="SUPER_MASTER">مدير النظام</option> : null}
+                <option value="GENERAL_DIRECTOR">المدير العام</option>
                 <option value="MASTER">مشرفة</option>
                 <option value="MANAGER">مديرة</option>
                 <option value="TEACHER">معلمة</option>
@@ -1502,8 +1519,10 @@ export function MasterPage() {
                       onToggle={() => setAccountMenuRow(accountMenuRow === row.id ? null : row.id)}
                       onClose={() => setAccountMenuRow(null)}
                       items={[
-                        { key: 'edit', label: 'تعديل', onClick: () => openEditAccount(row) },
-                        ...(row.type !== 'SUPER_MASTER'
+                        ...(canEditAccount(row)
+                          ? [{ key: 'edit', label: 'تعديل', onClick: () => openEditAccount(row) }]
+                          : []),
+                        ...(canSuspendOrDeleteAccount(row)
                           ? [
                               {
                                 key: 'status',
@@ -1607,7 +1626,7 @@ export function MasterPage() {
         </div>
       ) : null}
 
-      {tab === 'tools-audit' && user?.role === 'SUPER_MASTER' ? (
+      {tab === 'tools-audit' && isAdmin ? (
         <ToolsAuditPanel />
       ) : null}
 
@@ -1688,7 +1707,7 @@ export function MasterPage() {
                   <h2 className="text-base font-extrabold">{dar.name}</h2>
                   <p className="mt-1 text-[15px] font-extrabold text-ios-text">المديرة: {dar.managerName}</p>
                   {dar.location ? <p className="mt-1 text-sm font-semibold text-ios-muted">الحي: {dar.location}</p> : null}
-                  {user?.role === 'SUPER_MASTER' ? (
+                  {isAdmin ? (
                     <p className="mt-1 text-[12px] font-bold text-primary">المشرفة: {dar.supervisorName || 'غير مسندة'}</p>
                   ) : null}
                   {dar.lastVisit ? <p className="mt-1 text-[11px] text-ios-muted">آخر زيارة: {dar.lastVisit}</p> : null}
@@ -1723,7 +1742,7 @@ export function MasterPage() {
                   <span className="ds-dar-action-label">{dar.status === 'معلق' ? 'تنشيط' : 'تعليق'}</span>
                   <span className={`ds-dar-action-btn ds-icon-btn ${dar.status === 'معلق' ? 'ds-icon-btn-wa ds-activate-pulse' : 'ds-icon-btn-alert'}`}><IconSuspend className="h-6 w-6" /></span>
                 </button>
-                {user?.role === 'SUPER_MASTER' ? (
+                {isAdmin ? (
                   <button type="button" className="ds-dar-action-tile" onClick={() => void deleteDar(dar.id)}>
                     <span className="ds-dar-action-label">حذف</span>
                     <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-delete"><IconDelete className="h-6 w-6" /></span>
@@ -1778,7 +1797,7 @@ export function MasterPage() {
                           label: dar.status === 'معلق' ? 'تنشيط' : 'تعليق',
                           onClick: () => void suspendToggle(dar),
                         },
-                        ...(user?.role === 'SUPER_MASTER'
+                        ...(isAdmin
                           ? [{ key: 'delete', label: 'حذف', tone: 'danger' as const, onClick: () => void deleteDar(dar.id) }]
                           : []),
                       ]}
@@ -1873,7 +1892,7 @@ export function MasterPage() {
                 <option value="معلق">معلق</option>
               </select>
             </Field>
-            {user?.role === 'SUPER_MASTER' ? (
+            {isAdmin ? (
               <Field label="المشرفة المسؤولة">
                 <select
                   className="ds-input"
@@ -2226,6 +2245,7 @@ export function MasterPage() {
                     });
                   }}
                 >
+                  {isSuperMaster ? <option value="GENERAL_DIRECTOR">المدير العام</option> : null}
                   <option value="MASTER">مشرفة</option>
                   <option value="MANAGER">مديرة</option>
                   <option value="TEACHER">معلمة</option>

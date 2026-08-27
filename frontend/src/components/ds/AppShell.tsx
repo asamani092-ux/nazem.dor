@@ -10,6 +10,7 @@ export type ShellNavItem = {
 
 const ROLE_LABEL: Record<string, string> = {
   SUPER_MASTER: 'مدير النظام',
+  GENERAL_DIRECTOR: 'المدير العام',
   MASTER: 'مشرفة عامة',
   MANAGER: 'مديرة دار',
   TEACHER: 'معلمة',

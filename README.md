@@ -47,7 +47,8 @@ docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 ## الأدوار
 | الدور | الوصف |
 |------|------|
-| SUPER_MASTER | مدير النظام + إدارة المشرفات |
+| SUPER_MASTER | مدير النظام — أعلى صلاحية |
+| GENERAL_DIRECTOR | المدير العام — كل صلاحيات مدير النظام عدا المساس بحسابه |
 | MASTER | مشرفة عامة |
 | MANAGER | مديرة دار |
 | TEACHER | معلمة فصل |
