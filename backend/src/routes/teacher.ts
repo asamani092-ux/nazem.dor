@@ -303,6 +303,7 @@ export async function teacherRoutes(app: FastifyInstance) {
         title: e.title,
         date: e.examDate.toLocaleDateString('en-GB'),
         link: e.link,
+        maxScore: e.maxScore,
       }));
 
     const gradedMap = new Map<string, { exam: typeof exams[0]; grades: typeof grades }>();
@@ -318,6 +319,7 @@ export async function teacherRoutes(app: FastifyInstance) {
       title: exam.title,
       date: exam.examDate.toLocaleDateString('en-GB'),
       link: exam.link,
+      maxScore: exam.maxScore,
       grades: gs.map((g) => ({
         studentId: g.studentId,
         name: g.studentName,
@@ -354,6 +356,7 @@ export async function teacherRoutes(app: FastifyInstance) {
           title: e.title,
           date: e.examDate.toLocaleDateString('en-GB'),
           link: e.link,
+          maxScore: e.maxScore,
         })),
     };
   });
@@ -379,6 +382,24 @@ export async function teacherRoutes(app: FastifyInstance) {
 
     const exam = await prisma.exam.findUnique({ where: { id } });
     if (!exam) return reply.code(404).send({ status: 'error', message: 'الاختبار غير موجود' });
+
+    for (const g of body.gradesData) {
+      const raw = String(g.score ?? '').trim();
+      if (!raw || raw === 'غائبة') continue;
+      const value = parseFloat(raw);
+      if (Number.isNaN(value)) {
+        return reply.code(400).send({
+          status: 'error',
+          message: `درجة غير صالحة للطالبة ${g.name}. أدخلي رقماً أو اتركيها فارغة`,
+        });
+      }
+      if (value < 0 || value > exam.maxScore) {
+        return reply.code(400).send({
+          status: 'error',
+          message: `درجة ${g.name} (${raw}) تتجاوز سقف الاختبار ${exam.maxScore}`,
+        });
+      }
+    }
 
     const studentIds = body.gradesData.map((g) => g.studentId);
     const activeStudents = await prisma.student.count({

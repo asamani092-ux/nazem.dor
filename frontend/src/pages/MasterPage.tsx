@@ -240,7 +240,7 @@ export function MasterPage() {
     managerPhone: '',
     location: '',
   });
-  const [exam, setExam] = useState({ targetDarId: 'الكل', date: '', link: '', title: '' });
+  const [exam, setExam] = useState({ targetDarId: 'الكل', date: '', link: '', title: '', maxScore: 100 });
   const [alertForm, setAlertForm] = useState({ darId: '', title: '', content: '', kind: 'NOTICE', scheduledAt: '' });
   const [planForm, setPlanForm] = useState({
     level: 'تمهيدي 1',
@@ -277,11 +277,12 @@ export function MasterPage() {
   const filteredIndicatorDars = useMemo(() => {
     if (!indicators) return [];
     return indicators.perDar.filter((dar) => {
+      const isBoth = dar.curriculum.includes('/') || dar.curriculum.includes('كلاهما');
       const curriculumMatch =
         indicatorCurriculum === 'all' ||
-        (indicatorCurriculum === 'tibyan' && dar.curriculum.includes('تبيان') && !dar.curriculum.includes('كلاهما')) ||
-        (indicatorCurriculum === 'qari' && dar.curriculum.includes('قارئ') && !dar.curriculum.includes('كلاهما')) ||
-        (indicatorCurriculum === 'both' && dar.curriculum.includes('كلاهما'));
+        (indicatorCurriculum === 'tibyan' && !isBoth && dar.curriculum.includes('تبيان')) ||
+        (indicatorCurriculum === 'qari' && !isBoth && dar.curriculum.includes('قارئ')) ||
+        (indicatorCurriculum === 'both' && isBoth);
       return curriculumMatch && matchQuery(indicatorSearch, [dar.name]);
     });
   }, [indicatorCurriculum, indicatorSearch, indicators]);
@@ -480,11 +481,12 @@ export function MasterPage() {
   async function saveExam() {
     if (!exam.title.trim() || exam.title.trim().length < 2) return notify('عنوان الاختبار مطلوب', 'error');
     if (!exam.date || !exam.link) return notify('أكمل التاريخ والرابط', 'error');
+    if (!Number.isFinite(exam.maxScore) || exam.maxScore <= 0) return notify('سقف الدرجة يجب أن يكون رقماً موجباً', 'error');
     const examDate = exam.date;
     const examDar = exam.targetDarId;
     await api('/api/master/exams', { method: 'POST', json: exam });
     setShowExam(false);
-    setExam({ targetDarId: 'الكل', date: '', link: '', title: '' });
+    setExam({ targetDarId: 'الكل', date: '', link: '', title: '', maxScore: 100 });
     notify('تم نشر الاختبار');
     if (examDate) {
       const d = new Date(examDate);
@@ -527,7 +529,7 @@ export function MasterPage() {
   }
 
   function openDarExam(dar: Dar) {
-    setExam({ targetDarId: dar.id, date: '', link: '', title: '' });
+    setExam({ targetDarId: dar.id, date: '', link: '', title: '', maxScore: 100 });
     setShowExam(true);
   }
 
@@ -1130,7 +1132,7 @@ export function MasterPage() {
           </div>
 
           <p className="text-xs font-bold text-ios-muted">
-            مناهج: تبيان {indicators.byCurriculum.tibyan} | قارئ {indicators.byCurriculum.qari} | كلاهما{' '}
+            مناهج: تبيان {indicators.byCurriculum.tibyan} | قارئ {indicators.byCurriculum.qari} | تبيان/قارئ{' '}
             {indicators.byCurriculum.both}
           </p>
 
@@ -1150,18 +1152,18 @@ export function MasterPage() {
                 <option value="all">الكل</option>
                 <option value="tibyan">تبيان</option>
                 <option value="qari">قارئ</option>
-                <option value="both">كلاهما</option>
+                <option value="both">تبيان/قارئ</option>
               </Select>
             </div>
           </Card>
 
           {filteredIndicatorDars.map((d) => (
             <Card key={d.id}>
-              <div className="mb-2 flex justify-between gap-2">
-                <h3 className="font-bold">{d.name}</h3>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-lg font-extrabold text-ios-text">{d.name}</h3>
                 <Badge tone="primary">{d.curriculum}</Badge>
               </div>
-              <p className="text-[11px] text-ios-muted">
+              <p className="text-[13px] font-semibold text-ios-muted">
                 طالبات {d.activeStudents} | فصول {d.classesCount} | حضور %{d.attendanceRate} | إنجاز %{d.completionRate} |
                 واجب %{d.homeworkRate} | عام %{d.overallRate}
                 {typeof d.examAvg === 'number' ? ` | اختبارات %${d.examAvg}` : ''}
@@ -1262,7 +1264,7 @@ export function MasterPage() {
             <p className="text-[10px] font-bold text-ios-muted">
               {planViewLevel} — أسبوع {planViewWeek}: {weekFilled} من {WEEK_DAYS.length} أيام
             </p>
-            <p className="text-[9px] text-ios-muted">الربط: تبيان ← تمهيدي | قارئ ← صفوف أولية | كلاهما ← الكل</p>
+            <p className="text-[9px] text-ios-muted">الربط: تبيان ← تمهيدي | قارئ ← صفوف أولية | تبيان/قارئ ← الكل</p>
           </div>
 
           {planViewMode === 'table' ? (
@@ -1662,7 +1664,7 @@ export function MasterPage() {
               <select className="ds-input" value={form.curriculum} onChange={(e) => setForm({ ...form, curriculum: e.target.value })}>
                 <option>منهج تبيان</option>
                 <option>منهج قارئ</option>
-                <option>كلاهما</option>
+                <option>تبيان/قارئ</option>
               </select>
             </Field>
             <Field label="اسم المديرة">
@@ -1691,7 +1693,7 @@ export function MasterPage() {
               <select className="ds-input" value={editDar.curriculum} onChange={(e) => setEditDar({ ...editDar, curriculum: e.target.value })}>
                 <option>منهج تبيان</option>
                 <option>منهج قارئ</option>
-                <option>كلاهما</option>
+                <option>تبيان/قارئ</option>
               </select>
             </Field>
             <Field label="اسم المديرة">
@@ -1724,13 +1726,16 @@ export function MasterPage() {
               onPrint={() => printDarReport(report)}
               excelLabel="تصدير Excel"
             />
-            <p className="text-xs text-ios-muted">
-              {report.dar.curriculum} | المديرة {report.dar.managerName}
-            </p>
-            <p className="font-bold text-primary">
+            <div className="rounded-xl bg-shell p-3">
+              <h3 className="text-lg font-extrabold text-ios-text">{report.dar.name}</h3>
+              <p className="mt-1 text-sm font-bold text-primary">
+                {report.dar.curriculum} · المديرة {report.dar.managerName}
+              </p>
+            </div>
+            <p className="text-base font-extrabold text-primary">
               طالبات {report.summary.totalStudents} | نشطات {report.summary.activeStudents} | فصول {report.summary.classesCount}
             </p>
-            <p className="text-xs">
+            <p className="text-sm font-bold">
               حضور %{report.summary.attendanceRate} | إنجاز %{report.summary.completionRate} | واجب %{report.summary.homeworkRate} |
               عام %{report.summary.overallRate}
             </p>
@@ -1738,11 +1743,11 @@ export function MasterPage() {
               items={report.students}
               pageSize={15}
               renderItem={(s) => (
-                <div key={String(s.id)} className="rounded-xl border border-ios-border p-2 text-[11px]">
-                  <p className="font-bold">
+                <div key={String(s.id)} className="rounded-xl border border-ios-border p-2.5 text-xs">
+                  <p className="text-sm font-extrabold">
                     {String(s.name)} — {String(s.className)}
                   </p>
-                  <p>
+                  <p className="mt-1 text-ios-muted">
                     حضور %{String(s.attendanceRate)} | إنجاز %{String(s.completionRate)} | اختبارات %{String(s.examAvg)}
                   </p>
                 </div>
@@ -1921,6 +1926,18 @@ export function MasterPage() {
             </Field>
             <Field label="رابط الاختبار">
               <input className="ds-input text-left" dir="ltr" placeholder="https://..." value={exam.link} onChange={(e) => setExam({ ...exam, link: e.target.value })} />
+            </Field>
+            <Field label="سقف الدرجة (الدرجة الكاملة)">
+              <input
+                className="ds-input"
+                type="number"
+                min={1}
+                max={1000}
+                placeholder="مثال: 20"
+                value={exam.maxScore}
+                onChange={(e) => setExam({ ...exam, maxScore: Number(e.target.value) })}
+              />
+              <p className="mt-1 text-[10px] text-ios-muted">لن تتمكن المعلمة من إدخال درجة تتجاوز هذا السقف.</p>
             </Field>
             <button className="ds-btn ds-btn-primary" onClick={() => void saveExam()}>
               إرسال

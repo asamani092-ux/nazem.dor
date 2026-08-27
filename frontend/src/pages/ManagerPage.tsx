@@ -539,9 +539,10 @@ export function ManagerPage() {
               التقارير
             </SectionTitle>
             <Card className="space-y-3">
-              <p className="text-xs text-ios-muted">
-                {report.dar.name} | {report.dar.curriculum}
-              </p>
+              <div className="rounded-xl bg-shell p-3">
+                <h3 className="text-lg font-extrabold text-ios-text">{report.dar.name}</h3>
+                <p className="mt-1 text-sm font-bold text-primary">{report.dar.curriculum}</p>
+              </div>
               <div className="ds-kpi-grid">
                 <StatCard label="طالبات" value={report.summary.totalStudents} />
                 <StatCard label="نشطات" value={report.summary.activeStudents} />

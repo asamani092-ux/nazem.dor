@@ -10,6 +10,7 @@ import { requireRoles } from '../middleware/auth.js';
 const curriculumMap: Record<string, CurriculumType> = {
   'منهج تبيان': CurriculumType.TIBYAN,
   'منهج قارئ': CurriculumType.QARI,
+  'تبيان/قارئ': CurriculumType.BOTH,
   كلاهما: CurriculumType.BOTH,
   TIBYAN: CurriculumType.TIBYAN,
   QARI: CurriculumType.QARI,
@@ -19,7 +20,7 @@ const curriculumMap: Record<string, CurriculumType> = {
 function curriculumLabel(c: CurriculumType) {
   if (c === CurriculumType.TIBYAN) return 'منهج تبيان';
   if (c === CurriculumType.QARI) return 'منهج قارئ';
-  return 'كلاهما';
+  return 'تبيان/قارئ';
 }
 
 function statusLabel(s: EntityStatus) {
@@ -571,6 +572,7 @@ export async function masterRoutes(app: FastifyInstance) {
         title: e.title,
         examDate: e.examDate.toISOString(),
         link: e.link,
+        maxScore: e.maxScore,
         darId: e.darId,
         darName: e.dar?.name || 'كل الدور',
         gradesCount: e._count.grades,
@@ -585,6 +587,7 @@ export async function masterRoutes(app: FastifyInstance) {
         date: z.string().min(1),
         link: z.string().url(),
         title: z.string().min(2, 'عنوان الاختبار مطلوب'),
+        maxScore: z.number().int().positive('سقف الدرجة يجب أن يكون رقماً موجباً').max(1000),
       })
       .parse(request.body);
 
@@ -596,6 +599,7 @@ export async function masterRoutes(app: FastifyInstance) {
         darId: isAll ? null : body.targetDarId,
         examDate: parseScheduledDate(body.date),
         link: body.link,
+        maxScore: body.maxScore,
       },
     });
     return { status: 'success', data: { id: exam.id } };

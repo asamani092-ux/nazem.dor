@@ -192,6 +192,7 @@ model Exam {
   darId     String?
   examDate  DateTime
   link      String
+  maxScore  Int      @default(100)
   notes     String?
   createdAt DateTime @default(now())
 

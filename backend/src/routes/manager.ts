@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { computeExamStats, computeRates, isLevelAllowed, levelsForCurriculum } from '../lib/domain.js';
+import { computeExamStats, computeRates } from '../lib/domain.js';
 import { getRateWeights } from '../lib/settings.js';
+import { getAllowedLevels, isLevelAllowedMerged } from '../lib/levels.js';
 import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
@@ -16,7 +17,7 @@ function statusLabel(s: EntityStatus) {
 function curriculumLabel(c: CurriculumType | string) {
   if (c === CurriculumType.TIBYAN || c === 'TIBYAN') return 'منهج تبيان';
   if (c === CurriculumType.QARI || c === 'QARI') return 'منهج قارئ';
-  if (c === CurriculumType.BOTH || c === 'BOTH') return 'كلاهما';
+  if (c === CurriculumType.BOTH || c === 'BOTH') return 'تبيان/قارئ';
   return String(c);
 }
 
@@ -37,7 +38,7 @@ export async function managerRoutes(app: FastifyInstance) {
         darId: dar.id,
         darName: dar.name,
         curriculum: curriculumLabel(dar.curriculum),
-        allowedLevels: levelsForCurriculum(dar.curriculum),
+        allowedLevels: await getAllowedLevels(dar.curriculum),
       },
     };
   });
@@ -111,7 +112,7 @@ export async function managerRoutes(app: FastifyInstance) {
         dar: {
           name: dar.name,
           curriculum: curriculumLabel(dar.curriculum),
-          allowedLevels: levelsForCurriculum(dar.curriculum),
+          allowedLevels: await getAllowedLevels(dar.curriculum),
         },
         summary: {
           totalStudents: students.length,
@@ -181,10 +182,10 @@ export async function managerRoutes(app: FastifyInstance) {
 
     const dar = await prisma.dar.findUnique({ where: { id: darId } });
     if (!dar) return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
-    if (!isLevelAllowed(dar.curriculum, body.level)) {
+    if (!(await isLevelAllowedMerged(dar.curriculum, body.level))) {
       return reply.code(400).send({
         status: 'error',
-        message: `المستوى غير مسموح لمنهج هذه الدار. المسموح: ${levelsForCurriculum(dar.curriculum).join('، ')}`,
+        message: `المستوى غير مسموح لمنهج هذه الدار. المسموح: ${(await getAllowedLevels(dar.curriculum)).join('، ')}`,
       });
     }
 
@@ -245,10 +246,10 @@ export async function managerRoutes(app: FastifyInstance) {
 
     const dar = await prisma.dar.findUnique({ where: { id: darId } });
     if (!dar) return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
-    if (!isLevelAllowed(dar.curriculum, body.level)) {
+    if (!(await isLevelAllowedMerged(dar.curriculum, body.level))) {
       return reply.code(400).send({
         status: 'error',
-        message: `المستوى غير مسموح لمنهج هذه الدار. المسموح: ${levelsForCurriculum(dar.curriculum).join('، ')}`,
+        message: `المستوى غير مسموح لمنهج هذه الدار. المسموح: ${(await getAllowedLevels(dar.curriculum)).join('، ')}`,
       });
     }
 

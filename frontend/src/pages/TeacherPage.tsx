@@ -25,7 +25,7 @@ import { useToast } from '../components/ds/Toast';
 
 type Student = { id: string; name: string; parentPhone: string };
 type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
-type Exam = { id: string; title: string; date: string; link?: string };
+type Exam = { id: string; title: string; date: string; link?: string; maxScore?: number };
 type GradedExam = Exam & { grades: Array<{ studentId: string; name: string; score: string; note: string }> };
 
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
@@ -230,6 +230,20 @@ export function TeacherPage() {
 
   async function saveGrades() {
     if (!grading) return;
+    const cap = grading.maxScore ?? 100;
+    for (const s of students) {
+      const raw = (scores[s.id] || '').trim();
+      if (!raw || raw === 'غائبة') continue;
+      const value = Number(raw);
+      if (Number.isNaN(value)) {
+        notify(`درجة غير صالحة للطالبة ${s.name} — أدخلي رقماً أو اتركيها فارغة`, 'error');
+        return;
+      }
+      if (value < 0 || value > cap) {
+        notify(`درجة ${s.name} (${raw}) تتجاوز سقف الاختبار ${cap}`, 'error');
+        return;
+      }
+    }
     await api(`/api/teacher/exams/${grading.id}/grades`, {
       method: 'POST',
       json: {
@@ -478,7 +492,7 @@ export function TeacherPage() {
                   <div key={ex.id} className="flex items-center justify-between rounded-[14px] bg-shell p-3.5">
                     <div>
                       <div className="text-sm font-bold">{ex.title}</div>
-                      <div className="text-xs text-ios-muted">{ex.date}</div>
+                      <div className="text-xs text-ios-muted">{ex.date} · الدرجة الكاملة {ex.maxScore ?? 100}</div>
                     </div>
                     <Button variant="chip-primary" disabled={!students.length} onClick={() => startGrading(ex)}>رصد</Button>
                   </div>
@@ -493,7 +507,7 @@ export function TeacherPage() {
                 <div key={ex.id} className="flex items-center justify-between rounded-[14px] bg-shell p-3.5">
                   <div>
                     <div className="text-sm font-bold">{ex.title}</div>
-                    <div className="text-xs text-ios-muted">{ex.date} · مُرصود</div>
+                    <div className="text-xs text-ios-muted">{ex.date} · مُرصود · الدرجة الكاملة {ex.maxScore ?? 100}</div>
                   </div>
                   <Button variant="chip-primary" onClick={() => startGrading(ex, ex)}>تعديل</Button>
                 </div>
@@ -504,27 +518,37 @@ export function TeacherPage() {
       ) : null}
 
       {grading ? (
-        <BottomSheet title={`رصد: ${grading.title}`} onClose={() => setGrading(null)}>
+        <BottomSheet title={`رصد درجات: ${grading.title}`} onClose={() => setGrading(null)}>
           <div className="space-y-3">
+            <div className="rounded-lg bg-primary-soft p-3 text-xs font-bold text-primary">
+              الدرجة الكاملة لهذا الاختبار: {grading.maxScore ?? 100}
+              <span className="mt-1 block text-[10px] font-semibold text-ios-muted">
+                اكتبي درجة كل طالبة من 0 إلى {grading.maxScore ?? 100}. اتركي الحقل فارغاً إذا كانت غائبة. الملاحظة اختيارية.
+              </span>
+            </div>
             {students.map((s) => (
               <div key={s.id} className="rounded-lg bg-shell p-3 space-y-2">
-                <span className="text-xs font-bold">{s.name}</span>
+                <span className="text-sm font-extrabold">{s.name}</span>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  <Field label="الدرجة">
+                  <Field label={`الدرجة (من ${grading.maxScore ?? 100})`}>
                     <div>
                       <Input
-                        type="text"
-                        className="!py-2 text-center text-xs"
+                        type="number"
+                        min={0}
+                        max={grading.maxScore ?? 100}
+                        className="!py-2 text-center text-sm font-bold"
                         aria-label={`درجة ${s.name}`}
+                        placeholder={`0 - ${grading.maxScore ?? 100}`}
                         value={scores[s.id] || ''}
                         onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
                       />
-                      <p className="mt-1 text-[10px] text-ios-muted">أدخلي رقماً أو اتركيها فارغة لتُسجّل غائبة</p>
+                      <p className="mt-1 text-[10px] text-ios-muted">فارغة = غائبة</p>
                     </div>
                   </Field>
-                  <Field label="ملاحظة">
+                  <Field label="ملاحظة (اختياري)">
                     <Input
                       className="!py-2 text-xs"
+                      placeholder="مثال: أداء ممتاز"
                       value={notes[s.id] || ''}
                       onChange={(e) => setNotes({ ...notes, [s.id]: e.target.value })}
                     />
