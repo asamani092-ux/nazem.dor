@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
-import { downloadXlsx } from '../lib/export';
+import { downloadXlsx, arabicRows } from '../lib/export';
 import { printReport, tableHtml } from '../lib/print';
 import { matchQuery } from '../lib/search';
 import { monthStart, monthRangeParams, type CalendarEvent } from '../lib/calendar';
@@ -53,7 +53,11 @@ type Dar = {
   location: string;
   status: string;
   lastVisit?: string;
+  supervisorId?: string;
+  supervisorName?: string;
 };
+
+type Supervisor = { id: string; name: string; phone: string; status: string };
 
 type Indicators = {
   darsTotal: number;
@@ -175,6 +179,7 @@ export function MasterPage() {
   const [busy, setBusy] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [editDar, setEditDar] = useState<Dar | null>(null);
+  const [supervisors, setSupervisors] = useState<Supervisor[]>([]);
   const [showExam, setShowExam] = useState(false);
   const [report, setReport] = useState<DarReport | null>(null);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
@@ -317,6 +322,21 @@ export function MasterPage() {
     }
   }
 
+  async function loadSupervisors() {
+    if (user?.role !== 'SUPER_MASTER') return;
+    const res = await api<{ data: Supervisor[] }>('/api/master/supervisors');
+    setSupervisors(res.data.filter((s) => s.status !== 'محذوف'));
+  }
+
+  async function assignSupervisor(darId: string, supervisorId: string) {
+    await api(`/api/master/dars/${darId}/supervisor`, {
+      method: 'POST',
+      json: { supervisorId: supervisorId || null },
+    });
+    notify('تم تحديث المشرفة المسؤولة');
+    await load();
+  }
+
   async function loadIndicators(force = false) {
     if (indicatorsLoaded && !force) return;
     const res = await api<{ data: Indicators }>('/api/master/indicators');
@@ -372,6 +392,7 @@ export function MasterPage() {
 
   useEffect(() => {
     void load();
+    void loadSupervisors().catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -437,6 +458,12 @@ export function MasterPage() {
         status: editDar.status === 'معلق' ? 'معلق' : 'نشط',
       },
     });
+    if (user?.role === 'SUPER_MASTER') {
+      await api(`/api/master/dars/${editDar.id}/supervisor`, {
+        method: 'POST',
+        json: { supervisorId: editDar.supervisorId || null },
+      });
+    }
     setEditDar(null);
     notify('تم تحديث الدار');
     await load();
@@ -809,7 +836,8 @@ export function MasterPage() {
             'إنجاز %': indicators.completionRate,
             'واجب %': indicators.homeworkRate,
             'عام %': indicators.overallRate,
-            اختبارات: indicators.examsCount,
+            'متوسط الاختبارات %': indicators.examAvg,
+            'عدد الاختبارات': indicators.examsCount,
           },
         ],
       },
@@ -825,6 +853,7 @@ export function MasterPage() {
           'إنجاز %': d.completionRate,
           'واجب %': d.homeworkRate,
           'عام %': d.overallRate,
+          'متوسط الاختبارات %': typeof d.examAvg === 'number' ? d.examAvg : '',
         })),
       },
     ]);
@@ -949,8 +978,31 @@ export function MasterPage() {
           },
         ],
       },
-      { name: 'طالبات', rows: r.students },
-      { name: 'اختبارات', rows: r.examGrades },
+      {
+        name: 'طالبات',
+        rows: arabicRows(r.students, {
+          name: 'الطالبة',
+          className: 'الفصل',
+          level: 'المستوى',
+          status: 'الحالة',
+          attendanceRate: 'حضور %',
+          completionRate: 'إنجاز %',
+          homeworkRate: 'واجب %',
+          overallRate: 'عام %',
+          examAvg: 'متوسط الاختبارات %',
+          examsCount: 'عدد الاختبارات',
+        }),
+      },
+      {
+        name: 'اختبارات',
+        rows: arabicRows(r.examGrades, {
+          examTitle: 'الاختبار',
+          studentName: 'الطالبة',
+          className: 'الفصل',
+          score: 'الدرجة',
+          gradedAt: 'تاريخ الرصد',
+        }),
+      },
     ]);
   }
 
@@ -1636,6 +1688,9 @@ export function MasterPage() {
                   <h2 className="text-base font-extrabold">{dar.name}</h2>
                   <p className="mt-1 text-[15px] font-extrabold text-ios-text">المديرة: {dar.managerName}</p>
                   {dar.location ? <p className="mt-1 text-sm font-semibold text-ios-muted">الحي: {dar.location}</p> : null}
+                  {user?.role === 'SUPER_MASTER' ? (
+                    <p className="mt-1 text-[12px] font-bold text-primary">المشرفة: {dar.supervisorName || 'غير مسندة'}</p>
+                  ) : null}
                   {dar.lastVisit ? <p className="mt-1 text-[11px] text-ios-muted">آخر زيارة: {dar.lastVisit}</p> : null}
                 </div>
               </div>
@@ -1818,6 +1873,21 @@ export function MasterPage() {
                 <option value="معلق">معلق</option>
               </select>
             </Field>
+            {user?.role === 'SUPER_MASTER' ? (
+              <Field label="المشرفة المسؤولة">
+                <select
+                  className="ds-input"
+                  value={editDar.supervisorId || ''}
+                  onChange={(e) => setEditDar({ ...editDar, supervisorId: e.target.value })}
+                >
+                  <option value="">بدون إسناد</option>
+                  {supervisors.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[10px] text-ios-muted">المشرفة ترى الدور المسندة إليها فقط.</p>
+              </Field>
+            ) : null}
             <button className="ds-btn ds-btn-primary" onClick={() => void saveEditDar()}>
               حفظ التعديلات
             </button>

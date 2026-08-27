@@ -33,10 +33,23 @@ export async function masterRoutes(app: FastifyInstance) {
   const guard = { preHandler: requireRoles(Role.SUPER_MASTER, Role.MASTER) };
   const superGuard = { preHandler: requireRoles(Role.SUPER_MASTER) };
 
-  app.get('/dars', guard, async () => {
+  /** حصر رؤية الدور: المشرفة ترى دُورها المسندة فقط؛ مدير النظام يرى الكل. O(1). */
+  function darScopeWhere(request: { user: { role: Role; id: string } }) {
+    return request.user.role === Role.MASTER ? { supervisorId: request.user.id } : {};
+  }
+
+  /** هل يملك المستخدم صلاحية على دار معيّنة؟ */
+  async function canAccessDar(request: { user: { role: Role; id: string } }, darId: string) {
+    if (request.user.role === Role.SUPER_MASTER) return true;
+    const dar = await prisma.dar.findUnique({ where: { id: darId }, select: { supervisorId: true } });
+    return !!dar && dar.supervisorId === request.user.id;
+  }
+
+  app.get('/dars', guard, async (request) => {
     const dars = await prisma.dar.findMany({
-      where: { status: { not: EntityStatus.DELETED } },
+      where: { status: { not: EntityStatus.DELETED }, ...darScopeWhere(request) },
       orderBy: { createdAt: 'desc' },
+      include: { supervisor: { select: { id: true, name: true } } },
     });
     const visits = await prisma.alert.findMany({
       where: { kind: 'VISIT', darId: { in: dars.map((d) => d.id) }, scheduledAt: { not: null } },
@@ -59,8 +72,27 @@ export async function masterRoutes(app: FastifyInstance) {
         location: d.location || '',
         status: statusLabel(d.status),
         lastVisit: lastVisitMap.get(d.id) || '',
+        supervisorId: d.supervisorId || '',
+        supervisorName: d.supervisor?.name || '',
       })),
     };
+  });
+
+  app.post('/dars/:id/supervisor', superGuard, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = z.object({ supervisorId: z.string().nullable() }).parse(request.body);
+    const dar = await prisma.dar.findUnique({ where: { id } });
+    if (!dar || dar.status === EntityStatus.DELETED) {
+      return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
+    }
+    if (body.supervisorId) {
+      const sup = await prisma.user.findFirst({
+        where: { id: body.supervisorId, role: Role.MASTER, status: EntityStatus.ACTIVE },
+      });
+      if (!sup) return reply.code(400).send({ status: 'error', message: 'المشرفة غير موجودة' });
+    }
+    await prisma.dar.update({ where: { id }, data: { supervisorId: body.supervisorId } });
+    return { status: 'success' };
   });
 
   app.post('/dars', guard, async (request, reply) => {
@@ -201,10 +233,10 @@ export async function masterRoutes(app: FastifyInstance) {
     return { status: 'success' };
   });
 
-  app.get('/indicators', guard, async () => {
+  app.get('/indicators', guard, async (request) => {
     const weights = await getRateWeights();
     const dars = await prisma.dar.findMany({
-      where: { status: { not: EntityStatus.DELETED } },
+      where: { status: { not: EntityStatus.DELETED }, ...darScopeWhere(request) },
       select: { id: true, name: true, curriculum: true, status: true },
     });
     const activeDarIds = dars.filter((d) => d.status === EntityStatus.ACTIVE).map((d) => d.id);
@@ -322,17 +354,18 @@ export async function masterRoutes(app: FastifyInstance) {
     const week = q.week;
 
     const dars = await prisma.dar.findMany({
-      where: { status: EntityStatus.ACTIVE },
+      where: { status: EntityStatus.ACTIVE, ...darScopeWhere(request) },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, curriculum: true },
     });
+    const darIds = dars.map((d) => d.id);
     const classes = await prisma.class.findMany({
-      where: { status: EntityStatus.ACTIVE },
+      where: { status: EntityStatus.ACTIVE, darId: { in: darIds } },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, level: true, darId: true },
     });
     const attachments = await prisma.weekAttachment.findMany({
-      where: week ? { week } : {},
+      where: { darId: { in: darIds }, ...(week ? { week } : {}) },
       orderBy: [{ week: 'asc' }],
     });
 
@@ -395,6 +428,9 @@ export async function masterRoutes(app: FastifyInstance) {
     const dar = await prisma.dar.findUnique({ where: { id } });
     if (!dar || dar.status === EntityStatus.DELETED) {
       return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
+    }
+    if (!(await canAccessDar(request, id))) {
+      return reply.code(403).send({ status: 'error', message: 'هذه الدار غير مسندة لك' });
     }
 
     const weights = await getRateWeights();
@@ -471,6 +507,9 @@ export async function masterRoutes(app: FastifyInstance) {
     const dar = await prisma.dar.findUnique({ where: { id } });
     if (!dar || dar.status === EntityStatus.DELETED) {
       return reply.code(404).send({ status: 'error', message: 'الدار غير موجودة' });
+    }
+    if (!(await canAccessDar(request, id))) {
+      return reply.code(403).send({ status: 'error', message: 'هذه الدار غير مسندة لك' });
     }
 
     const weights = await getRateWeights();
@@ -633,8 +672,14 @@ export async function masterRoutes(app: FastifyInstance) {
     return { status: 'success' };
   });
 
-  app.get('/exams', guard, async () => {
+  app.get('/exams', guard, async (request) => {
+    let examWhere = {};
+    if (request.user.role === Role.MASTER) {
+      const own = await prisma.dar.findMany({ where: darScopeWhere(request), select: { id: true } });
+      examWhere = { OR: [{ darId: null }, { darId: { in: own.map((d) => d.id) } }] };
+    }
     const exams = await prisma.exam.findMany({
+      where: examWhere,
       orderBy: { examDate: 'desc' },
       include: { _count: { select: { grades: true } }, dar: { select: { name: true } } },
     });
@@ -734,13 +779,21 @@ export async function masterRoutes(app: FastifyInstance) {
 
     const darFilter = q.darId && q.darId !== 'الكل' ? q.darId : undefined;
 
+    let scopedDarIds: string[] | null = null;
+    if (request.user.role === Role.MASTER) {
+      const own = await prisma.dar.findMany({ where: darScopeWhere(request), select: { id: true } });
+      scopedDarIds = own.map((d) => d.id);
+    }
+    const darInScope = (arr: string[] | null) =>
+      arr ? [{ OR: [{ darId: { in: arr } }, { darId: null }] }] : [];
+
     const [alerts, exams, dars] = await Promise.all([
       prisma.alert.findMany({
         where: {
           AND: [
             ...(darFilter
               ? [{ OR: [{ darId: darFilter }, { darId: null }] }]
-              : []),
+              : darInScope(scopedDarIds)),
             {
               OR: [
                 { kind: 'VISIT', scheduledAt: { gte: start, lte: end } },
@@ -753,8 +806,12 @@ export async function masterRoutes(app: FastifyInstance) {
       }),
       prisma.exam.findMany({
         where: {
-          examDate: { gte: start, lte: end },
-          ...(darFilter ? { OR: [{ darId: darFilter }, { darId: null }] } : {}),
+          AND: [
+            { examDate: { gte: start, lte: end } },
+            ...(darFilter
+              ? [{ OR: [{ darId: darFilter }, { darId: null }] }]
+              : darInScope(scopedDarIds)),
+          ],
         },
         orderBy: { examDate: 'asc' },
       }),

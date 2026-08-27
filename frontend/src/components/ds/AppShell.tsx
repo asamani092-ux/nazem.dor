@@ -107,7 +107,7 @@ export function AppShell({
               </button>
             </div>
           ) : null}
-          {mobileVisible || (desktop && !collapsed) ? (
+          {mobileVisible ? (
             <div className="ds-sidebar-logo-wrap">
               <span className="ds-logo-badge ds-logo-badge-sidebar">
                 <img src={logoDor} alt="الدور النسائية" className="ds-sidebar-logo" />

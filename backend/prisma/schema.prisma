@@ -47,6 +47,8 @@ model User {
   dar   Dar?   @relation(fields: [darId], references: [id])
   class Class? @relation(fields: [classId], references: [id])
 
+  supervisedDars Dar[] @relation("SupervisorDars")
+
   @@index([role, status])
   @@index([darId])
 }
@@ -71,8 +73,11 @@ model Dar {
   managerPhone String
   location     String?
   status       EntityStatus   @default(ACTIVE)
+  supervisorId String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+
+  supervisor User? @relation("SupervisorDars", fields: [supervisorId], references: [id])
 
   users           User[]
   classes         Class[]
@@ -88,6 +93,7 @@ model Dar {
 
   @@index([status])
   @@index([name])
+  @@index([supervisorId])
 }
 
 model Class {

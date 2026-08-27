@@ -157,7 +157,7 @@ export function TeacherPage() {
 
   async function submitTracking() {
     if (!plan || !week || !day) return notify('يجب جلب المقرر أولاً', 'error');
-    if (tracked.includes(day)) toast.warn('يوجد رصد — سيتم التعديل');
+    if (tracked.includes(day) && !window.confirm('يوجد رصد سابق لهذا اليوم — هل تريدين التعديل والحفظ؟')) return;
     setSubmitting(true);
     try {
       if (file) {
@@ -372,11 +372,22 @@ export function TeacherPage() {
             <>
               <div className="ds-card ds-card-pad space-y-2 p-4 text-sm font-bold">
                 <p className="text-base font-extrabold text-primary">المقرر</p>
-                <p>الدرس: <span className="text-gray-900">{plan.educational}</span></p>
-                <p>الواجب: <span className="text-gray-900">{formatHomework(plan.homework)}</span></p>
-                {isAwwalia && plan.tarbawi ? (
-                  <p>تربوي: <span className="text-gray-900">{plan.tarbawi}</span></p>
-                ) : null}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-ios-border bg-shell p-3">
+                    <p className="font-extrabold text-primary">الدرس</p>
+                    <p className="mt-1 text-gray-900">{plan.educational}</p>
+                  </div>
+                  <div className="rounded-xl border border-ios-border bg-shell p-3">
+                    <p className="font-extrabold text-primary">الواجب</p>
+                    <p className="mt-1 text-gray-900">{formatHomework(plan.homework)}</p>
+                  </div>
+                  {isAwwalia && plan.tarbawi ? (
+                    <div className="rounded-xl border border-ios-border bg-shell p-3">
+                      <p className="font-extrabold text-primary">التربوي</p>
+                      <p className="mt-1 text-gray-900">{plan.tarbawi}</p>
+                    </div>
+                  ) : null}
+                </div>
                 <div className="mt-2 rounded-xl bg-shell p-3">
                   <p className="text-xs font-extrabold text-primary">مرفق الفصل — الأسبوع {week}</p>
                   <p className="mt-1 text-[11px] font-semibold text-ios-muted">
@@ -530,7 +541,7 @@ export function TeacherPage() {
 
       {grading ? (
         <BottomSheet title={`رصد درجات: ${grading.title}`} onClose={() => setGrading(null)}>
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="rounded-lg bg-primary-soft p-3 text-xs font-bold text-primary">
               الدرجة الكاملة لهذا الاختبار: {grading.maxScore ?? 100}
               <span className="mt-1 block text-[10px] font-semibold text-ios-muted">
@@ -538,33 +549,34 @@ export function TeacherPage() {
               </span>
             </div>
             {students.map((s) => (
-              <div key={s.id} className="rounded-lg bg-shell p-3 space-y-2">
-                <span className="text-sm font-extrabold">{s.name}</span>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <Field label={`الدرجة (من ${grading.maxScore ?? 100})`}>
-                    <div>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={grading.maxScore ?? 100}
-                        className="!py-2 text-center text-sm font-bold"
-                        aria-label={`درجة ${s.name}`}
-                        placeholder={`0 - ${grading.maxScore ?? 100}`}
-                        value={scores[s.id] || ''}
-                        onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
-                      />
-                      <p className="mt-1 text-[10px] text-ios-muted">فارغة = غائبة</p>
-                    </div>
-                  </Field>
-                  <Field label="ملاحظة (اختياري)">
+              <div
+                key={s.id}
+                className="grid gap-1.5 rounded-lg bg-shell p-2 sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1.3fr)] sm:items-start sm:gap-2"
+              >
+                <span className="self-center text-sm font-extrabold">{s.name}</span>
+                <Field label={`الدرجة (من ${grading.maxScore ?? 100})`}>
+                  <div>
                     <Input
-                      className="!py-2 text-xs"
-                      placeholder="مثال: أداء ممتاز"
-                      value={notes[s.id] || ''}
-                      onChange={(e) => setNotes({ ...notes, [s.id]: e.target.value })}
+                      type="number"
+                      min={0}
+                      max={grading.maxScore ?? 100}
+                      className="!py-1.5 text-center text-sm font-bold"
+                      aria-label={`درجة ${s.name}`}
+                      placeholder={`0 - ${grading.maxScore ?? 100}`}
+                      value={scores[s.id] || ''}
+                      onChange={(e) => setScores({ ...scores, [s.id]: e.target.value })}
                     />
-                  </Field>
-                </div>
+                    <p className="mt-0.5 text-[9px] text-ios-muted">فارغة = غائبة</p>
+                  </div>
+                </Field>
+                <Field label="ملاحظة (اختياري)">
+                  <Input
+                    className="!py-1.5 text-xs"
+                    placeholder="مثال: أداء ممتاز"
+                    value={notes[s.id] || ''}
+                    onChange={(e) => setNotes({ ...notes, [s.id]: e.target.value })}
+                  />
+                </Field>
               </div>
             ))}
             <Button variant="primary" onClick={() => void saveGrades().catch((e) => notify(e.message, 'error'))}>

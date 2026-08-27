@@ -71,11 +71,28 @@ export function printReport(title: string, bodyHtml: string) {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
   iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+
+  let printed = false;
+  const triggerPrint = () => {
+    if (printed) return;
+    printed = true;
+    const win = iframe.contentWindow;
+    try {
+      win?.focus();
+      win?.print();
+    } catch {
+      openPrintWindow(html);
+    }
+    window.setTimeout(() => iframe.remove(), 60000);
+  };
+
+  iframe.onload = () => window.setTimeout(triggerPrint, 350);
   document.body.appendChild(iframe);
 
   const doc = iframe.contentDocument || iframe.contentWindow?.document;
   if (!doc) {
     iframe.remove();
+    openPrintWindow(html);
     return;
   }
 
@@ -83,19 +100,25 @@ export function printReport(title: string, bodyHtml: string) {
   doc.write(html);
   doc.close();
 
-  const win = iframe.contentWindow;
-  const run = () => {
+  // احتياط: إن لم يُطلق onload (بعض المتصفحات مع document.write) اطبع بعد مهلة
+  window.setTimeout(triggerPrint, 800);
+}
+
+/** احتياطي: نافذة طباعة منفصلة عند تعذّر الطباعة من iframe. */
+function openPrintWindow(html: string) {
+  const win = window.open('', '_blank');
+  if (!win) return;
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  window.setTimeout(() => {
     try {
-      win?.focus();
-      win?.print();
+      win.print();
     } catch {
       /* ignore */
     }
-  };
-
-  // انتظر تحميل الخط ثم اطبع من الـ iframe فقط (بدون تبويب جديد)
-  window.setTimeout(run, 300);
-  window.setTimeout(() => iframe.remove(), 2500);
+  }, 400);
 }
 
 export function tableHtml(headers: string[], rows: string[][]): string {

@@ -3,7 +3,7 @@ import { api, waLink } from '../lib/api';
 import { useAuth } from '../auth';
 import { LEVELS_BY_CURRICULUM } from '../lib/reports';
 import { usePageFeedback } from '../hooks/usePageFeedback';
-import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, SectionTitle, StatCard, RingStat, ProgressBar, ExportBar, NotificationCard, IconButton, IconEdit, IconWhatsApp, IconChart, IconReport, IconSuspend, IconDelete, CalendarMonth, BottomSheet, FileUpload } from '../components/ds';
+import { Field, Input, Select, Button, Modal, Banner, AppShell, Badge, Card, SectionTitle, StatCard, RingStat, ProgressBar, ExportBar, NotificationCard, IconButton, IconEdit, IconWhatsApp, IconReport, IconSuspend, IconDelete, CalendarMonth, BottomSheet, FileUpload } from '../components/ds';
 import { downloadXlsx, downloadTemplateXlsx, parseXlsxFile } from '../lib/export';
 import { printReport, tableHtml } from '../lib/print';
 import { monthStart, monthRangeParams, type CalendarEvent } from '../lib/calendar';
@@ -91,17 +91,8 @@ export function ManagerPage() {
   const [calendarMonth, setCalendarMonth] = useState(() => monthStart(new Date()));
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [calendarDetail, setCalendarDetail] = useState<CalendarEvent | null>(null);
+  const [calendarDayEvents, setCalendarDayEvents] = useState<CalendarEvent[]>([]);
   const [importPreview, setImportPreview] = useState<Array<{ name: string; phone: string }>>([]);
-  const [classStats, setClassStats] = useState<{
-    id: string;
-    name: string;
-    studentCount: number;
-    attendanceRate: number;
-    completionRate: number;
-    homeworkRate: number;
-    overallRate: number;
-    examAvg?: number;
-  } | null>(null);
 
   const levels = meta?.allowedLevels || LEVELS_BY_CURRICULUM.BOTH;
 
@@ -222,24 +213,6 @@ export function ManagerPage() {
     if (filterClass) await loadStudents(filterClass);
   }
 
-  async function showClassStats(cls: Cls) {
-    const res = await api<{
-      data: {
-        studentCount: number;
-        attendanceRate: number;
-        completionRate: number;
-        homeworkRate: number;
-        overallRate: number;
-        examAvg?: number;
-      };
-    }>(`/api/manager/classes/${cls.id}/stats`);
-    setClassStats({
-      id: cls.id,
-      name: cls.name,
-      ...res.data,
-    });
-  }
-
   async function openClassReport(cls: Cls) {
     const res = await api<{ data: Report }>('/api/manager/report');
     const summary = res.data.classBreakdown.find((item) => item.id === cls.id);
@@ -337,10 +310,6 @@ export function ManagerPage() {
                   </div>
                 </div>
                 <div className="ds-dar-action-grid">
-                  <button type="button" className="ds-dar-action-tile" onClick={() => void showClassStats(c).catch((e) => notify(e.message, 'error'))}>
-                    <span className="ds-dar-action-label">مؤشرات</span>
-                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-primary"><IconChart className="h-6 w-6" /></span>
-                  </button>
                   <button
                     type="button"
                     className="ds-dar-action-tile"
@@ -382,21 +351,19 @@ export function ManagerPage() {
                     <span className="ds-dar-action-label">{c.status === 'موقوف' ? 'تنشيط' : 'تعطيل'}</span>
                     <span className={`ds-dar-action-btn ds-icon-btn ${c.status === 'موقوف' ? 'ds-icon-btn-wa ds-activate-pulse' : 'ds-icon-btn-alert'}`}><IconSuspend className="h-6 w-6" /></span>
                   </button>
-                  {c.status === 'موقوف' ? (
-                    <button
-                      type="button"
-                      className="ds-dar-action-tile"
-                      onClick={async () => {
-                        if (!confirm('حذف الفصل؟')) return;
-                        await api(`/api/manager/classes/${c.id}`, { method: 'DELETE' });
-                        notify('تم حذف الفصل');
-                        await load();
-                      }}
-                    >
-                      <span className="ds-dar-action-label">حذف</span>
-                      <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-delete"><IconDelete className="h-6 w-6" /></span>
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className="ds-dar-action-tile"
+                    onClick={async () => {
+                      if (!confirm('حذف الفصل؟')) return;
+                      await api(`/api/manager/classes/${c.id}`, { method: 'DELETE' });
+                      notify('تم حذف الفصل');
+                      await load();
+                    }}
+                  >
+                    <span className="ds-dar-action-label">حذف</span>
+                    <span className="ds-dar-action-btn ds-icon-btn ds-icon-btn-delete"><IconDelete className="h-6 w-6" /></span>
+                  </button>
                 </div>
               </Card>
             ))}
@@ -541,6 +508,11 @@ export function ManagerPage() {
               events={calendarEvents}
               month={calendarMonth}
               onMonthChange={setCalendarMonth}
+              onSelectDay={(_, dayEvents) => {
+                if (!dayEvents.length) return;
+                if (dayEvents.length === 1) setCalendarDetail(dayEvents[0]);
+                else setCalendarDayEvents(dayEvents);
+              }}
               onSelectEvent={(e) => setCalendarDetail(e)}
             />
           </div>
@@ -815,24 +787,27 @@ export function ManagerPage() {
         </BottomSheet>
       ) : null}
 
-      {classStats ? (
-        <Modal title={`مؤشرات: ${classStats.name}`} onClose={() => setClassStats(null)} wide>
-          <div className="space-y-4">
-            <div className="ds-kpi-grid">
-              <StatCard label="طالبات" value={classStats.studentCount} />
-              <StatCard label="حضور" value={`${classStats.attendanceRate}%`} />
-              <StatCard label="إنجاز" value={`${classStats.completionRate}%`} />
-              <StatCard label="واجب" value={`${classStats.homeworkRate}%`} />
-              <StatCard label="عام" value={`${classStats.overallRate}%`} />
-              {classStats.examAvg !== undefined ? <StatCard label="متوسط الاختبارات" value={`${classStats.examAvg}%`} /> : null}
-            </div>
-            <div className="flex flex-wrap justify-around gap-4">
-              <RingStat label="حضور" pct={classStats.attendanceRate} />
-              <RingStat label="إنجاز" pct={classStats.completionRate} />
-              <RingStat label="واجب" pct={classStats.homeworkRate} />
-            </div>
+      {calendarDayEvents.length ? (
+        <BottomSheet title="أحداث اليوم" onClose={() => setCalendarDayEvents([])}>
+          <div className="space-y-2">
+            {calendarDayEvents.map((event) => (
+              <div key={event.id} className="rounded-xl bg-shell p-3">
+                <p className="text-sm font-extrabold">{event.title}</p>
+                <p className="mt-1 text-[10px] font-bold text-ios-muted">
+                  {event.type === 'visit' ? 'زيارة ميدانية' : event.type === 'exam' ? 'اختبار' : 'تنبيه'}
+                  {' — '}
+                  {new Date(event.scheduledAt).toLocaleDateString('ar-SA')}
+                </p>
+                {event.content ? <p className="mt-2 text-sm">{event.content}</p> : null}
+                {event.link ? (
+                  <a className="mt-2 inline-block text-sm font-bold text-primary" href={event.link} target="_blank" rel="noreferrer">
+                    فتح الرابط
+                  </a>
+                ) : null}
+              </div>
+            ))}
           </div>
-        </Modal>
+        </BottomSheet>
       ) : null}
 
       {attachmentPreview ? (
