@@ -317,6 +317,79 @@ export async function masterRoutes(app: FastifyInstance) {
     }
   });
 
+  app.get('/attachments', guard, async (request) => {
+    const q = z.object({ week: z.coerce.number().int().positive().optional() }).parse(request.query);
+    const week = q.week;
+
+    const dars = await prisma.dar.findMany({
+      where: { status: EntityStatus.ACTIVE },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, curriculum: true },
+    });
+    const classes = await prisma.class.findMany({
+      where: { status: EntityStatus.ACTIVE },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true, level: true, darId: true },
+    });
+    const attachments = await prisma.weekAttachment.findMany({
+      where: week ? { week } : {},
+      orderBy: [{ week: 'asc' }],
+    });
+
+    const attByClassWeek = new Map<string, { url: string; fileName: string; week: number; uploadedAt: string }>();
+    const weeksSet = new Set<number>();
+    for (const a of attachments) {
+      weeksSet.add(a.week);
+      attByClassWeek.set(`${a.classId}:${a.week}`, {
+        url: a.url,
+        fileName: a.fileName || '',
+        week: a.week,
+        uploadedAt: a.updatedAt.toLocaleDateString('en-GB'),
+      });
+    }
+
+    const classesByDar = new Map<string, typeof classes>();
+    for (const c of classes) {
+      if (!classesByDar.has(c.darId)) classesByDar.set(c.darId, []);
+      classesByDar.get(c.darId)!.push(c);
+    }
+
+    const perDar = dars.map((d) => {
+      const darClasses = classesByDar.get(d.id) || [];
+      const classItems = darClasses.map((c) => {
+        const found = week ? attByClassWeek.get(`${c.id}:${week}`) : undefined;
+        return {
+          classId: c.id,
+          className: c.name,
+          level: c.level,
+          uploaded: !!found,
+          url: found?.url || '',
+          fileName: found?.fileName || '',
+          uploadedAt: found?.uploadedAt || '',
+        };
+      });
+      const uploadedCount = classItems.filter((c) => c.uploaded).length;
+      return {
+        darId: d.id,
+        name: d.name,
+        curriculum: curriculumLabel(d.curriculum),
+        classesCount: darClasses.length,
+        uploadedCount,
+        allUploaded: darClasses.length > 0 && uploadedCount === darClasses.length,
+        classes: classItems,
+      };
+    });
+
+    return {
+      status: 'success',
+      data: {
+        week: week || null,
+        availableWeeks: [...weeksSet].sort((a, b) => a - b),
+        perDar,
+      },
+    };
+  });
+
   app.get('/dars/:id/stats', guard, async (request, reply) => {
     const { id } = request.params as { id: string };
     const dar = await prisma.dar.findUnique({ where: { id } });

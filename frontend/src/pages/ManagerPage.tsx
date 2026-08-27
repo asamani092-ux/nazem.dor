@@ -68,7 +68,11 @@ type ClassReport = {
 export function ManagerPage() {
   const { user, logout } = useAuth();
   const { banner, notify, clearBanner } = usePageFeedback();
-  const [tab, setTab] = useState<'classes' | 'students' | 'alerts' | 'reports' | 'calendar'>('classes');
+  const [tab, setTab] = useState<'classes' | 'students' | 'alerts' | 'reports' | 'calendar' | 'attachments'>('classes');
+  const [attachmentGroups, setAttachmentGroups] = useState<
+    Array<{ classId: string; className: string; level: string; teacherName: string; items: Array<{ week: number; url: string; fileName: string; uploadedAt: string }> }>
+  >([]);
+  const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; title: string } | null>(null);
   const [classes, setClasses] = useState<Cls[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
@@ -169,6 +173,15 @@ export function ManagerPage() {
   async function loadReport() {
     const res = await api<{ data: Report }>('/api/manager/report');
     setReport(res.data);
+  }
+
+  async function loadAttachments() {
+    const res = await api<{ data: typeof attachmentGroups }>('/api/manager/attachments');
+    setAttachmentGroups(res.data);
+  }
+
+  function isImage(url: string) {
+    return /\.(png|jpe?g|webp|gif)$/i.test(url.split('?')[0]);
   }
 
   async function saveClass() {
@@ -291,6 +304,7 @@ export function ManagerPage() {
         { key: 'classes', label: 'الفصول' },
         { key: 'students', label: 'الطالبات' },
         { key: 'alerts', label: unread ? `التنبيهات (${unread})` : 'التنبيهات' },
+        { key: 'attachments', label: 'المرفقات' },
         { key: 'calendar', label: 'التقويم' },
         { key: 'reports', label: 'التقارير' },
       ]}
@@ -298,6 +312,7 @@ export function ManagerPage() {
       onNav={(k) => {
         setTab(k as typeof tab);
         if (k === 'reports') void loadReport().catch((e) => notify(e.message, 'error'));
+        if (k === 'attachments') void loadAttachments().catch((e) => notify(e.message, 'error'));
       }}
       onLogout={logout}
     >
@@ -480,6 +495,41 @@ export function ManagerPage() {
                   </>
                 }
               />
+            ))}
+          </div>
+        ) : null}
+
+        {tab === 'attachments' ? (
+          <div className="space-y-4">
+            <SectionTitle>مرفقات الفصول (حسب الأسبوع)</SectionTitle>
+            {!attachmentGroups.length ? (
+              <Card className="ds-empty"><p className="text-sm text-ios-muted">لا توجد فصول.</p></Card>
+            ) : null}
+            {attachmentGroups.map((g) => (
+              <Card key={g.classId} className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-base font-extrabold">{g.className} <span className="text-sm font-bold text-ios-muted">({g.level})</span></h4>
+                  <Badge tone={g.items.length ? 'success' : 'warning'}>{g.items.length ? `${g.items.length} مرفق` : 'لا مرفقات'}</Badge>
+                </div>
+                <p className="text-xs font-semibold text-ios-muted">المعلمة: {g.teacherName}</p>
+                {g.items.length ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {g.items.map((it) => (
+                      <button
+                        key={it.week}
+                        type="button"
+                        className="flex items-center justify-between rounded-xl bg-shell px-3 py-2 text-right"
+                        onClick={() => setAttachmentPreview({ url: it.url, title: `${g.className} — الأسبوع ${it.week}` })}
+                      >
+                        <span className="text-sm font-extrabold text-primary">مرفق الأسبوع {it.week}</span>
+                        <span className="text-[10px] text-ios-muted">{it.uploadedAt}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs font-bold text-amber-600">لم ترفع المعلمة أي مرفق لهذا الفصل بعد.</p>
+                )}
+              </Card>
             ))}
           </div>
         ) : null}
@@ -781,6 +831,21 @@ export function ManagerPage() {
               <RingStat label="إنجاز" pct={classStats.completionRate} />
               <RingStat label="واجب" pct={classStats.homeworkRate} />
             </div>
+          </div>
+        </Modal>
+      ) : null}
+
+      {attachmentPreview ? (
+        <Modal title={attachmentPreview.title} onClose={() => setAttachmentPreview(null)} wide>
+          <div className="space-y-3">
+            {isImage(attachmentPreview.url) ? (
+              <img src={attachmentPreview.url} alt={attachmentPreview.title} className="mx-auto max-h-[70vh] rounded-xl" />
+            ) : (
+              <p className="text-sm text-ios-muted">هذا الملف (PDF) يُفتح في نافذة جديدة.</p>
+            )}
+            <a className="ds-btn ds-btn-primary block text-center" href={attachmentPreview.url} target="_blank" rel="noreferrer">
+              فتح/تنزيل الملف
+            </a>
           </div>
         </Modal>
       ) : null}

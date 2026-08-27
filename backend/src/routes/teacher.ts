@@ -272,6 +272,54 @@ export async function teacherRoutes(app: FastifyInstance) {
     return { status: 'success', url };
   });
 
+  app.get('/week-attachments', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+    const rows = await prisma.weekAttachment.findMany({
+      where: { classId },
+      orderBy: { week: 'asc' },
+    });
+    return {
+      status: 'success',
+      data: rows.map((r) => ({
+        week: r.week,
+        url: r.url,
+        fileName: r.fileName || '',
+        uploadedAt: r.updatedAt.toLocaleDateString('en-GB'),
+      })),
+    };
+  });
+
+  app.post('/week-attachments', guard, async (request, reply) => {
+    const { darId, classId } = request.user;
+    if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+    const body = z
+      .object({
+        week: z.number().int().positive(),
+        url: z.string().min(1),
+        fileName: z.string().optional(),
+      })
+      .parse(request.body);
+
+    await prisma.weekAttachment.upsert({
+      where: { classId_week: { classId, week: body.week } },
+      create: { darId, classId, week: body.week, url: body.url, fileName: body.fileName || null },
+      update: { url: body.url, fileName: body.fileName || null },
+    });
+    return { status: 'success' };
+  });
+
+  app.delete('/week-attachments/:week', guard, async (request, reply) => {
+    const { classId } = request.user;
+    if (!classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+    const week = Number((request.params as { week: string }).week);
+    if (!Number.isInteger(week) || week <= 0) {
+      return reply.code(400).send({ status: 'error', message: 'أسبوع غير صالح' });
+    }
+    await prisma.weekAttachment.deleteMany({ where: { classId, week } });
+    return { status: 'success' };
+  });
+
   app.get('/exams', guard, async (request, reply) => {
     const { darId, classId } = request.user;
     if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });

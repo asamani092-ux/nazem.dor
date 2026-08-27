@@ -114,7 +114,7 @@ type WeekSlot = {
   plan: CurriculumRow | null;
 };
 
-type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'tools-audit';
+type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'attachments' | 'tools-audit';
 type DarViewMode = 'cards' | 'table' | 'stats';
 type PlanViewMode = 'table' | 'cards';
 type AccountFilter = 'ALL' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT';
@@ -207,6 +207,21 @@ export function MasterPage() {
   const [indicatorCurriculum, setIndicatorCurriculum] = useState('all');
   const [rateWeights, setRateWeights] = useState<RateWeights | null>(null);
   const [savingWeights, setSavingWeights] = useState(false);
+  const [attachWeek, setAttachWeek] = useState<number>(1);
+  const [attachData, setAttachData] = useState<{
+    week: number | null;
+    availableWeeks: number[];
+    perDar: Array<{
+      darId: string;
+      name: string;
+      curriculum: string;
+      classesCount: number;
+      uploadedCount: number;
+      allUploaded: boolean;
+      classes: Array<{ classId: string; className: string; level: string; uploaded: boolean; url: string; fileName: string; uploadedAt: string }>;
+    }>;
+  } | null>(null);
+  const [attachPreview, setAttachPreview] = useState<{ url: string; title: string } | null>(null);
   const [accountMenuRow, setAccountMenuRow] = useState<string | null>(null);
   const [darTableMenuRow, setDarTableMenuRow] = useState<string | null>(null);
   const [darStats, setDarStats] = useState<{
@@ -504,6 +519,12 @@ export function MasterPage() {
     }
   }, [tab, calendarMonth, calendarDarFilter]);
 
+  useEffect(() => {
+    if (tab === 'attachments') {
+      void loadAttachments(attachWeek).catch((e) => notify(e.message, 'error'));
+    }
+  }, [tab, attachWeek]);
+
   async function loadCalendar() {
     const { from, to } = monthRangeParams(calendarMonth);
     const params = new URLSearchParams({ from, to });
@@ -516,6 +537,15 @@ export function MasterPage() {
     const res = await api<{ data: ExamCenterRow[] }>('/api/master/exams');
     setExamCenter(res.data);
     setExamCenterLoaded(true);
+  }
+
+  async function loadAttachments(week: number) {
+    const res = await api<{ data: NonNullable<typeof attachData> }>(`/api/master/attachments?week=${week}`);
+    setAttachData(res.data);
+  }
+
+  function isImageUrl(url: string) {
+    return /\.(png|jpe?g|webp|gif)$/i.test(url.split('?')[0]);
   }
 
   function openDarAlertSheet(dar: Dar) {
@@ -758,6 +788,7 @@ export function MasterPage() {
     { key: 'dars', label: 'الدور' },
     { key: 'calendar', label: 'التقويم' },
     { key: 'indicators', label: 'المؤشرات' },
+    { key: 'attachments', label: 'المرفقات' },
     { key: 'curriculum', label: 'المناهج' },
     ...(user?.role === 'SUPER_MASTER' ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
     ...(user?.role === 'SUPER_MASTER' ? [{ key: 'tools-audit' as Tab, label: 'تقييم الأدوات' }] : []),
@@ -1448,6 +1479,82 @@ export function MasterPage() {
         </div>
       ) : null}
 
+      {tab === 'attachments' ? (
+        <div className="space-y-4">
+          <SectionTitle>مؤشر مرفقات الأسابيع</SectionTitle>
+          <Card>
+            <Field label="اختر الأسبوع">
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  className="ds-input !w-24"
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={attachWeek}
+                  onChange={(e) => setAttachWeek(Math.max(1, Number(e.target.value) || 1))}
+                />
+                {attachData?.availableWeeks?.length ? (
+                  <div className="flex flex-wrap gap-1">
+                    {attachData.availableWeeks.map((w) => (
+                      <button
+                        key={w}
+                        type="button"
+                        className={`rounded-lg px-2 py-1 text-xs font-bold ${w === attachWeek ? 'bg-primary text-white' : 'bg-shell text-ios-muted'}`}
+                        onClick={() => setAttachWeek(w)}
+                      >
+                        أسبوع {w}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </Field>
+            <p className="mt-2 text-xs font-semibold text-ios-muted">
+              يعرض هل رفعت كل دار مرفقات فصولها للأسبوع {attachWeek}. اضغط على فصل مرفوع لمعاينته.
+            </p>
+          </Card>
+
+          {attachData?.perDar.map((d) => (
+            <Card key={d.darId} className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-lg font-extrabold text-ios-text">{d.name}</h3>
+                <Badge tone={d.allUploaded ? 'success' : d.uploadedCount ? 'warning' : 'danger'}>
+                  {d.uploadedCount}/{d.classesCount} فصل
+                </Badge>
+              </div>
+              <p className="text-[13px] font-semibold text-ios-muted">{d.curriculum}</p>
+              {d.classes.length ? (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {d.classes.map((c) => (
+                    c.uploaded ? (
+                      <button
+                        key={c.classId}
+                        type="button"
+                        className="flex items-center justify-between rounded-xl bg-green-50 px-3 py-2 text-right"
+                        onClick={() => setAttachPreview({ url: c.url, title: `${d.name} — ${c.className} — أسبوع ${attachWeek}` })}
+                      >
+                        <span className="text-sm font-extrabold text-green-700">{c.className}</span>
+                        <span className="text-[10px] font-bold text-green-600">✓ مرفوع · معاينة</span>
+                      </button>
+                    ) : (
+                      <div key={c.classId} className="flex items-center justify-between rounded-xl bg-amber-50 px-3 py-2">
+                        <span className="text-sm font-bold text-amber-700">{c.className}</span>
+                        <span className="text-[10px] font-bold text-amber-600">لم يُرفع</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-ios-muted">لا توجد فصول في هذه الدار.</p>
+              )}
+            </Card>
+          ))}
+          {attachData && !attachData.perDar.length ? (
+            <Card className="ds-empty"><p className="text-sm text-ios-muted">لا توجد دور نشطة.</p></Card>
+          ) : null}
+        </div>
+      ) : null}
+
       {tab === 'tools-audit' && user?.role === 'SUPER_MASTER' ? (
         <ToolsAuditPanel />
       ) : null}
@@ -1714,6 +1821,21 @@ export function MasterPage() {
             <button className="ds-btn ds-btn-primary" onClick={() => void saveEditDar()}>
               حفظ التعديلات
             </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {attachPreview ? (
+        <Modal title={attachPreview.title} onClose={() => setAttachPreview(null)} wide>
+          <div className="space-y-3">
+            {isImageUrl(attachPreview.url) ? (
+              <img src={attachPreview.url} alt={attachPreview.title} className="mx-auto max-h-[70vh] rounded-xl" />
+            ) : (
+              <p className="text-sm text-ios-muted">هذا الملف (PDF) يُفتح في نافذة جديدة.</p>
+            )}
+            <a className="ds-btn ds-btn-primary block text-center" href={attachPreview.url} target="_blank" rel="noreferrer">
+              فتح/تنزيل الملف
+            </a>
           </div>
         </Modal>
       ) : null}

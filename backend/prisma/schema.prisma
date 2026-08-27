@@ -74,16 +74,17 @@ model Dar {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
-  users         User[]
-  classes       Class[]
-  students      Student[]
-  alerts        Alert[]
-  exams         Exam[]
-  notifications TeacherNotification[]
-  trackings     DailyTracking[]
-  lessonStates  LessonTracked[]
-  examGrades    ExamGrade[]
-  alertReads    AlertRead[]
+  users           User[]
+  classes         Class[]
+  students        Student[]
+  alerts          Alert[]
+  exams           Exam[]
+  notifications   TeacherNotification[]
+  trackings       DailyTracking[]
+  lessonStates    LessonTracked[]
+  examGrades      ExamGrade[]
+  alertReads      AlertRead[]
+  weekAttachments WeekAttachment[]
 
   @@index([status])
   @@index([name])
@@ -100,16 +101,34 @@ model Class {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  dar           Dar                   @relation(fields: [darId], references: [id])
-  users         User[]
-  students      Student[]
-  notifications TeacherNotification[]
-  trackings     DailyTracking[]
-  lessonStates  LessonTracked[]
-  examGrades    ExamGrade[]
+  dar             Dar                   @relation(fields: [darId], references: [id])
+  users           User[]
+  students        Student[]
+  notifications   TeacherNotification[]
+  trackings       DailyTracking[]
+  lessonStates    LessonTracked[]
+  examGrades      ExamGrade[]
+  weekAttachments WeekAttachment[]
 
   @@index([darId, status])
   @@index([teacherPhone])
+}
+
+model WeekAttachment {
+  id        String   @id @default(cuid())
+  darId     String
+  classId   String
+  week      Int
+  url       String
+  fileName  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dar   Dar   @relation(fields: [darId], references: [id])
+  class Class @relation(fields: [classId], references: [id])
+
+  @@unique([classId, week])
+  @@index([darId, week])
 }
 
 model Student {

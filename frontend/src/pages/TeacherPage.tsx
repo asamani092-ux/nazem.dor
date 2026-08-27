@@ -26,6 +26,7 @@ import { useToast } from '../components/ds/Toast';
 type Student = { id: string; name: string; parentPhone: string };
 type Alert = { id?: string; title: string; content: string; date: string; isRead?: boolean };
 type Exam = { id: string; title: string; date: string; link?: string; maxScore?: number };
+type WeekAttachmentRow = { week: number; url: string; fileName: string; uploadedAt: string };
 type GradedExam = Exam & { grades: Array<{ studentId: string; name: string; score: string; note: string }> };
 
 const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
@@ -50,7 +51,7 @@ export function TeacherPage() {
   const [states, setStates] = useState<Record<string, TrackState>>({});
   const [file, setFile] = useState<File | null>(null);
   const [teacherTab, setTeacherTab] = useState<'track' | 'alerts' | 'exams'>('track');
-  const [attachments, setAttachments] = useState<Record<string, string>>({});
+  const [weekAttachments, setWeekAttachments] = useState<WeekAttachmentRow[]>([]);
   const [trackView, setTrackView] = useState<'cards' | 'table'>('cards');
   const [examTab, setExamTab] = useState<'pending' | 'graded'>('pending');
   const [pendingExams, setPendingExams] = useState<Exam[]>([]);
@@ -73,17 +74,24 @@ export function TeacherPage() {
       init[s.id] = { attendance: 'حاضرة', educational: 'أتقنت', homework: 'أنجزت', tarbawi: 'أتقنت' };
     }
     setStates(init);
+    await loadWeekAttachments();
+  }
+
+  async function loadWeekAttachments() {
+    const res = await api<{ data: WeekAttachmentRow[] }>('/api/teacher/week-attachments');
+    setWeekAttachments(res.data);
   }
 
   useEffect(() => {
     void loadDashboard().catch((e) => notify(e.message, 'error'));
   }, []);
 
+  const currentWeekAttachment = weekAttachments.find((a) => a.week === Number(week));
+
   async function loadTracked(w: string) {
     setWeek(w);
     setDay('');
     setPlan(null);
-    setAttachments({});
     const res = await api<{ data: string[] }>(`/api/teacher/tracked-days?week=${w}`);
     setTracked(res.data);
   }
@@ -107,9 +115,6 @@ export function TeacherPage() {
     }>(`/api/teacher/tracking?week=${week}&day=${encodeURIComponent(day)}`);
 
     if (prior.data.length > 0) {
-      setAttachments(
-        Object.fromEntries(prior.data.filter((row) => row.attachment).map((row) => [row.studentId, row.attachment || ''])),
-      );
       setStates((prev) => {
         const next = { ...prev };
         for (const row of prior.data) {
@@ -123,8 +128,6 @@ export function TeacherPage() {
         return next;
       });
       toast.warn('يوجد رصد سابق — سيتم التعديل عند الحفظ');
-    } else {
-      setAttachments({});
     }
   }
 
@@ -157,7 +160,6 @@ export function TeacherPage() {
     if (tracked.includes(day)) toast.warn('يوجد رصد — سيتم التعديل');
     setSubmitting(true);
     try {
-      let attachment = '';
       if (file) {
         const fd = new FormData();
         fd.append('file', file);
@@ -169,14 +171,16 @@ export function TeacherPage() {
         });
         const upData = await up.json();
         if (!up.ok) throw new Error(upData.message || 'فشل الرفع');
-        attachment = upData.url;
+        await api('/api/teacher/week-attachments', {
+          method: 'POST',
+          json: { week: Number(week), url: upData.url, fileName: file.name },
+        });
       }
 
       const trackingData = students.map((s) => ({
         studentId: s.id,
         studentName: s.name,
         ...states[s.id],
-        attachment: attachment || attachments[s.id] || '',
       }));
 
       await api('/api/teacher/tracking', {
@@ -192,6 +196,7 @@ export function TeacherPage() {
       setTracked((prev) => (prev.includes(day) ? prev : [...prev, day]));
       setPlan(null);
       setFile(null);
+      await loadWeekAttachments();
     } catch (e) {
       notify(e instanceof Error ? e.message : 'خطأ', 'error');
     } finally {
@@ -372,7 +377,25 @@ export function TeacherPage() {
                 {isAwwalia && plan.tarbawi ? (
                   <p>تربوي: <span className="text-gray-900">{plan.tarbawi}</span></p>
                 ) : null}
-                <FileUpload label="مرفق (اختياري)" fileName={file?.name} onChange={setFile} accept="image/*,.pdf" />
+                <div className="mt-2 rounded-xl bg-shell p-3">
+                  <p className="text-xs font-extrabold text-primary">مرفق الفصل — الأسبوع {week}</p>
+                  <p className="mt-1 text-[11px] font-semibold text-ios-muted">
+                    ملف واحد لكل أسبوع (صورة أو PDF) يظهر لمديرة الدار والمشرفة. رفع ملف جديد يستبدل السابق.
+                  </p>
+                  {currentWeekAttachment ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <a className="font-bold text-primary" href={currentWeekAttachment.url} target="_blank" rel="noreferrer">
+                        عرض المرفق الحالي ({currentWeekAttachment.fileName || 'ملف'})
+                      </a>
+                      <span className="text-[10px] text-ios-muted">رُفع {currentWeekAttachment.uploadedAt}</span>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-[11px] font-bold text-amber-600">لم يُرفع مرفق لهذا الأسبوع بعد.</p>
+                  )}
+                  <div className="mt-2">
+                    <FileUpload label="رفع/استبدال مرفق الأسبوع" fileName={file?.name} onChange={setFile} accept="image/*,.pdf" />
+                  </div>
+                </div>
               </div>
 
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -405,11 +428,6 @@ export function TeacherPage() {
                         <TrackToggle label={st.homework} onClick={() => toggle(s.id, 'homework')} />
                         {isAwwalia ? <TrackToggle label={st.tarbawi} onClick={() => toggle(s.id, 'tarbawi')} /> : null}
                       </div>
-                      {attachments[s.id] ? (
-                        <a className="mt-3 inline-block text-xs font-bold text-primary" href={attachments[s.id]} target="_blank" rel="noreferrer">
-                          فتح مرفق الرصد
-                        </a>
-                      ) : null}
                     </div>
                   );
                 })
@@ -433,14 +451,7 @@ export function TeacherPage() {
                     return (
                       <tr key={s.id}>
                         <td>{idx + 1}</td>
-                        <td className="font-bold whitespace-nowrap">
-                          {s.name}
-                          {attachments[s.id] ? (
-                            <a className="mt-1 block text-[10px] text-primary" href={attachments[s.id]} target="_blank" rel="noreferrer">
-                              مرفق الرصد
-                            </a>
-                          ) : null}
-                        </td>
+                        <td className="font-bold whitespace-nowrap">{s.name}</td>
                         <td><TrackToggle label={st.attendance} onClick={() => toggle(s.id, 'attendance')} /></td>
                         <td><TrackToggle label={st.educational} onClick={() => toggle(s.id, 'educational')} /></td>
                         <td><TrackToggle label={st.homework} onClick={() => toggle(s.id, 'homework')} /></td>

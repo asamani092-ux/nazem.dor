@@ -365,6 +365,38 @@ export async function managerRoutes(app: FastifyInstance) {
     };
   });
 
+  app.get('/attachments', guard, async (request) => {
+    const darId = darIdOf(request);
+    const classes = await prisma.class.findMany({
+      where: { darId, status: { not: EntityStatus.DELETED } },
+      orderBy: { name: 'asc' },
+    });
+    const attachments = await prisma.weekAttachment.findMany({
+      where: { darId },
+      orderBy: [{ classId: 'asc' }, { week: 'asc' }],
+    });
+    const byClass = new Map<string, typeof attachments>();
+    for (const a of attachments) {
+      if (!byClass.has(a.classId)) byClass.set(a.classId, []);
+      byClass.get(a.classId)!.push(a);
+    }
+    return {
+      status: 'success',
+      data: classes.map((c) => ({
+        classId: c.id,
+        className: c.name,
+        level: c.level,
+        teacherName: c.teacherName,
+        items: (byClass.get(c.id) || []).map((a) => ({
+          week: a.week,
+          url: a.url,
+          fileName: a.fileName || '',
+          uploadedAt: a.updatedAt.toLocaleDateString('en-GB'),
+        })),
+      })),
+    };
+  });
+
   app.post('/students', guard, async (request, reply) => {
     const darId = darIdOf(request);
     const body = z
