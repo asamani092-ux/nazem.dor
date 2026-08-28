@@ -6,7 +6,7 @@ import { getRateWeights, setRateWeights } from '../lib/settings.js';
 import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { ADMIN_ROLES, isAdminRole, requireRoles } from '../middleware/auth.js';
-import { buildDarTrackingSummaries, periodSince } from '../lib/tracking-status.js';
+import { buildClassTrackingInfo, buildDarTrackingSummaries, periodSince } from '../lib/tracking-status.js';
 import { closeActiveTerm, ensureActiveTerm, getActiveTerm, listTerms, resolveTermId } from '../lib/terms.js';
 
 const curriculumMap: Record<string, CurriculumType> = {
@@ -500,6 +500,12 @@ export async function masterRoutes(app: FastifyInstance) {
 
     const rates = computeRates(trackings, weights);
     const examStats = computeExamStats(examGrades, examsForDar);
+    const term = await ensureActiveTerm();
+    const trackingInfo = await buildClassTrackingInfo(
+      classes.map((c) => c.id),
+      7,
+      term.id,
+    );
     const classBreakdown = [];
     for (const c of classes) {
       const rows = trackings.filter((t) => t.classId === c.id);
@@ -508,6 +514,7 @@ export async function masterRoutes(app: FastifyInstance) {
       const studentCount = await prisma.student.count({
         where: { classId: c.id, status: EntityStatus.ACTIVE },
       });
+      const tr = trackingInfo.get(c.id);
       classBreakdown.push({
         id: c.id,
         name: c.name,
@@ -518,6 +525,8 @@ export async function masterRoutes(app: FastifyInstance) {
         ...r,
         examAvg: cExam.examAvg,
         examsGradedCount: cExam.examsGradedCount,
+        lastTrackingLabel: tr?.lastTrackingLabel ?? 'لم يُرصد بعد',
+        trackedInLast7Days: tr?.trackedInLast7Days ?? false,
       });
     }
 

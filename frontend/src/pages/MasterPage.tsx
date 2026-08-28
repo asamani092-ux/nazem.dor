@@ -346,7 +346,15 @@ export function MasterPage() {
     homeworkRate: number;
     overallRate: number;
     examAvg?: number;
-    classBreakdown: Array<{ name: string; level: string; studentCount: number; overallRate: number; examAvg?: number }>;
+    classBreakdown: Array<{
+      name: string;
+      level: string;
+      studentCount: number;
+      overallRate: number;
+      examAvg?: number;
+      lastTrackingLabel?: string;
+      trackedInLast7Days?: boolean;
+    }>;
   } | null>(null);
   const [showAccountEditor, setShowAccountEditor] = useState(false);
   const [accountEditorMode, setAccountEditorMode] = useState<'add' | 'edit'>('add');
@@ -616,7 +624,15 @@ export function MasterPage() {
         homeworkRate: number;
         overallRate: number;
         examAvg?: number;
-        classBreakdown: Array<{ name: string; level: string; studentCount: number; overallRate: number; examAvg?: number }>;
+        classBreakdown: Array<{
+      name: string;
+      level: string;
+      studentCount: number;
+      overallRate: number;
+      examAvg?: number;
+      lastTrackingLabel?: string;
+      trackedInLast7Days?: boolean;
+    }>;
       };
     }>(`/api/master/dars/${id}/stats`);
     const d = res.data;
@@ -2229,9 +2245,17 @@ export function MasterPage() {
               <div className="space-y-2">
                 <h4 className="text-sm font-extrabold text-primary">تفصيل الفصول</h4>
                 {darStats.classBreakdown.map((c) => (
-                  <div key={c.name} className="flex items-center justify-between rounded-xl bg-shell px-3 py-2 text-sm">
-                    <span className="font-bold">{c.name} <span className="text-ios-muted">({c.level})</span></span>
-                    <span className="text-xs font-bold text-ios-muted">{c.studentCount} طالبة · عام %{c.overallRate}</span>
+                  <div key={c.name} className="rounded-xl bg-shell px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold">{c.name} <span className="text-ios-muted">({c.level})</span></span>
+                      <Badge tone={c.trackedInLast7Days ? 'success' : 'warning'}>
+                        {c.trackedInLast7Days ? 'مرصود' : 'لم يُرصد'}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-[11px] font-bold text-ios-muted">
+                      {c.studentCount} طالبة · عام %{c.overallRate}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-ios-muted">{c.lastTrackingLabel || 'لم يُرصد بعد'}</p>
                   </div>
                 ))}
               </div>
