@@ -35,8 +35,9 @@ services:
   web:
     build: ./frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
+    # Coolify/Traefik يملك المنفذ 80 — لا تستخدم ports هنا
+    expose:
+      - "80"
     depends_on:
       - api
 

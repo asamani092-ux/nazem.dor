@@ -36,13 +36,21 @@ npm install
 npm run dev
 ```
 
-## النشر على VPS
+## النشر على Coolify
+1. Resource → Docker Compose → الملف `/docker-compose.prod.yml` والفرع `main`
+2. Environment: `POSTGRES_*` و `JWT_SECRET` و `SEED_*` و `PUBLIC_URL`
+3. Domains على خدمة **web** فقط (Generate Domain أو subdomain خاص)
+4. ضع `PUBLIC_URL` = رابط الـ Domain ثم **Deploy**
+5. لا تربط `ports: 80` — Coolify يستخدم `expose: 80` عبر Traefik
+
+## النشر على VPS (بدون Coolify)
 ```bash
 cp .env.example .env
-# عدّل كلمات المرور و JWT_SECRET و PUBLIC_URL و الدومين
+# عدّل كلمات المرور و JWT_SECRET و PUBLIC_URL
 docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# إن احتجت فتح 80 مباشرة: أضف ports: ["80:80"] لخدمة web
 ```
-اربط الدومين بـ IP السيرفر، ثم فعّل HTTPS (certbot) باستخدام `nginx/nazem.conf.example` إن رغبت reverse-proxy خارجي.
+أو reverse-proxy خارجي عبر `nginx/nazem.conf.example` + certbot.
 
 ## الأدوار
 | الدور | الوصف |
