@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, waLink } from '../lib/api';
+import { api, apiUpload, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
 import { usePageFeedback } from '../hooks/usePageFeedback';
@@ -161,20 +161,15 @@ export function TeacherPage() {
     setSubmitting(true);
     try {
       if (file) {
-        const fd = new FormData();
-        fd.append('file', file);
-        const token = localStorage.getItem('nazem_token');
-        const up = await fetch('/api/teacher/upload', {
-          method: 'POST',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: fd,
-          signal: AbortSignal.timeout(60000),
-        });
-        const upData = await up.json();
-        if (!up.ok) throw new Error(upData.message || 'فشل الرفع');
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error('حجم الملف يتجاوز 10 ميجابايت');
+        }
+        const upData = await apiUpload<{ url: string }>('/api/teacher/upload', file, 120_000);
+        if (!upData.url) throw new Error('فشل الرفع');
         await api('/api/teacher/week-attachments', {
           method: 'POST',
           json: { week: Number(week), url: upData.url, fileName: file.name },
+          timeoutMs: 60_000,
         });
       }
 
@@ -192,6 +187,7 @@ export function TeacherPage() {
           day,
           trackingData,
         },
+        timeoutMs: 90_000,
       });
       notify('تم حفظ الرصد');
       setTracked((prev) => (prev.includes(day) ? prev : [...prev, day]));

@@ -26,7 +26,7 @@ export function setToken(token: string | null) {
 
 export async function api<T = unknown>(
   path: string,
-  options: RequestInit & { json?: unknown } = {},
+  options: RequestInit & { json?: unknown; timeoutMs?: number } = {},
 ): Promise<T> {
   const headers = new Headers(options.headers || {});
   const token = getToken();
@@ -37,12 +37,14 @@ export async function api<T = unknown>(
     body = JSON.stringify(options.json);
   }
 
+  const timeoutMs = options.timeoutMs ?? 90_000;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const { json: _json, timeoutMs: _timeoutMs, ...fetchOpts } = options;
 
   try {
     const res = await fetch(path, {
-      ...options,
+      ...fetchOpts,
       headers,
       body,
       signal: controller.signal,
@@ -64,6 +66,13 @@ export async function api<T = unknown>(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** رفع ملف multipart — Time O(size) شبكة؛ لا تُضبط Content-Type يدوياً. */
+export async function apiUpload<T = unknown>(path: string, file: File, timeoutMs = 120_000): Promise<T> {
+  const fd = new FormData();
+  fd.append('file', file);
+  return api<T>(path, { method: 'POST', body: fd, timeoutMs });
 }
 
 export function waLink(phone: string) {
