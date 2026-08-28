@@ -8,6 +8,10 @@ export async function registerSecurity(app: FastifyInstance) {
     // الواجهة تُخدم من نفس الأصل؛ CSP مريحة للتطوير مع نفس المنفذ
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    // منع إجبار HTTPS عبر HSTS — Coolify sslip غالباً HTTP أو شهادة غير جاهزة
+    // وإلا المتصفح يحوّل لـ https فيظهر failed to fetch (503)
+    hsts: false,
+    crossOriginResourcePolicy: { policy: 'same-origin' },
   });
 
   await app.register(rateLimit, {

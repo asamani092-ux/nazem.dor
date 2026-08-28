@@ -168,6 +168,7 @@ export function TeacherPage() {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: fd,
+          signal: AbortSignal.timeout(60000),
         });
         const upData = await up.json();
         if (!up.ok) throw new Error(upData.message || 'فشل الرفع');
