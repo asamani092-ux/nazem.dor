@@ -7,7 +7,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # اسم ثابت — لا يُحذف عند Redeploy في Coolify
+      - nazem_pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -27,7 +28,8 @@ services:
       SEED_SUPER_PASSWORD: ${SEED_SUPER_PASSWORD}
       SEED_SUPER_NAME: ${SEED_SUPER_NAME}
     volumes:
-      - uploads:/app/uploads
+      # اسم ثابت للمرفقات — يبقى بعد إعادة بناء الحاوية
+      - nazem_uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +43,9 @@ services:
     depends_on:
       - api
 
+# external: false + name ثابت = يحتفظ Coolify/Docker بالبيانات عبر Redeploy
 volumes:
-  pgdata:
-  uploads:
+  nazem_pgdata:
+    name: nazem_pgdata
+  nazem_uploads:
+    name: nazem_uploads
