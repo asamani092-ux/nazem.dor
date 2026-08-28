@@ -7,7 +7,6 @@ import { printReport, tableHtml } from '../lib/print';
 import { matchQuery } from '../lib/search';
 import { monthStart, monthRangeParams, type CalendarEvent } from '../lib/calendar';
 import { usePageFeedback } from '../hooks/usePageFeedback';
-import { ToolsAuditPanel } from './ToolsAuditPage';
 import {
   Field,
   Input,
@@ -118,7 +117,7 @@ type WeekSlot = {
   plan: CurriculumRow | null;
 };
 
-type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'attachments' | 'tools-audit';
+type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'attachments';
 type DarViewMode = 'cards' | 'table' | 'stats';
 type PlanViewMode = 'table' | 'cards';
 type AccountFilter = 'ALL' | 'GENERAL_DIRECTOR' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT' | 'SUPER_MASTER';
@@ -173,10 +172,7 @@ export function MasterPage() {
   const isSuperMaster = user?.role === 'SUPER_MASTER';
   const isAdmin = isSuperMaster || user?.role === 'GENERAL_DIRECTOR';
   const { banner, notify, clearBanner } = usePageFeedback();
-  const [tab, setTab] = useState<Tab>(() => {
-    if (typeof window !== 'undefined' && window.location.pathname === '/tools-audit') return 'tools-audit';
-    return 'dars';
-  });
+  const [tab, setTab] = useState<Tab>('dars');
   const [dars, setDars] = useState<Dar[]>([]);
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
@@ -833,7 +829,6 @@ export function MasterPage() {
     { key: 'attachments', label: 'المرفقات' },
     { key: 'curriculum', label: 'المناهج' },
     ...(isAdmin ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
-    ...(isAdmin ? [{ key: 'tools-audit' as Tab, label: 'تقييم الأدوات' }] : []),
   ];
 
   function exportIndicatorsXlsx() {
@@ -1624,10 +1619,6 @@ export function MasterPage() {
             <Card className="ds-empty"><p className="text-sm text-ios-muted">لا توجد دور نشطة.</p></Card>
           ) : null}
         </div>
-      ) : null}
-
-      {tab === 'tools-audit' && isAdmin ? (
-        <ToolsAuditPanel />
       ) : null}
 
       {tab === 'calendar' ? (
