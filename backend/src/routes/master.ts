@@ -7,7 +7,7 @@ import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { ADMIN_ROLES, isAdminRole, requireRoles } from '../middleware/auth.js';
 import { buildDarTrackingSummaries, periodSince } from '../lib/tracking-status.js';
-import { closeActiveTerm, ensureActiveTerm, getActiveTerm, listTerms } from '../lib/terms.js';
+import { closeActiveTerm, ensureActiveTerm, getActiveTerm, listTerms, resolveTermId } from '../lib/terms.js';
 
 const curriculumMap: Record<string, CurriculumType> = {
   'منهج تبيان': CurriculumType.TIBYAN,
@@ -264,19 +264,15 @@ export async function masterRoutes(app: FastifyInstance) {
     });
     const activeDarIds = dars.filter((d) => d.status === EntityStatus.ACTIVE).map((d) => d.id);
     const since = periodSince(q.period);
-    const activeTerm = q.termId
-      ? await prisma.academicTerm.findUnique({ where: { id: q.termId } })
-      : await ensureActiveTerm();
-    const termId = activeTerm?.id;
     const trackingWhere = {
+      termId: resolvedTermId,
       darId: { in: activeDarIds },
       student: { status: { not: EntityStatus.DELETED } },
-      ...(termId ? { termId } : {}),
       ...(since ? { updatedAt: { gte: since } } : {}),
     };
     const gradeWhere = {
+      termId: resolvedTermId,
       darId: { in: activeDarIds },
-      ...(termId ? { termId } : {}),
       ...(since ? { gradedAt: { gte: since } } : {}),
     };
 
@@ -391,117 +387,6 @@ export async function masterRoutes(app: FastifyInstance) {
     } catch (e) {
       return reply.code(400).send({ status: 'error', message: e instanceof Error ? e.message : 'فشل الحفظ' });
     }
-  });
-
-  app.get('/terms', guard, async () => {
-    const terms = await listTerms();
-    return {
-      status: 'success',
-      data: terms.map((t) => ({
-        id: t.id,
-        name: t.name,
-        status: t.status,
-        startsAt: t.startsAt.toISOString(),
-        endsAt: t.endsAt?.toISOString() || null,
-        archivedAt: t.archivedAt?.toISOString() || null,
-      })),
-    };
-  });
-
-  /** Close active term: archive + Excel sheets + new ACTIVE term. Admin only. */
-  app.post('/terms/close', superGuard, async (request, reply) => {
-    const body = z
-      .object({
-        confirm: z.literal(true),
-        confirmText: z.string().optional(),
-        newTermName: z.string().optional(),
-      })
-      .parse(request.body);
-    if (body.confirmText && body.confirmText.trim() !== 'إنهاء الفصل') {
-      return reply.code(400).send({ status: 'error', message: 'اكتبِ «إنهاء الفصل» للتأكيد' });
-    }
-
-    const active = await ensureActiveTerm();
-    const weights = await getRateWeights();
-    const dars = await prisma.dar.findMany({
-      where: { status: { not: EntityStatus.DELETED } },
-      orderBy: { createdAt: 'asc' },
-      include: {
-        classes: { where: { status: { not: EntityStatus.DELETED } }, orderBy: { createdAt: 'asc' } },
-      },
-    });
-    const trackings = await prisma.dailyTracking.findMany({
-      where: { termId: active.id, student: { status: { not: EntityStatus.DELETED } } },
-      select: {
-        darId: true,
-        classId: true,
-        attendance: true,
-        educational: true,
-        homework: true,
-        week: true,
-        day: true,
-        dateStr: true,
-        studentId: true,
-      },
-    });
-    const overall = computeRates(trackings, weights);
-    const generalRows: Record<string, unknown>[] = [
-      {
-        'اسم الفترة': active.name,
-        'عدد الدور': dars.length,
-        'سجلات الرصد': overall.totalRecords,
-        'حضور %': overall.attendanceRate,
-        'إتقان %': overall.completionRate,
-        'واجب %': overall.homeworkRate,
-        'معدل عام %': overall.overallRate,
-      },
-    ];
-    for (const d of dars) {
-      const rows = trackings.filter((t) => t.darId === d.id);
-      const r = computeRates(rows, weights);
-      generalRows.push({
-        الدار: d.name,
-        'عدد الفصول': d.classes.length,
-        'سجلات الرصد': r.totalRecords,
-        'حضور %': r.attendanceRate,
-        'إتقان %': r.completionRate,
-        'واجب %': r.homeworkRate,
-        'معدل عام %': r.overallRate,
-      });
-    }
-
-    const sheets: Array<{ name: string; rows: Record<string, unknown>[] }> = [
-      { name: 'الإحصائيات العامة', rows: generalRows },
-    ];
-    for (const d of dars) {
-      const classRows: Record<string, unknown>[] = [];
-      for (const c of d.classes) {
-        const rows = trackings.filter((t) => t.classId === c.id);
-        const r = computeRates(rows, weights);
-        classRows.push({
-          الفصل: c.name,
-          المستوى: c.level,
-          المعلمة: c.teacherName,
-          'سجلات الرصد': r.totalRecords,
-          'حضور %': r.attendanceRate,
-          'إتقان %': r.completionRate,
-          'واجب %': r.homeworkRate,
-          'معدل عام %': r.overallRate,
-        });
-      }
-      sheets.push({ name: d.name.slice(0, 31) || 'دار', rows: classRows.length ? classRows : [{ ملاحظة: 'لا توجد بيانات' }] });
-    }
-
-    const { archived, created } = await closeActiveTerm({ newName: body.newTermName });
-    return {
-      status: 'success',
-      message: 'تم أرشفة الفترة وفتح فترة جديدة',
-      data: {
-        archived: { id: archived.id, name: archived.name },
-        created: { id: created.id, name: created.name },
-        sheets,
-      },
-    };
   });
 
   app.get('/attachments', guard, async (request) => {

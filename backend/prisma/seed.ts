@@ -4,11 +4,14 @@ import { PrismaClient, Role } from '@prisma/client';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureActiveTerm } from '../src/lib/terms.js';
 
 const prisma = new PrismaClient();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function main() {
+  await ensureActiveTerm();
+
   const phone = process.env.SEED_SUPER_PHONE || '0555143246';
   const password = process.env.SEED_SUPER_PASSWORD || 'Nazem@123';
   const name = process.env.SEED_SUPER_NAME || 'مدير النظام';
