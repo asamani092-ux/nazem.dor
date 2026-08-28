@@ -43,6 +43,14 @@ npm run dev
 4. ضع `PUBLIC_URL` = رابط الـ Domain ثم **Deploy**
 5. لا تربط `ports: 80` — Coolify يستخدم `expose: 80` عبر Traefik
 
+### حفظ المرفقات وقاعدة البيانات بعد Redeploy
+- المرفقات على volume ثابت الاسم: `nazem_uploads`
+- PostgreSQL على volume ثابت: `nazem_pgdata`
+- **Redeploy / Rebuild لا يحذفها**
+- تحذف فقط إذا: حذفت الـ Resource مع خيار حذف Volumes، أو نفّذت `docker volume rm nazem_uploads`
+
+للربط المباشر على قرص السيرفر (اختياري أقوى)، في Coolify → Storages أو عدّل الـ volume إلى مسار مثل `/data/nazem/uploads`.
+
 ## النشر على VPS (بدون Coolify)
 ```bash
 cp .env.example .env
