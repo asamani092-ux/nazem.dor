@@ -7,6 +7,8 @@ import { getAllowedLevels, isLevelAllowedMerged } from '../lib/levels.js';
 import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
+import { buildClassTrackingInfo } from '../lib/tracking-status.js';
+import { ensureActiveTerm } from '../lib/terms.js';
 
 function statusLabel(s: EntityStatus) {
   if (s === EntityStatus.ACTIVE) return 'نشط';
@@ -148,18 +150,32 @@ export async function managerRoutes(app: FastifyInstance) {
       _count: { _all: true },
     });
     const countMap = Object.fromEntries(activeCounts.map((c) => [c.classId, c._count._all]));
+    const term = await ensureActiveTerm();
+    const trackingInfo = await buildClassTrackingInfo(classes.map((c) => c.id), 7, term.id);
+    const activeClasses = classes.filter((c) => c.status === EntityStatus.ACTIVE);
+    const trackedActive = activeClasses.filter((c) => trackingInfo.get(c.id)?.trackedInLast7Days).length;
 
     return {
       status: 'success',
-      data: classes.map((c) => ({
-        id: c.id,
-        name: c.name,
-        level: c.level,
-        teacherName: c.teacherName,
-        teacherPhone: c.teacherPhone,
-        status: statusLabel(c.status),
-        studentCount: countMap[c.id] || 0,
-      })),
+      data: classes.map((c) => {
+        const tr = trackingInfo.get(c.id);
+        return {
+          id: c.id,
+          name: c.name,
+          level: c.level,
+          teacherName: c.teacherName,
+          teacherPhone: c.teacherPhone,
+          status: statusLabel(c.status),
+          studentCount: countMap[c.id] || 0,
+          lastTrackingAt: tr?.lastTrackingAt ?? null,
+          lastTrackingLabel: tr?.lastTrackingLabel ?? 'لم يُرصد بعد',
+          trackedInLast7Days: tr?.trackedInLast7Days ?? false,
+        };
+      }),
+      summary: {
+        classesCount: activeClasses.length,
+        trackedClassesCount: trackedActive,
+      },
     };
   });
 

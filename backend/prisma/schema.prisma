@@ -32,6 +32,29 @@ enum AlertKind {
   VISIT
 }
 
+enum AcademicTermStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model AcademicTerm {
+  id         String             @id @default(cuid())
+  name       String
+  status     AcademicTermStatus @default(ACTIVE)
+  startsAt   DateTime           @default(now())
+  endsAt     DateTime?
+  createdAt  DateTime           @default(now())
+  archivedAt DateTime?
+
+  dailyTrackings  DailyTracking[]
+  lessonTracked   LessonTracked[]
+  weekAttachments WeekAttachment[]
+  exams           Exam[]
+  examGrades      ExamGrade[]
+
+  @@index([status])
+}
+
 model User {
   id                 String       @id @default(cuid())
   phone              String       @unique
@@ -123,6 +146,7 @@ model Class {
 
 model WeekAttachment {
   id        String   @id @default(cuid())
+  termId    String
   darId     String
   classId   String
   week      Int
@@ -131,11 +155,13 @@ model WeekAttachment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  dar   Dar   @relation(fields: [darId], references: [id])
-  class Class @relation(fields: [classId], references: [id])
+  term  AcademicTerm @relation(fields: [termId], references: [id])
+  dar   Dar          @relation(fields: [darId], references: [id])
+  class Class        @relation(fields: [classId], references: [id])
 
-  @@unique([classId, week])
+  @@unique([termId, classId, week])
   @@index([darId, week])
+  @@index([termId])
 }
 
 model Student {
@@ -214,6 +240,7 @@ model AlertRead {
 
 model Exam {
   id        String   @id @default(cuid())
+  termId    String
   title     String
   darId     String?
   examDate  DateTime
@@ -222,10 +249,12 @@ model Exam {
   notes     String?
   createdAt DateTime @default(now())
 
-  dar    Dar?        @relation(fields: [darId], references: [id])
+  term   AcademicTerm @relation(fields: [termId], references: [id])
+  dar    Dar?         @relation(fields: [darId], references: [id])
   grades ExamGrade[]
 
   @@index([darId, examDate])
+  @@index([termId])
 }
 
 model TeacherNotification {
@@ -245,6 +274,7 @@ model TeacherNotification {
 
 model DailyTracking {
   id           String   @id @default(cuid())
+  termId       String
   darId        String
   classId      String
   studentId    String
@@ -259,31 +289,37 @@ model DailyTracking {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  dar     Dar     @relation(fields: [darId], references: [id])
-  class   Class   @relation(fields: [classId], references: [id])
-  student Student @relation(fields: [studentId], references: [id])
+  term    AcademicTerm @relation(fields: [termId], references: [id])
+  dar     Dar          @relation(fields: [darId], references: [id])
+  class   Class        @relation(fields: [classId], references: [id])
+  student Student      @relation(fields: [studentId], references: [id])
 
-  @@unique([classId, studentId, week, day])
+  @@unique([termId, classId, studentId, week, day])
   @@index([darId, classId, week])
   @@index([studentId])
+  @@index([termId])
 }
 
 model LessonTracked {
   id      String @id @default(cuid())
+  termId  String
   darId   String
   classId String
   week    Int
   day     String
 
-  dar   Dar   @relation(fields: [darId], references: [id])
-  class Class @relation(fields: [classId], references: [id])
+  term  AcademicTerm @relation(fields: [termId], references: [id])
+  dar   Dar          @relation(fields: [darId], references: [id])
+  class Class        @relation(fields: [classId], references: [id])
 
-  @@unique([classId, week, day])
+  @@unique([termId, classId, week, day])
   @@index([darId, classId, week])
+  @@index([termId])
 }
 
 model ExamGrade {
   id          String   @id @default(cuid())
+  termId      String
   darId       String
   classId     String
   examId      String
@@ -294,12 +330,14 @@ model ExamGrade {
   note        String?
   gradedAt    DateTime @default(now())
 
-  dar     Dar     @relation(fields: [darId], references: [id])
-  class   Class   @relation(fields: [classId], references: [id])
-  exam    Exam    @relation(fields: [examId], references: [id])
-  student Student @relation(fields: [studentId], references: [id])
+  term    AcademicTerm @relation(fields: [termId], references: [id])
+  dar     Dar          @relation(fields: [darId], references: [id])
+  class   Class        @relation(fields: [classId], references: [id])
+  exam    Exam         @relation(fields: [examId], references: [id])
+  student Student      @relation(fields: [studentId], references: [id])
 
+  @@unique([classId, examId, studentId])
   @@index([classId, examId])
   @@index([studentId])
-  @@unique([classId, examId, studentId])
+  @@index([termId])
 }

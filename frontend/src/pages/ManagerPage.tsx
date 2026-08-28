@@ -16,6 +16,9 @@ type Cls = {
   teacherPhone: string;
   status: string;
   studentCount: number;
+  lastTrackingAt?: string | null;
+  lastTrackingLabel?: string;
+  trackedInLast7Days?: boolean;
 };
 
 type Student = { id: string; name: string; classId: string; phone: string; status: string };
@@ -74,6 +77,7 @@ export function ManagerPage() {
   >([]);
   const [attachmentPreview, setAttachmentPreview] = useState<{ url: string; title: string } | null>(null);
   const [classes, setClasses] = useState<Cls[]>([]);
+  const [classesSummary, setClassesSummary] = useState({ classesCount: 0, trackedClassesCount: 0 });
   const [students, setStudents] = useState<Student[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -98,11 +102,17 @@ export function ManagerPage() {
 
   async function load() {
     const [c, a, m] = await Promise.all([
-      api<{ data: Cls[] }>('/api/manager/classes'),
+      api<{ data: Cls[]; summary?: { classesCount: number; trackedClassesCount: number } }>('/api/manager/classes'),
       api<{ data: AlertItem[] }>('/api/manager/alerts'),
       api<{ data: Meta }>('/api/manager/meta'),
     ]);
     setClasses(c.data);
+    setClassesSummary(
+      c.summary || {
+        classesCount: c.data.filter((x) => x.status !== 'موقوف').length,
+        trackedClassesCount: c.data.filter((x) => x.trackedInLast7Days).length,
+      },
+    );
     setAlerts(a.data);
     setMeta(m.data);
     if (!classForm.level && m.data.allowedLevels[0]) {
@@ -292,6 +302,23 @@ export function ManagerPage() {
       {banner ? <Banner tone={banner.tone} onClose={clearBanner}>{banner.text}</Banner> : null}
         {tab === 'classes' ? (
           <>
+            <Card className="mb-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  tone={
+                    classesSummary.classesCount > 0 &&
+                    classesSummary.trackedClassesCount >= classesSummary.classesCount
+                      ? 'success'
+                      : classesSummary.trackedClassesCount > 0
+                        ? 'warning'
+                        : 'danger'
+                  }
+                >
+                  الرصد: {classesSummary.trackedClassesCount} من {classesSummary.classesCount} فصول
+                </Badge>
+                <span className="text-[11px] text-ios-muted">آخر 7 أيام</span>
+              </div>
+            </Card>
             <Button variant="primary" onClick={() => setShowClass(true)}>
               إضافة فصل جديد
             </Button>
@@ -300,6 +327,9 @@ export function ManagerPage() {
                 <div className="ds-dar-badges">
                   <Badge tone="primary">{c.level}</Badge>
                   <Badge tone={c.status === 'موقوف' ? 'warning' : 'success'}>{c.status === 'موقوف' ? 'موقوف' : 'نشط'}</Badge>
+                  <Badge tone={c.trackedInLast7Days ? 'success' : 'warning'}>
+                    {c.trackedInLast7Days ? 'مرصود هذا الأسبوع' : 'لم يُرصد هذا الأسبوع'}
+                  </Badge>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-lg font-extrabold text-primary">ف</div>
@@ -307,6 +337,7 @@ export function ManagerPage() {
                     <h4 className="text-base font-extrabold">{c.name}</h4>
                     <p className="mt-1 text-[15px] font-extrabold text-ios-text">المعلمة: {c.teacherName}</p>
                     <p className="mt-1 text-sm font-semibold text-ios-muted">طالبات: {c.studentCount}</p>
+                    <p className="mt-1 text-[11px] font-bold text-ios-muted">{c.lastTrackingLabel || 'لم يُرصد بعد'}</p>
                   </div>
                 </div>
                 <div className="ds-dar-action-grid">

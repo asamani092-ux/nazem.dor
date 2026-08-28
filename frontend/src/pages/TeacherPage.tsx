@@ -61,14 +61,19 @@ export function TeacherPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  const [lastSavedLabel, setLastSavedLabel] = useState('لم يُحفظ رصد لهذا الفصل بعد');
+
   const isTamheedi = String(user?.classLevel || '').includes('تمهيدي');
   const isAwwalia = String(user?.classLevel || '').replace(/أ/g, 'ا').includes('اولي');
   const weekCount = isTamheedi ? 15 : 10;
 
   async function loadDashboard() {
-    const res = await api<{ data: { alerts: Alert[]; students: Student[] } }>('/api/teacher/dashboard');
+    const res = await api<{
+      data: { alerts: Alert[]; students: Student[]; lastSavedLabel?: string };
+    }>('/api/teacher/dashboard');
     setAlerts(res.data.alerts);
     setStudents(res.data.students);
+    setLastSavedLabel(res.data.lastSavedLabel || 'لم يُحفظ رصد لهذا الفصل بعد');
     const init: Record<string, TrackState> = {};
     for (const s of res.data.students) {
       init[s.id] = { attendance: 'حاضرة', educational: 'أتقنت', homework: 'أنجزت', tarbawi: 'أتقنت' };
@@ -338,6 +343,7 @@ export function TeacherPage() {
         <>
           <Card className="space-y-3">
             <h3 className="text-sm font-bold text-primary">خطة الرصد</h3>
+            <p className="text-[11px] font-bold text-ios-muted">{lastSavedLabel}</p>
             <Field label="الأسبوع">
               <select className="ds-input" value={week} onChange={(e) => void loadTracked(e.target.value)}>
                 <option value="">اختيار الأسبوع...</option>

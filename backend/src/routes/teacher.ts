@@ -4,10 +4,10 @@ import { EntityStatus, Role } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { requireRoles } from '../middleware/auth.js';
 import { normalizeHomework } from '../lib/domain.js';
+import { ensureActiveTerm, getActiveTerm } from '../lib/terms.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-
 export async function teacherRoutes(app: FastifyInstance) {
   const guard = { preHandler: requireRoles(Role.TEACHER) };
 
@@ -37,6 +37,13 @@ export async function teacherRoutes(app: FastifyInstance) {
     ]);
 
     const readSet = new Set(reads.map((r) => r.notificationId));
+    const activeTerm = await getActiveTerm();
+
+    const lastTrack = await prisma.dailyTracking.findFirst({
+      where: { darId, classId, ...(activeTerm ? { termId: activeTerm.id } : {}) },
+      orderBy: { updatedAt: 'desc' },
+      select: { updatedAt: true, week: true, day: true, dateStr: true },
+    });
 
     return {
       status: 'success',
@@ -54,6 +61,10 @@ export async function teacherRoutes(app: FastifyInstance) {
           name: s.name,
           parentPhone: s.parentPhone,
         })),
+        lastSavedAt: lastTrack?.updatedAt?.toISOString() || null,
+        lastSavedLabel: lastTrack
+          ? `آخر رصد محفوظ: ${lastTrack.day} · أسبوع ${lastTrack.week} · ${lastTrack.dateStr || lastTrack.updatedAt.toLocaleDateString('en-GB')}`
+          : 'لم يُحفظ رصد لهذا الفصل بعد',
       },
     };
   });
@@ -83,8 +94,15 @@ export async function teacherRoutes(app: FastifyInstance) {
       })
       .parse(request.query);
 
+    const activeTerm = await getActiveTerm();
     const rows = await prisma.dailyTracking.findMany({
-      where: { darId, classId, week: q.week, day: q.day },
+      where: {
+        darId,
+        classId,
+        week: q.week,
+        day: q.day,
+        ...(activeTerm ? { termId: activeTerm.id } : {}),
+      },
     });
 
     return {
@@ -150,7 +168,11 @@ export async function teacherRoutes(app: FastifyInstance) {
     if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
     const week = z.coerce.number().parse((request.query as { week?: string }).week);
 
-    const rows = await prisma.lessonTracked.findMany({ where: { darId, classId, week } });
+    const term = await ensureActiveTerm();
+    if (!term) {
+      return reply.code(500).send({ status: 'error', message: 'لا يوجد فصل دراسي نشط' });
+    }
+    const rows = await prisma.lessonTracked.findMany({ where: { darId, classId, week, termId: term.id } });
     return { status: 'success', data: rows.map((r) => r.day) };
   });
 
@@ -177,11 +199,16 @@ export async function teacherRoutes(app: FastifyInstance) {
       })
       .parse(request.body);
 
+    const term = await ensureActiveTerm();
+    if (!term) {
+      return reply.code(500).send({ status: 'error', message: 'لا يوجد فصل دراسي نشط' });
+    }
     await prisma.$transaction(async (tx) => {
       for (const t of body.trackingData) {
         await tx.dailyTracking.upsert({
           where: {
-            classId_studentId_week_day: {
+            termId_classId_studentId_week_day: {
+              termId: term.id,
               classId,
               studentId: t.studentId,
               week: body.week,
@@ -189,6 +216,7 @@ export async function teacherRoutes(app: FastifyInstance) {
             },
           },
           create: {
+            termId: term.id,
             darId,
             classId,
             studentId: t.studentId,
@@ -214,9 +242,9 @@ export async function teacherRoutes(app: FastifyInstance) {
 
       await tx.lessonTracked.upsert({
         where: {
-          classId_week_day: { classId, week: body.week, day: body.day },
+          termId_classId_week_day: { termId: term.id, classId, week: body.week, day: body.day },
         },
-        create: { darId, classId, week: body.week, day: body.day },
+        create: { termId: term.id, darId, classId, week: body.week, day: body.day },
         update: {},
       });
     });
@@ -275,8 +303,12 @@ export async function teacherRoutes(app: FastifyInstance) {
   app.get('/week-attachments', guard, async (request, reply) => {
     const { darId, classId } = request.user;
     if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+    const term = await ensureActiveTerm();
+    if (!term) {
+      return reply.code(500).send({ status: 'error', message: 'لا يوجد فصل دراسي نشط' });
+    }
     const rows = await prisma.weekAttachment.findMany({
-      where: { classId },
+      where: { classId, termId: term.id },
       orderBy: { week: 'asc' },
     });
     return {
@@ -301,9 +333,13 @@ export async function teacherRoutes(app: FastifyInstance) {
       })
       .parse(request.body);
 
+    const term = await ensureActiveTerm();
+    if (!term) {
+      return reply.code(500).send({ status: 'error', message: 'لا يوجد فصل دراسي نشط' });
+    }
     await prisma.weekAttachment.upsert({
-      where: { classId_week: { classId, week: body.week } },
-      create: { darId, classId, week: body.week, url: body.url, fileName: body.fileName || null },
+      where: { termId_classId_week: { termId: term.id, classId, week: body.week } },
+      create: { termId: term.id, darId, classId, week: body.week, url: body.url, fileName: body.fileName || null },
       update: { url: body.url, fileName: body.fileName || null },
     });
     return { status: 'success' };
@@ -316,13 +352,20 @@ export async function teacherRoutes(app: FastifyInstance) {
     if (!Number.isInteger(week) || week <= 0) {
       return reply.code(400).send({ status: 'error', message: 'أسبوع غير صالح' });
     }
-    await prisma.weekAttachment.deleteMany({ where: { classId, week } });
+    const term = await ensureActiveTerm();
+    if (!term) {
+      return reply.code(500).send({ status: 'error', message: 'لا يوجد فصل دراسي نشط' });
+    }
+    await prisma.weekAttachment.deleteMany({ where: { classId, week, termId: term.id } });
     return { status: 'success' };
   });
 
   app.get('/exams', guard, async (request, reply) => {
     const { darId, classId } = request.user;
     if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
+
+    const activeTerm = await getActiveTerm();
+    const termFilter = activeTerm ? { termId: activeTerm.id } : {};
 
     const students = await prisma.student.findMany({
       where: { darId, classId, status: EntityStatus.ACTIVE },
@@ -333,12 +376,12 @@ export async function teacherRoutes(app: FastifyInstance) {
     }
 
     const exams = await prisma.exam.findMany({
-      where: { OR: [{ darId: null }, { darId }] },
+      where: { OR: [{ darId: null }, { darId }], ...termFilter },
       orderBy: { examDate: 'desc' },
     });
 
     const grades = await prisma.examGrade.findMany({
-      where: { classId },
+      where: { classId, ...termFilter },
       orderBy: { gradedAt: 'desc' },
     });
 
@@ -383,15 +426,18 @@ export async function teacherRoutes(app: FastifyInstance) {
     const { darId, classId } = request.user;
     if (!darId || !classId) return reply.code(400).send({ status: 'error', message: 'بيانات ناقصة' });
 
+    const activeTerm = await getActiveTerm();
+    const termFilter = activeTerm ? { termId: activeTerm.id } : {};
+
     const graded = await prisma.examGrade.findMany({
-      where: { classId },
+      where: { classId, ...termFilter },
       select: { examId: true },
       distinct: ['examId'],
     });
     const gradedSet = new Set(graded.map((g) => g.examId));
 
     const exams = await prisma.exam.findMany({
-      where: { OR: [{ darId: null }, { darId }] },
+      where: { OR: [{ darId: null }, { darId }], ...termFilter },
       orderBy: { examDate: 'desc' },
     });
 
@@ -431,6 +477,12 @@ export async function teacherRoutes(app: FastifyInstance) {
     const exam = await prisma.exam.findUnique({ where: { id } });
     if (!exam) return reply.code(404).send({ status: 'error', message: 'الاختبار غير موجود' });
 
+    const activeTerm = await getActiveTerm();
+    if (!activeTerm) {
+      return reply.code(500).send({ status: 'error', message: 'لا يوجد فصل دراسي نشط' });
+    }
+    const termId = activeTerm.id;
+
     for (const g of body.gradesData) {
       const raw = String(g.score ?? '').trim();
       if (!raw || raw === 'غائبة') continue;
@@ -457,6 +509,7 @@ export async function teacherRoutes(app: FastifyInstance) {
       return reply.code(400).send({ status: 'error', message: 'لا توجد طالبات في الفصل' });
     }
 
+    const term = activeTerm;
     await prisma.$transaction(
       body.gradesData.map((g) =>
         prisma.examGrade.upsert({
@@ -464,6 +517,7 @@ export async function teacherRoutes(app: FastifyInstance) {
             classId_examId_studentId: { classId, examId: id, studentId: g.studentId },
           },
           create: {
+            termId: term.id,
             darId,
             classId,
             examId: id,
@@ -495,7 +549,10 @@ export async function teacherRoutes(app: FastifyInstance) {
     const student = await prisma.student.findFirst({ where: { id: studentId, darId, classId } });
     if (!student) return reply.code(404).send({ status: 'error', message: 'الطالبة غير موجودة' });
 
-    const trackings = await prisma.dailyTracking.findMany({ where: { studentId } });
+    const activeTerm = await getActiveTerm();
+    const termFilter = activeTerm ? { termId: activeTerm.id } : {};
+
+    const trackings = await prisma.dailyTracking.findMany({ where: { studentId, ...termFilter } });
     let presentDays = 0;
     let totalTasks = 0;
     let completedTasks = 0;
@@ -508,7 +565,7 @@ export async function teacherRoutes(app: FastifyInstance) {
       }
     }
 
-    const grades = await prisma.examGrade.findMany({ where: { studentId, classId } });
+    const grades = await prisma.examGrade.findMany({ where: { studentId, classId, ...termFilter } });
     let totalExamScore = 0;
     let examCount = 0;
     for (const g of grades) {

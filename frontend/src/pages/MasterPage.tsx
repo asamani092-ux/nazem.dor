@@ -54,6 +54,11 @@ type Dar = {
   lastVisit?: string;
   supervisorId?: string;
   supervisorName?: string;
+  classesCount?: number;
+  trackedClassesCount?: number;
+  lastActivityAt?: string | null;
+  lastActivityLabel?: string;
+  trackingBadge?: 'empty' | 'partial' | 'complete';
 };
 
 type Supervisor = { id: string; name: string; phone: string; status: string };
@@ -117,7 +122,7 @@ type WeekSlot = {
   plan: CurriculumRow | null;
 };
 
-type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'attachments';
+type Tab = 'dars' | 'indicators' | 'curriculum' | 'accounts' | 'calendar' | 'attachments' | 'close-term';
 type DarViewMode = 'cards' | 'table' | 'stats';
 type PlanViewMode = 'table' | 'cards';
 type AccountFilter = 'ALL' | 'GENERAL_DIRECTOR' | 'MASTER' | 'MANAGER' | 'TEACHER' | 'STUDENT' | 'SUPER_MASTER';
@@ -167,6 +172,107 @@ function buildWeekSlots(plans: CurriculumRow[], level: string, week: number): We
   return WEEK_DAYS.map((day) => ({ day, plan: byDay.get(day) || null }));
 }
 
+function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error') => void }) {
+  const [terms, setTerms] = useState<Array<{ id: string; name: string; status: string; archivedAt: string | null }>>([]);
+  const [confirmText, setConfirmText] = useState('');
+  const [newTermName, setNewTermName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [step2, setStep2] = useState(false);
+
+  async function loadTerms() {
+    const res = await api<{ data: typeof terms }>('/api/master/terms');
+    setTerms(res.data);
+  }
+
+  useEffect(() => {
+    void loadTerms().catch((e) => notify(e.message, 'error'));
+  }, []);
+
+  async function closeTerm() {
+    if (!step2) {
+      setStep2(true);
+      return;
+    }
+    if (confirmText.trim() !== 'إنهاء الفصل') {
+      notify('اكتبي «إنهاء الفصل» للتأكيد', 'error');
+      return;
+    }
+    if (!window.confirm('تأكيد نهائي: أرشفة الفترة الحالية وفتح فترة جديدة؟ البنية (دور/فصول/طالبات) لن تُحذف.')) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await api<{
+        message: string;
+        data: { sheets: Array<{ name: string; rows: Record<string, unknown>[] }>; created: { name: string } };
+      }>('/api/master/terms/close', {
+        method: 'POST',
+        json: { confirm: true, confirmText, newTermName: newTermName || undefined },
+        timeoutMs: 120_000,
+      });
+      downloadXlsx(`archive-${Date.now()}.xlsx`, res.data.sheets);
+      notify(res.message || `تم فتح: ${res.data.created.name}`);
+      setStep2(false);
+      setConfirmText('');
+      await loadTerms();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'فشل إنهاء الفصل', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const active = terms.find((t) => t.status === 'ACTIVE');
+  const archived = terms.filter((t) => t.status === 'ARCHIVED');
+
+  return (
+    <div className="space-y-4">
+      <SectionTitle>إنهاء الفصل / الأرشفة</SectionTitle>
+      <Card className="space-y-3">
+        <p className="text-sm font-bold text-ios-text">الفترة النشطة: {active?.name || '—'}</p>
+        <p className="text-[12px] text-ios-muted">
+          سيتم تحميل Excel (إحصائيات عامة + ورقة لكل دار) ثم أرشفة الفترة وفتح فترة جديدة. البيانات القديمة تبقى للقراءة.
+        </p>
+        <Field label="اسم الفترة الجديدة (اختياري)">
+          <Input value={newTermName} onChange={(e) => setNewTermName(e.target.value)} placeholder="مثال: الفصل الثاني 1447" />
+        </Field>
+        {step2 ? (
+          <Field label='اكتبي للتأكيد: إنهاء الفصل'>
+            <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
+          </Field>
+        ) : null}
+        <Button variant="primary" disabled={busy} onClick={() => void closeTerm()}>
+          {busy ? 'جاري الأرشفة...' : step2 ? 'تأكيد إنهاء الفصل وتحميل Excel' : 'بدء إنهاء الفصل'}
+        </Button>
+        {step2 ? (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setStep2(false);
+              setConfirmText('');
+            }}
+          >
+            إلغاء
+          </Button>
+        ) : null}
+      </Card>
+      {archived.length ? (
+        <Card>
+          <h3 className="mb-2 text-sm font-extrabold">فترات مؤرشفة (قراءة)</h3>
+          <ul className="space-y-1 text-[12px] font-bold text-ios-muted">
+            {archived.map((t) => (
+              <li key={t.id}>
+                {t.name}
+                {t.archivedAt ? ` — ${new Date(t.archivedAt).toLocaleDateString('en-GB')}` : ''}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
 export function MasterPage() {
   const { user, logout } = useAuth();
   const isSuperMaster = user?.role === 'SUPER_MASTER';
@@ -209,6 +315,7 @@ export function MasterPage() {
   const [examCenterLoaded, setExamCenterLoaded] = useState(false);
   const [indicatorSearch, setIndicatorSearch] = useState('');
   const [indicatorCurriculum, setIndicatorCurriculum] = useState('all');
+  const [indicatorPeriod, setIndicatorPeriod] = useState<'7d' | '30d' | 'all'>('all');
   const [rateWeights, setRateWeights] = useState<RateWeights | null>(null);
   const [savingWeights, setSavingWeights] = useState(false);
   const [attachWeek, setAttachWeek] = useState<number>(1);
@@ -338,7 +445,7 @@ export function MasterPage() {
 
   async function loadIndicators(force = false) {
     if (indicatorsLoaded && !force) return;
-    const res = await api<{ data: Indicators }>('/api/master/indicators');
+    const res = await api<{ data: Indicators }>(`/api/master/indicators?period=${indicatorPeriod}`);
     setIndicators(res.data);
     setIndicatorsLoaded(true);
   }
@@ -396,7 +503,8 @@ export function MasterPage() {
 
   useEffect(() => {
     if (tab === 'indicators') {
-      void loadIndicators().catch((e) => notify(e.message, 'error'));
+      setIndicatorsLoaded(false);
+      void loadIndicators(true).catch((e) => notify(e.message, 'error'));
       if (isAdmin) void loadRateWeights().catch((e) => notify(e.message, 'error'));
     }
     if (tab === 'curriculum') {
@@ -406,7 +514,7 @@ export function MasterPage() {
     if (tab === 'accounts' && isAdmin) {
       void loadUsersMeta().catch((e) => notify(e.message, 'error'));
     }
-  }, [tab, user?.role]);
+  }, [tab, user?.role, indicatorPeriod]);
 
   useEffect(() => {
     if (tab !== 'accounts' || !isAdmin) return;
@@ -829,6 +937,7 @@ export function MasterPage() {
     { key: 'attachments', label: 'المرفقات' },
     { key: 'curriculum', label: 'المناهج' },
     ...(isAdmin ? [{ key: 'accounts' as Tab, label: 'الحسابات' }] : []),
+    ...(isAdmin ? [{ key: 'close-term' as Tab, label: 'إنهاء الفصل' }] : []),
   ];
 
   function exportIndicatorsXlsx() {
@@ -1230,13 +1339,22 @@ export function MasterPage() {
           </p>
 
           <Card>
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]">
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_160px_160px]">
               <SearchInput
                 value={indicatorSearch}
                 onChange={setIndicatorSearch}
                 placeholder="ابحث باسم الدار..."
                 aria-label="بحث في مؤشرات الدور"
               />
+              <Select
+                value={indicatorPeriod}
+                onChange={(e) => setIndicatorPeriod(e.target.value as '7d' | '30d' | 'all')}
+                aria-label="فلتر الفترة"
+              >
+                <option value="7d">آخر أسبوع</option>
+                <option value="30d">آخر شهر</option>
+                <option value="all">كامل المدة</option>
+              </Select>
               <Select
                 value={indicatorCurriculum}
                 onChange={(e) => setIndicatorCurriculum(e.target.value)}
@@ -1545,6 +1663,10 @@ export function MasterPage() {
         </div>
       ) : null}
 
+      {tab === 'close-term' && isAdmin ? (
+        <CloseTermPanel notify={notify} />
+      ) : null}
+
       {tab === 'attachments' ? (
         <div className="space-y-4">
           <SectionTitle>مؤشر مرفقات الأسابيع</SectionTitle>
@@ -1701,6 +1823,22 @@ export function MasterPage() {
                   {isAdmin ? (
                     <p className="mt-1 text-[12px] font-bold text-primary">المشرفة: {dar.supervisorName || 'غير مسندة'}</p>
                   ) : null}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Badge
+                      tone={
+                        dar.trackingBadge === 'complete'
+                          ? 'success'
+                          : dar.trackingBadge === 'partial'
+                            ? 'warning'
+                            : 'danger'
+                      }
+                    >
+                      الرصد: {dar.trackedClassesCount ?? 0} من {dar.classesCount ?? 0} فصول
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] text-ios-muted" title="أحدث فصل رَصَد — ليس اكتمال كل الفصول">
+                    آخر نشاط: {dar.lastActivityLabel || 'لا يوجد'}
+                  </p>
                   {dar.lastVisit ? <p className="mt-1 text-[11px] text-ios-muted">آخر زيارة: {dar.lastVisit}</p> : null}
                 </div>
               </div>
