@@ -10,7 +10,7 @@ import { ADMIN_ROLES, isAdminRole, requireRoles } from '../middleware/auth.js';
 import { buildClassTrackingInfo, buildDarTrackingSummaries, periodSince } from '../lib/tracking-status.js';
 import { buildTermArchiveSheets } from '../lib/term-archive.js';
 import { resetOperationalData } from '../lib/reset-operational-data.js';
-import { closeActiveTerm, ensureActiveTerm, getActiveTerm, listTerms, resolveTermId } from '../lib/terms.js';
+import { closeActiveTerm, ensureActiveTerm, getActiveTerm, listTerms, renameActiveTerm, resolveTermId } from '../lib/terms.js';
 
 const curriculumMap: Record<string, CurriculumType> = {
   'منهج تبيان': CurriculumType.TIBYAN,
@@ -977,6 +977,30 @@ export async function masterRoutes(app: FastifyInstance) {
     } catch (e) {
       if (e instanceof Error && e.message === 'TERM_NOT_FOUND') {
         return reply.code(404).send({ status: 'error', message: 'الفصل الدراسي غير موجود' });
+      }
+      throw e;
+    }
+  });
+
+  app.patch('/terms/active', superGuard, async (request, reply) => {
+    const body = z.object({ name: z.string().min(1).max(120) }).parse(request.body);
+    try {
+      const updated = await renameActiveTerm(body.name);
+      return {
+        status: 'success',
+        message: 'تم تحديث اسم الفترة النشطة',
+        data: {
+          id: updated.id,
+          name: updated.name,
+          status: updated.status,
+        },
+      };
+    } catch (e) {
+      if (e instanceof Error && e.message === 'EMPTY_NAME') {
+        return reply.code(400).send({ status: 'error', message: 'اسم الفترة مطلوب' });
+      }
+      if (e instanceof Error && e.message === 'NO_ACTIVE_TERM') {
+        return reply.code(400).send({ status: 'error', message: 'لا توجد فترة نشطة' });
       }
       throw e;
     }

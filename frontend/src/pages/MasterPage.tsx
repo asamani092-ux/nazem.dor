@@ -192,10 +192,14 @@ function CloseTermPanel({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [resetText, setResetText] = useState('');
   const [resetBusy, setResetBusy] = useState(false);
+  const [activeNameEdit, setActiveNameEdit] = useState('');
+  const [renameBusy, setRenameBusy] = useState(false);
 
   async function loadTerms() {
     const res = await api<{ data: TermRow[] }>('/api/master/terms');
     setTerms(res.data);
+    const act = res.data.find((t) => t.status === 'ACTIVE');
+    if (act) setActiveNameEdit(act.name);
   }
 
   useEffect(() => {
@@ -233,6 +237,27 @@ function CloseTermPanel({
       notify(e instanceof Error ? e.message : 'فشل التحميل', 'error');
     } finally {
       setLoadingId(null);
+    }
+  }
+
+  async function renameActive() {
+    const name = activeNameEdit.trim();
+    if (!name) {
+      notify('اسم الفترة مطلوب', 'error');
+      return;
+    }
+    setRenameBusy(true);
+    try {
+      const res = await api<{ message: string }>('/api/master/terms/active', {
+        method: 'PATCH',
+        json: { name },
+      });
+      notify(res.message || 'تم تحديث الاسم');
+      await loadTerms();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'فشل تحديث الاسم', 'error');
+    } finally {
+      setRenameBusy(false);
     }
   }
 
@@ -278,10 +303,22 @@ function CloseTermPanel({
       <SectionTitle>إنهاء الفصل / الأرشيف</SectionTitle>
       <Card className="space-y-3">
         <p className="text-sm font-bold text-ios-text">الفترة النشطة: {active?.name || '—'}</p>
+        <Field label="تعديل اسم الفترة النشطة">
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              value={activeNameEdit}
+              onChange={(e) => setActiveNameEdit(e.target.value)}
+              placeholder="مثال: الفصل الأول 1447"
+            />
+            <Button variant="secondary" disabled={renameBusy || !active} onClick={() => void renameActive()}>
+              {renameBusy ? 'جاري الحفظ...' : 'حفظ الاسم'}
+            </Button>
+          </div>
+        </Field>
         <p className="text-[12px] text-ios-muted">
           عايني الأرشيف داخل الصفحة أو حمّلي Excel في أي وقت. إنهاء الفصل يؤرشف الفترة الحالية ويفتح فترة جديدة دون حذف البنية.
         </p>
-        <Field label="اسم الفترة الجديدة (اختياري)">
+        <Field label="اسم الفترة الجديدة بعد الإنهاء (اختياري)">
           <Input value={newTermName} onChange={(e) => setNewTermName(e.target.value)} placeholder="مثال: الفصل الثاني 1447" />
         </Field>
         {step2 ? (

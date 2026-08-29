@@ -37,6 +37,22 @@ export async function resolveTermId(termId?: string): Promise<string> {
   return ensured.id;
 }
 
+/** إعادة تسمية الفترة النشطة فقط. Time O(1). */
+export async function renameActiveTerm(name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error('EMPTY_NAME');
+  }
+  const active = await getActiveTerm();
+  if (!active) {
+    throw new Error('NO_ACTIVE_TERM');
+  }
+  return prisma.academicTerm.update({
+    where: { id: active.id },
+    data: { name: trimmed },
+  });
+}
+
 export async function closeActiveTerm(opts?: { newName?: string }) {
   const active = await getActiveTerm();
   if (!active) {
