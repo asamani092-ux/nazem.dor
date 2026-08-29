@@ -267,7 +267,7 @@ function CloseTermPanel({
       return;
     }
     if (confirmText.trim() !== 'إنهاء الفصل') {
-      notify('اكتبي «إنهاء الفصل» للتأكيد', 'error');
+      notify('كتابة «إنهاء الفصل» للتأكيد', 'error');
       return;
     }
     if (!window.confirm('تأكيد نهائي: أرشفة الفترة الحالية وفتح فترة جديدة؟ البنية (دور/فصول/طالبات) لن تُحذف.')) {
@@ -316,13 +316,13 @@ function CloseTermPanel({
           </div>
         </Field>
         <p className="text-[12px] text-ios-muted">
-          عايني الأرشيف داخل الصفحة أو حمّلي Excel في أي وقت. إنهاء الفصل يؤرشف الفترة الحالية ويفتح فترة جديدة دون حذف البنية.
+          معاينة الأرشيف داخل الصفحة أو تحميل Excel في أي وقت. إنهاء الفصل يؤرشف الفترة الحالية ويفتح فترة جديدة دون حذف البنية.
         </p>
         <Field label="اسم الفترة الجديدة بعد الإنهاء (اختياري)">
           <Input value={newTermName} onChange={(e) => setNewTermName(e.target.value)} placeholder="مثال: الفصل الثاني 1447" />
         </Field>
         {step2 ? (
-          <Field label='اكتبي للتأكيد: إنهاء الفصل'>
+          <Field label='كتابة التأكيد: إنهاء الفصل'>
             <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} />
           </Field>
         ) : null}
@@ -419,7 +419,7 @@ function CloseTermPanel({
           <p className="text-[12px] font-bold text-ios-muted">
             يحذف الدور والفصول والطالبات والرصد والاختبارات والمرفقات والفترات. يُبقي الحسابات والمنهج وأوزان المؤشرات، ويفك ربط الحسابات بالدور.
           </p>
-          <Field label='اكتبي للتأكيد: تنظيف البيانات'>
+          <Field label='كتابة التأكيد: تنظيف البيانات'>
             <Input value={resetText} onChange={(e) => setResetText(e.target.value)} />
           </Field>
           <Button
@@ -428,7 +428,7 @@ function CloseTermPanel({
             onClick={() => {
               void (async () => {
                 if (resetText.trim() !== 'تنظيف البيانات') {
-                  notify('اكتبي «تنظيف البيانات» للتأكيد', 'error');
+                  notify('كتابة «تنظيف البيانات» للتأكيد', 'error');
                   return;
                 }
                 if (!window.confirm('تأكيد نهائي لا رجعة فيه: مسح كل البيانات التشغيلية؟')) return;
@@ -1069,12 +1069,12 @@ export function MasterPage() {
   function openAddPlan(day?: string) {
     const target = day || firstEmptyDay();
     if (!target) {
-      notify('جميع أيام هذا الأسبوع ممتلئة — عدّلي يوماً موجوداً فقط', 'error');
+      notify('جميع أيام هذا الأسبوع ممتلئة — تعديل يوم موجود فقط', 'error');
       return;
     }
     const filled = weekSlots.some((s) => s.day === target && s.plan);
     if (filled) {
-      notify('يوجد خطة لهذا اليوم — استخدمي التعديل فقط', 'error');
+      notify('يوجد خطة لهذا اليوم — استخدام التعديل فقط', 'error');
       return;
     }
     setPlanEditorMode('add');
@@ -1759,7 +1759,7 @@ export function MasterPage() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-[11px] font-bold text-gray-400">لا توجد خطة — اختاري إضافة من الإجراءات</p>
+                    <p className="text-[11px] font-bold text-gray-400">لا توجد خطة — اختيار إضافة من الإجراءات</p>
                   )}
                 </div>
               ))}
@@ -1874,7 +1874,7 @@ export function MasterPage() {
         <div className="space-y-4">
           <SectionTitle>مؤشر مرفقات الأسابيع</SectionTitle>
           <Card>
-            <Field label="اختر الأسبوع">
+            <Field label="اختيار الأسبوع">
               <select
                 className="ds-input"
                 value={attachWeek}
@@ -2353,7 +2353,7 @@ export function MasterPage() {
                       (p) => p.level === planForm.level && p.week === Number(planForm.week) && p.day === day,
                     );
                     if (clash) {
-                      notify('يوجد خطة لهذا اليوم — استخدمي التعديل فقط', 'error');
+                      notify('يوجد خطة لهذا اليوم — استخدام التعديل فقط', 'error');
                       return;
                     }
                   }
@@ -2597,7 +2597,7 @@ export function MasterPage() {
             {accountForm.type === 'MANAGER' ? (
               <Field label="الدار">
                 <select className="ds-input" value={accountForm.darId} onChange={(e) => setAccountForm({ ...accountForm, darId: e.target.value })}>
-                  <option value="">اختاري الدار</option>
+                  <option value="">اختيار الدار</option>
                   {(usersMeta?.dars || []).map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name}
@@ -2609,7 +2609,7 @@ export function MasterPage() {
             {accountForm.type === 'TEACHER' || accountForm.type === 'STUDENT' ? (
               <Field label="الفصل">
                 <select className="ds-input" value={accountForm.classId} onChange={(e) => setAccountForm({ ...accountForm, classId: e.target.value })}>
-                  <option value="">اختاري الفصل</option>
+                  <option value="">اختيار الفصل</option>
                   {allClasses.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.darName} — {c.name}

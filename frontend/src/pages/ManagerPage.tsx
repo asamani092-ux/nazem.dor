@@ -149,7 +149,7 @@ export function ManagerPage() {
   }
 
   async function confirmImport() {
-    if (!stuClassId) return notify('اختاري الفصل', 'error');
+    if (!stuClassId) return notify('اختيار الفصل', 'error');
     if (!importPreview.length) return notify('لا توجد بيانات للاستيراد', 'error');
     const count = importPreview.length;
     const chunk = 100;
@@ -408,7 +408,7 @@ export function ManagerPage() {
             </button>
             <Field label="الفصل">
               <select className="ds-input font-bold text-primary" value={filterClass} onChange={(e) => void loadStudents(e.target.value)}>
-                <option value="">اختاري الفصل...</option>
+                <option value="">اختيار الفصل...</option>
                 {classes
                   .filter((c) => c.status !== 'موقوف')
                   .map((c) => (
@@ -714,7 +714,7 @@ export function ManagerPage() {
           <div className="space-y-3">
             <Field label="الفصل">
               <select className="ds-input" value={stuClassId} onChange={(e) => setStuClassId(e.target.value)}>
-                <option value="">اختر الفصل</option>
+                <option value="">اختيار الفصل</option>
                 {classes
                   .filter((c) => c.status !== 'موقوف')
                   .map((c) => (

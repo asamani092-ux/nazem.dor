@@ -102,7 +102,7 @@ export function TeacherPage() {
   }
 
   async function fetchPlan() {
-    if (!week || !day) return notify('اختاري الأسبوع واليوم', 'error');
+    if (!week || !day) return notify('اختيار الأسبوع واليوم', 'error');
     const res = await api<{ educational: string; homework: string; tarbawi: string }>(
       `/api/teacher/lesson-plan?level=${encodeURIComponent(user?.classLevel || '')}&week=${week}&day=${encodeURIComponent(day)}`,
     );
@@ -162,7 +162,7 @@ export function TeacherPage() {
 
   async function submitTracking() {
     if (!plan || !week || !day) return notify('يجب جلب المقرر أولاً', 'error');
-    if (tracked.includes(day) && !window.confirm('يوجد رصد سابق لهذا اليوم — هل تريدين التعديل والحفظ؟')) return;
+    if (tracked.includes(day) && !window.confirm('يوجد رصد سابق لهذا اليوم — تأكيد التعديل والحفظ؟')) return;
     setSubmitting(true);
     try {
       if (file) {
@@ -243,7 +243,7 @@ export function TeacherPage() {
       if (!raw || raw === 'غائبة') continue;
       const value = Number(raw);
       if (Number.isNaN(value)) {
-        notify(`درجة غير صالحة للطالبة ${s.name} — أدخلي رقماً أو اتركيها فارغة`, 'error');
+        notify(`درجة غير صالحة للطالبة ${s.name} — إدخال رقم أو تركه فارغاً`, 'error');
         return;
       }
       if (value < 0 || value > cap) {
@@ -498,7 +498,7 @@ export function TeacherPage() {
         <div className="space-y-4">
           <h3 className="text-lg font-extrabold text-primary">الاختبارات</h3>
           {!students.length ? (
-            <p className="rounded-xl bg-shell p-4 text-center text-sm text-ios-muted">لا توجد طالبات في الفصل — أضيفي طالبات من حساب المديرة أولاً.</p>
+            <p className="rounded-xl bg-shell p-4 text-center text-sm text-ios-muted">لا توجد طالبات في الفصل — إضافة طالبات من حساب المديرة أولاً.</p>
           ) : null}
           <div className="flex gap-2">
             <Button variant={examTab === 'pending' ? 'primary' : 'secondary'} className="!w-auto !px-3" onClick={() => setExamTab('pending')}>
@@ -548,7 +548,7 @@ export function TeacherPage() {
             <div className="rounded-lg bg-primary-soft p-3 text-xs font-bold text-primary">
               الدرجة الكاملة لهذا الاختبار: {grading.maxScore ?? 100}
               <span className="mt-1 block text-[10px] font-semibold text-ios-muted">
-                اكتبي درجة كل طالبة من 0 إلى {grading.maxScore ?? 100}. اتركي الحقل فارغاً إذا كانت غائبة. الملاحظة اختيارية.
+                إدخال درجة كل طالبة من 0 إلى {grading.maxScore ?? 100}. ترك الحقل فارغاً إذا كانت غائبة. الملاحظة اختيارية.
               </span>
             </div>
             {students.map((s) => (

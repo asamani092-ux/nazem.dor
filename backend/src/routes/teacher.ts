@@ -490,7 +490,7 @@ export async function teacherRoutes(app: FastifyInstance) {
       if (Number.isNaN(value)) {
         return reply.code(400).send({
           status: 'error',
-          message: `درجة غير صالحة للطالبة ${g.name}. أدخلي رقماً أو اتركيها فارغة`,
+          message: `درجة غير صالحة للطالبة ${g.name}. إدخال رقم أو تركه فارغاً`,
         });
       }
       if (value < 0 || value > exam.maxScore) {

@@ -1059,7 +1059,7 @@ export async function masterRoutes(app: FastifyInstance) {
     if (!body.confirm || body.confirmText.trim() !== 'تنظيف البيانات') {
       return reply.code(400).send({
         status: 'error',
-        message: 'اكتبي «تنظيف البيانات» للتأكيد',
+        message: 'كتابة «تنظيف البيانات» للتأكيد',
       });
     }
 
