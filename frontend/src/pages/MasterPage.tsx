@@ -172,7 +172,13 @@ function buildWeekSlots(plans: CurriculumRow[], level: string, week: number): We
   return WEEK_DAYS.map((day) => ({ day, plan: byDay.get(day) || null }));
 }
 
-function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error') => void }) {
+function CloseTermPanel({
+  notify,
+  isSuperMaster,
+}: {
+  notify: (m: string, t?: 'success' | 'error') => void;
+  isSuperMaster?: boolean;
+}) {
   type TermRow = { id: string; name: string; status: string; archivedAt: string | null };
   type ArchiveSheet = { name: string; rows: (string | number)[][] };
   const [terms, setTerms] = useState<TermRow[]>([]);
@@ -184,6 +190,8 @@ function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error
   const [previewSheets, setPreviewSheets] = useState<ArchiveSheet[] | null>(null);
   const [previewName, setPreviewName] = useState('');
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [resetText, setResetText] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
 
   async function loadTerms() {
     const res = await api<{ data: TermRow[] }>('/api/master/terms');
@@ -365,6 +373,50 @@ function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error
               </table>
             </div>
           ))}
+        </Card>
+      ) : null}
+
+      {isSuperMaster ? (
+        <Card className="space-y-3 border border-red-200">
+          <h3 className="text-sm font-extrabold text-red-700">خطر — تنظيف البيانات (مدير النظام فقط)</h3>
+          <p className="text-[12px] font-bold text-ios-muted">
+            يحذف الدور والفصول والطالبات والرصد والاختبارات والمرفقات والفترات. يُبقي الحسابات والمنهج وأوزان المؤشرات، ويفك ربط الحسابات بالدور.
+          </p>
+          <Field label='اكتبي للتأكيد: تنظيف البيانات'>
+            <Input value={resetText} onChange={(e) => setResetText(e.target.value)} />
+          </Field>
+          <Button
+            variant="danger-soft"
+            disabled={resetBusy}
+            onClick={() => {
+              void (async () => {
+                if (resetText.trim() !== 'تنظيف البيانات') {
+                  notify('اكتبي «تنظيف البيانات» للتأكيد', 'error');
+                  return;
+                }
+                if (!window.confirm('تأكيد نهائي لا رجعة فيه: مسح كل البيانات التشغيلية؟')) return;
+                setResetBusy(true);
+                try {
+                  const res = await api<{ message: string }>('/api/master/danger/reset-operational', {
+                    method: 'POST',
+                    json: { confirm: true, confirmText: resetText },
+                    timeoutMs: 120_000,
+                  });
+                  notify(res.message || 'تم التنظيف');
+                  setResetText('');
+                  setPreviewSheets(null);
+                  setPreviewTermId(null);
+                  await loadTerms();
+                } catch (e) {
+                  notify(e instanceof Error ? e.message : 'فشل التنظيف', 'error');
+                } finally {
+                  setResetBusy(false);
+                }
+              })();
+            }}
+          >
+            {resetBusy ? 'جاري التنظيف...' : 'تنظيف كل شيء ما عدا الحسابات'}
+          </Button>
         </Card>
       ) : null}
     </div>
@@ -1778,7 +1830,7 @@ export function MasterPage() {
       ) : null}
 
       {tab === 'close-term' && isAdmin ? (
-        <CloseTermPanel notify={notify} />
+        <CloseTermPanel notify={notify} isSuperMaster={isSuperMaster} />
       ) : null}
 
       {tab === 'attachments' ? (

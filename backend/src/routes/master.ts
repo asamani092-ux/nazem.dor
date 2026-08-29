@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
+import path from 'node:path';
 import { z } from 'zod';
 import { computeExamStats, computeRates, levelsForCurriculum, normalizeHomework } from '../lib/domain.js';
 import { getRateWeights, setRateWeights } from '../lib/settings.js';
@@ -8,6 +9,7 @@ import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { ADMIN_ROLES, isAdminRole, requireRoles } from '../middleware/auth.js';
 import { buildClassTrackingInfo, buildDarTrackingSummaries, periodSince } from '../lib/tracking-status.js';
 import { buildTermArchiveSheets } from '../lib/term-archive.js';
+import { resetOperationalData } from '../lib/reset-operational-data.js';
 import { closeActiveTerm, ensureActiveTerm, getActiveTerm, listTerms, resolveTermId } from '../lib/terms.js';
 
 const curriculumMap: Record<string, CurriculumType> = {
@@ -1018,6 +1020,31 @@ export async function masterRoutes(app: FastifyInstance) {
           startsAt: created.startsAt.toISOString(),
         },
       },
+    };
+  });
+
+  /** تنظيف تشغيلي — مدير النظام فقط. يبقي الحسابات والمنهج والأوزان. */
+  app.post('/danger/reset-operational', { preHandler: requireRoles(Role.SUPER_MASTER) }, async (request, reply) => {
+    const body = z
+      .object({
+        confirm: z.boolean(),
+        confirmText: z.string(),
+      })
+      .parse(request.body);
+
+    if (!body.confirm || body.confirmText.trim() !== 'تنظيف البيانات') {
+      return reply.code(400).send({
+        status: 'error',
+        message: 'اكتبي «تنظيف البيانات» للتأكيد',
+      });
+    }
+
+    const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+    const result = await resetOperationalData(prisma, { uploadDir });
+    return {
+      status: 'success',
+      message: 'تم تنظيف البيانات التشغيلية مع الإبقاء على الحسابات والمنهج والأوزان',
+      data: result,
     };
   });
 
