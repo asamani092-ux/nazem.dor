@@ -166,8 +166,8 @@ export function TeacherPage() {
     setSubmitting(true);
     try {
       if (file) {
-        if (file.size > 10 * 1024 * 1024) {
-          throw new Error('حجم الملف يتجاوز 10 ميجابايت');
+        if (file.size > 30 * 1024 * 1024) {
+          throw new Error('حجم الملف يتجاوز 30 ميجابايت');
         }
         const upData = await apiUpload<{ url: string }>('/api/teacher/upload', file, 120_000);
         if (!upData.url) throw new Error('فشل الرفع');

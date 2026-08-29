@@ -290,8 +290,8 @@ export async function teacherRoutes(app: FastifyInstance) {
     const safeName = `${Date.now()}-${randomUUID()}${ext}`;
     const fullPath = path.join(resolvedDir, safeName);
     const buffer = await file.toBuffer();
-    if (buffer.length > 10 * 1024 * 1024) {
-      return reply.code(400).send({ status: 'error', message: 'حجم الملف يتجاوز 10 ميجابايت' });
+    if (buffer.length > 30 * 1024 * 1024) {
+      return reply.code(400).send({ status: 'error', message: 'حجم الملف يتجاوز 30 ميجابايت' });
     }
     fs.writeFileSync(fullPath, buffer);
 

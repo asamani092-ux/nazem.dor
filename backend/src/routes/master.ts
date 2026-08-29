@@ -7,6 +7,7 @@ import { CurriculumType, EntityStatus, Role } from '@prisma/client';
 import { isValidSaudiMobile, normalizePhone, prisma } from '../lib/prisma.js';
 import { ADMIN_ROLES, isAdminRole, requireRoles } from '../middleware/auth.js';
 import { buildClassTrackingInfo, buildDarTrackingSummaries, periodSince } from '../lib/tracking-status.js';
+import { buildTermArchiveSheets } from '../lib/term-archive.js';
 import { closeActiveTerm, ensureActiveTerm, getActiveTerm, listTerms, resolveTermId } from '../lib/terms.js';
 
 const curriculumMap: Record<string, CurriculumType> = {
@@ -966,6 +967,19 @@ export async function masterRoutes(app: FastifyInstance) {
     };
   });
 
+  app.get('/terms/:id/archive', superGuard, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    try {
+      const data = await buildTermArchiveSheets(id);
+      return { status: 'success', data };
+    } catch (e) {
+      if (e instanceof Error && e.message === 'TERM_NOT_FOUND') {
+        return reply.code(404).send({ status: 'error', message: 'الفصل الدراسي غير موجود' });
+      }
+      throw e;
+    }
+  });
+
   app.post('/terms/close', superGuard, async (request, reply) => {
     const body = z
       .object({
@@ -978,90 +992,16 @@ export async function masterRoutes(app: FastifyInstance) {
       return reply.code(400).send({ status: 'error', message: 'يجب تأكيد إغلاق الفصل الدراسي' });
     }
 
-    const weights = await getRateWeights();
     const activeBefore = await getActiveTerm();
     if (!activeBefore) {
       return reply.code(400).send({ status: 'error', message: 'لا يوجد فصل دراسي نشط لإغلاقه' });
     }
-    const archivedTermId = activeBefore.id;
 
     const { archived, created } = await closeActiveTerm({ newName: body.newTermName });
 
-    const dars = await prisma.dar.findMany({
-      where: { status: { not: EntityStatus.DELETED } },
-      orderBy: { createdAt: 'asc' },
-      include: {
-        classes: { where: { status: EntityStatus.ACTIVE }, orderBy: { name: 'asc' } },
-      },
-    });
-
-    const allTrackings = await prisma.dailyTracking.findMany({
-      where: { termId: archivedTermId },
-      select: { darId: true, classId: true, attendance: true, educational: true, homework: true },
-    });
-
-    const studentCounts = await prisma.student.groupBy({
-      by: ['darId', 'classId'],
-      where: { status: EntityStatus.ACTIVE },
-      _count: { _all: true },
-    });
-    const studentCountMap = new Map(studentCounts.map((s) => [`${s.darId}:${s.classId}`, s._count._all]));
-
-    const overallRates = computeRates(allTrackings, weights);
-    const generalRows: (string | number)[][] = [
-      ['المؤشر', 'القيمة'],
-      ['اسم الفصل المغلق', archived.name],
-      ['تاريخ البدء', archived.startsAt.toLocaleDateString('en-GB')],
-      ['تاريخ الإغلاق', archived.archivedAt?.toLocaleDateString('en-GB') || ''],
-      ['عدد الدور', dars.length],
-      ['عدد الفصول النشطة', dars.reduce((n, d) => n + d.classes.length, 0)],
-      [
-        'عدد الطالبات النشطات',
-        studentCounts.reduce((n, s) => n + s._count._all, 0),
-      ],
-      ['نسبة الحضور %', overallRates.attendanceRate],
-      ['نسبة الإتقان %', overallRates.completionRate],
-      ['نسبة الواجب %', overallRates.homeworkRate],
-      ['المعدل العام %', overallRates.overallRate],
-      ['سجلات الرصد', overallRates.totalRecords],
-    ];
-
-    const darSheets = dars.map((dar) => {
-      const darTrackings = allTrackings.filter((t) => t.darId === dar.id);
-      const darRates = computeRates(darTrackings, weights);
-      const rows: (string | number)[][] = [
-        ['الفصل', 'عدد الطالبات', 'نسبة الحضور %', 'نسبة الإتقان %', 'نسبة الواجب %', 'المعدل العام %', 'سجلات الرصد'],
-      ];
-      for (const cls of dar.classes) {
-        const classRows = darTrackings.filter((t) => t.classId === cls.id);
-        const classRates = computeRates(classRows, weights);
-        rows.push([
-          cls.name,
-          studentCountMap.get(`${dar.id}:${cls.id}`) || 0,
-          classRates.attendanceRate,
-          classRates.completionRate,
-          classRates.homeworkRate,
-          classRates.overallRate,
-          classRates.totalRecords,
-        ]);
-      }
-      rows.push([
-        'إجمالي الدار',
-        dar.classes.reduce((n, c) => n + (studentCountMap.get(`${dar.id}:${c.id}`) || 0), 0),
-        darRates.attendanceRate,
-        darRates.completionRate,
-        darRates.homeworkRate,
-        darRates.overallRate,
-        darRates.totalRecords,
-      ]);
-      return {
-        name: dar.name.slice(0, 31),
-        rows,
-      };
-    });
-
     return {
       status: 'success',
+      message: `تم أرشفة «${archived.name}» وفتح «${created.name}»`,
       data: {
         archived: {
           id: archived.id,
@@ -1077,7 +1017,6 @@ export async function masterRoutes(app: FastifyInstance) {
           status: created.status,
           startsAt: created.startsAt.toISOString(),
         },
-        sheets: [{ name: 'الإحصائيات العامة', rows: generalRows }, ...darSheets],
       },
     };
   });

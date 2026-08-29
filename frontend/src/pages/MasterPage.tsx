@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, waLink } from '../lib/api';
 import { formatHomework } from '../lib/format';
 import { useAuth } from '../auth';
-import { downloadXlsx, arabicRows } from '../lib/export';
+import { downloadXlsx, downloadXlsxAoa, arabicRows } from '../lib/export';
 import { printReport, tableHtml } from '../lib/print';
 import { matchQuery } from '../lib/search';
 import { monthStart, monthRangeParams, type CalendarEvent } from '../lib/calendar';
@@ -173,20 +173,60 @@ function buildWeekSlots(plans: CurriculumRow[], level: string, week: number): We
 }
 
 function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error') => void }) {
-  const [terms, setTerms] = useState<Array<{ id: string; name: string; status: string; archivedAt: string | null }>>([]);
+  type TermRow = { id: string; name: string; status: string; archivedAt: string | null };
+  type ArchiveSheet = { name: string; rows: (string | number)[][] };
+  const [terms, setTerms] = useState<TermRow[]>([]);
   const [confirmText, setConfirmText] = useState('');
   const [newTermName, setNewTermName] = useState('');
   const [busy, setBusy] = useState(false);
   const [step2, setStep2] = useState(false);
+  const [previewTermId, setPreviewTermId] = useState<string | null>(null);
+  const [previewSheets, setPreviewSheets] = useState<ArchiveSheet[] | null>(null);
+  const [previewName, setPreviewName] = useState('');
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   async function loadTerms() {
-    const res = await api<{ data: typeof terms }>('/api/master/terms');
+    const res = await api<{ data: TermRow[] }>('/api/master/terms');
     setTerms(res.data);
   }
 
   useEffect(() => {
     void loadTerms().catch((e) => notify(e.message, 'error'));
   }, []);
+
+  async function fetchArchive(termId: string) {
+    const res = await api<{
+      data: { term: { id: string; name: string }; sheets: ArchiveSheet[] };
+    }>(`/api/master/terms/${termId}/archive`, { timeoutMs: 120_000 });
+    return res.data;
+  }
+
+  async function previewTerm(termId: string) {
+    setLoadingId(termId);
+    try {
+      const data = await fetchArchive(termId);
+      setPreviewTermId(termId);
+      setPreviewName(data.term.name);
+      setPreviewSheets(data.sheets);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'فشل المعاينة', 'error');
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  async function downloadTerm(termId: string, termName: string) {
+    setLoadingId(termId);
+    try {
+      const data = await fetchArchive(termId);
+      downloadXlsxAoa(`archive-${termName || termId}.xlsx`, data.sheets);
+      notify('تم تنزيل الأرشيف', 'success');
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'فشل التحميل', 'error');
+    } finally {
+      setLoadingId(null);
+    }
+  }
 
   async function closeTerm() {
     if (!step2) {
@@ -204,16 +244,17 @@ function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error
     try {
       const res = await api<{
         message: string;
-        data: { sheets: Array<{ name: string; rows: Record<string, unknown>[] }>; created: { name: string } };
+        data: { created: { name: string }; archived: { id: string; name: string } };
       }>('/api/master/terms/close', {
         method: 'POST',
-        json: { confirm: true, confirmText, newTermName: newTermName || undefined },
+        json: { confirm: true, newTermName: newTermName || undefined },
         timeoutMs: 120_000,
       });
-      downloadXlsx(`archive-${Date.now()}.xlsx`, res.data.sheets);
       notify(res.message || `تم فتح: ${res.data.created.name}`);
       setStep2(false);
       setConfirmText('');
+      setPreviewTermId(null);
+      setPreviewSheets(null);
       await loadTerms();
     } catch (e) {
       notify(e instanceof Error ? e.message : 'فشل إنهاء الفصل', 'error');
@@ -223,15 +264,14 @@ function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error
   }
 
   const active = terms.find((t) => t.status === 'ACTIVE');
-  const archived = terms.filter((t) => t.status === 'ARCHIVED');
 
   return (
     <div className="space-y-4">
-      <SectionTitle>إنهاء الفصل / الأرشفة</SectionTitle>
+      <SectionTitle>إنهاء الفصل / الأرشيف</SectionTitle>
       <Card className="space-y-3">
         <p className="text-sm font-bold text-ios-text">الفترة النشطة: {active?.name || '—'}</p>
         <p className="text-[12px] text-ios-muted">
-          سيتم تحميل Excel (إحصائيات عامة + ورقة لكل دار) ثم أرشفة الفترة وفتح فترة جديدة. البيانات القديمة تبقى للقراءة.
+          عايني الأرشيف داخل الصفحة أو حمّلي Excel في أي وقت. إنهاء الفصل يؤرشف الفترة الحالية ويفتح فترة جديدة دون حذف البنية.
         </p>
         <Field label="اسم الفترة الجديدة (اختياري)">
           <Input value={newTermName} onChange={(e) => setNewTermName(e.target.value)} placeholder="مثال: الفصل الثاني 1447" />
@@ -242,7 +282,7 @@ function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error
           </Field>
         ) : null}
         <Button variant="primary" disabled={busy} onClick={() => void closeTerm()}>
-          {busy ? 'جاري الأرشفة...' : step2 ? 'تأكيد إنهاء الفصل وتحميل Excel' : 'بدء إنهاء الفصل'}
+          {busy ? 'جاري الأرشفة...' : step2 ? 'تأكيد إنهاء الفصل' : 'بدء إنهاء الفصل'}
         </Button>
         {step2 ? (
           <Button
@@ -256,17 +296,75 @@ function CloseTermPanel({ notify }: { notify: (m: string, t?: 'success' | 'error
           </Button>
         ) : null}
       </Card>
-      {archived.length ? (
-        <Card>
-          <h3 className="mb-2 text-sm font-extrabold">فترات مؤرشفة (قراءة)</h3>
-          <ul className="space-y-1 text-[12px] font-bold text-ios-muted">
-            {archived.map((t) => (
-              <li key={t.id}>
-                {t.name}
-                {t.archivedAt ? ` — ${new Date(t.archivedAt).toLocaleDateString('en-GB')}` : ''}
+
+      <Card className="space-y-2">
+        <h3 className="mb-2 text-sm font-extrabold">أرشيف الفترات</h3>
+        {!terms.length ? (
+          <p className="text-xs font-bold text-ios-muted">لا توجد فترات بعد.</p>
+        ) : (
+          <ul className="space-y-2">
+            {terms.map((t) => (
+              <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-black/5 pb-2 last:border-0">
+                <div className="text-[12px] font-bold text-ios-text">
+                  {t.name}
+                  <span className="mr-2 text-ios-muted">
+                    {t.status === 'ACTIVE' ? ' (نشط)' : t.archivedAt ? ` — ${new Date(t.archivedAt).toLocaleDateString('en-GB')}` : ' (مؤرشف)'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="ghost"
+                    disabled={loadingId === t.id}
+                    onClick={() => void previewTerm(t.id)}
+                  >
+                    {loadingId === t.id && previewTermId !== t.id ? '...' : 'معاينة'}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    disabled={loadingId === t.id}
+                    onClick={() => void downloadTerm(t.id, t.name)}
+                  >
+                    تحميل Excel
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
+        )}
+      </Card>
+
+      {previewSheets && previewTermId ? (
+        <Card className="space-y-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-extrabold">معاينة: {previewName}</h3>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setPreviewSheets(null);
+                setPreviewTermId(null);
+              }}
+            >
+              إغلاق المعاينة
+            </Button>
+          </div>
+          {previewSheets.map((sheet) => (
+            <div key={sheet.name} className="overflow-x-auto">
+              <h4 className="mb-2 text-xs font-extrabold text-primary">{sheet.name}</h4>
+              <table className="min-w-full border-collapse text-[11px]">
+                <tbody>
+                  {sheet.rows.map((row, ri) => (
+                    <tr key={ri} className={ri === 0 ? 'bg-shell font-extrabold' : 'border-t border-black/5'}>
+                      {row.map((cell, ci) => (
+                        <td key={ci} className="whitespace-nowrap px-2 py-1 text-ios-text">
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </Card>
       ) : null}
     </div>
@@ -1688,30 +1786,17 @@ export function MasterPage() {
           <SectionTitle>مؤشر مرفقات الأسابيع</SectionTitle>
           <Card>
             <Field label="اختر الأسبوع">
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  className="ds-input !w-24"
-                  type="number"
-                  min={1}
-                  max={20}
-                  value={attachWeek}
-                  onChange={(e) => setAttachWeek(Math.max(1, Number(e.target.value) || 1))}
-                />
-                {attachData?.availableWeeks?.length ? (
-                  <div className="flex flex-wrap gap-1">
-                    {attachData.availableWeeks.map((w) => (
-                      <button
-                        key={w}
-                        type="button"
-                        className={`rounded-lg px-2 py-1 text-xs font-bold ${w === attachWeek ? 'bg-primary text-white' : 'bg-shell text-ios-muted'}`}
-                        onClick={() => setAttachWeek(w)}
-                      >
-                        أسبوع {w}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
+              <select
+                className="ds-input"
+                value={attachWeek}
+                onChange={(e) => setAttachWeek(Number(e.target.value))}
+              >
+                {Array.from({ length: 20 }, (_, i) => i + 1).map((w) => (
+                  <option key={w} value={w}>
+                    الأسبوع {w}
+                  </option>
+                ))}
+              </select>
             </Field>
             <p className="mt-2 text-xs font-semibold text-ios-muted">
               يعرض هل رفعت كل دار مرفقات فصولها للأسبوع {attachWeek}. اضغط على فصل مرفوع لمعاينته.
