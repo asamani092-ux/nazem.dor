@@ -49,10 +49,18 @@ export async function api<T = unknown>(
       body,
       signal: controller.signal,
     });
-    const data = (await res.json().catch(() => ({
-      status: 'error',
-      message: 'استجابة غير صالحة من السيرفر',
-    }))) as { status?: string; message?: string } & T;
+    const raw = await res.text();
+    let data: { status?: string; message?: string } & T;
+    try {
+      data = (raw ? JSON.parse(raw) : {}) as { status?: string; message?: string } & T;
+    } catch {
+      const unavailable = res.status === 502 || res.status === 503 || res.status === 504;
+      throw new Error(
+        unavailable
+          ? 'السيرفر غير متاح حالياً — أعد نشر التطبيق من Coolify ثم حاول مجدداً'
+          : 'استجابة غير صالحة من السيرفر',
+      );
+    }
 
     if (!res.ok) {
       throw new Error((data as { message?: string }).message || `فشل الطلب (${res.status})`);

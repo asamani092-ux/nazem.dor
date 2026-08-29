@@ -1,13 +1,28 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { PrismaClient, Role } from '@prisma/client';
+import { AcademicTermStatus, PrismaClient, Role } from '@prisma/client';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ensureActiveTerm } from '../src/lib/terms.js';
 
 const prisma = new PrismaClient();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Inline — لا تستورد من src/ لأن صورة Docker لا تحتويها (Time O(1), Space O(1)). */
+async function ensureActiveTerm() {
+  const existing = await prisma.academicTerm.findFirst({
+    where: { status: AcademicTermStatus.ACTIVE },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (existing) return existing;
+  return prisma.academicTerm.create({
+    data: {
+      name: 'الفصل الحالي',
+      status: AcademicTermStatus.ACTIVE,
+      startsAt: new Date(),
+    },
+  });
+}
 
 async function main() {
   await ensureActiveTerm();
