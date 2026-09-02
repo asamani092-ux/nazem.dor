@@ -718,6 +718,18 @@ export function MasterPage() {
     setCurriculumLoaded(true);
   }
 
+  async function importDriveCurriculum() {
+    try {
+      const res = await api<{ data: { cleared: number; inserted: number } }>('/api/master/curriculum/reload-seed', {
+        method: 'POST',
+      });
+      await loadCurriculum(true);
+      notify(`تم استيراد ${res.data.inserted} خطة (حُذف ${res.data.cleared})`);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'فشل استيراد الخطط', 'error');
+    }
+  }
+
   async function loadCurriculumLevels() {
     const res = await api<{ data: string[] }>('/api/master/curriculum/levels');
     if (res.data?.length) setCurriculumLevels(res.data);
@@ -1724,6 +1736,15 @@ export function MasterPage() {
                 >
                   إضافة مستوى
                 </Button>
+                {isAdmin ? (
+                  <Button
+                    variant="secondary"
+                    className="!w-auto !px-3 !py-2 !text-xs"
+                    onClick={() => void importDriveCurriculum()}
+                  >
+                    استيراد خطط درايف
+                  </Button>
+                ) : null}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
