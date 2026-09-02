@@ -160,7 +160,9 @@ type ExamCenterRow = {
   gradesCount: number;
 };
 
-const CURRICULUM_LEVELS = ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'] as const;
+import { collectLeaves, DEFAULT_LEAF_LEVELS, type CurriculumTreeNode } from '../lib/curriculum-tree';
+
+const CURRICULUM_LEVELS = [...DEFAULT_LEAF_LEVELS] as string[];
 const WEEK_DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'] as const;
 
 /** Time O(n) scan plans + O(1) build 5 day slots. Space O(1) for slots. */
@@ -170,6 +172,46 @@ function buildWeekSlots(plans: CurriculumRow[], level: string, week: number): We
     if (p.level === level && p.week === week) byDay.set(p.day, p);
   }
   return WEEK_DAYS.map((day) => ({ day, plan: byDay.get(day) || null }));
+}
+
+
+function CurriculumTreeView({
+  nodes,
+  selected,
+  onSelect,
+  depth = 0,
+}: {
+  nodes: CurriculumTreeNode[];
+  selected: string;
+  onSelect: (name: string) => void;
+  depth?: number;
+}) {
+  return (
+    <ul className={depth ? 'mt-1 space-y-1 border-r border-ios-border/50 pr-2' : 'space-y-1'}>
+      {nodes.map((node) => (
+        <li key={node.name}>
+          {node.isLeaf ? (
+            <button
+              type="button"
+              className={`w-full rounded-lg px-2 py-1 text-right text-xs font-bold transition ${
+                selected === node.name ? 'bg-primary text-white' : 'text-ios-text hover:bg-ios-fill'
+              }`}
+              onClick={() => onSelect(node.name)}
+            >
+              {node.label}
+            </button>
+          ) : (
+            <div>
+              <p className="px-2 py-1 text-[11px] font-extrabold text-ios-muted">{node.label}</p>
+              {node.children?.length ? (
+                <CurriculumTreeView nodes={node.children} selected={selected} onSelect={onSelect} depth={depth + 1} />
+              ) : null}
+            </div>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function CloseTermPanel({
@@ -478,8 +520,9 @@ export function MasterPage() {
   const [curriculum, setCurriculum] = useState<CurriculumRow[]>([]);
   const [curriculumLoaded, setCurriculumLoaded] = useState(false);
   const [indicatorsLoaded, setIndicatorsLoaded] = useState(false);
-  const [planViewLevel, setPlanViewLevel] = useState<string>('تمهيدي 1');
+  const [planViewLevel, setPlanViewLevel] = useState<string>(CURRICULUM_LEVELS[0] || '');
   const [curriculumLevels, setCurriculumLevels] = useState<string[]>([...CURRICULUM_LEVELS]);
+  const [curriculumTree, setCurriculumTree] = useState<CurriculumTreeNode[]>([]);
   const [planViewWeek, setPlanViewWeek] = useState(1);
   const [planViewMode, setPlanViewMode] = useState<PlanViewMode>('table');
   const [planMenuDay, setPlanMenuDay] = useState<string | null>(null);
@@ -680,6 +723,18 @@ export function MasterPage() {
     if (res.data?.length) setCurriculumLevels(res.data);
   }
 
+  async function loadCurriculumTree() {
+    const res = await api<{ data: CurriculumTreeNode[] }>('/api/master/curriculum/tree');
+    if (res.data?.length) {
+      setCurriculumTree(res.data);
+      const leaves = collectLeaves(res.data);
+      if (leaves.length) {
+        setCurriculumLevels(leaves);
+        setPlanViewLevel((prev) => (leaves.includes(prev) ? prev : leaves[0]));
+      }
+    }
+  }
+
   async function addCurriculumLevel() {
     const name = newLevelName.trim();
     if (!name) return notify('اسم المستوى مطلوب', 'error');
@@ -705,6 +760,7 @@ export function MasterPage() {
     if (tab === 'curriculum') {
       void loadCurriculum().catch((e) => notify(e.message, 'error'));
       void loadCurriculumLevels().catch(() => undefined);
+      void loadCurriculumTree().catch(() => undefined);
     }
     if (tab === 'accounts' && isAdmin) {
       void loadUsersMeta().catch((e) => notify(e.message, 'error'));
@@ -1598,6 +1654,35 @@ export function MasterPage() {
       {tab === 'curriculum' ? (
         <div className="space-y-4">
           <div className="ds-card ds-card-pad space-y-3 p-4">
+            <h3 className="text-lg font-extrabold text-primary">مشجّرة المنهج</h3>
+            <p className="text-[10px] font-bold text-ios-muted">
+              المستويات مربوطة بنوع المنهج — الخطط فارغة حالياً
+            </p>
+            <div className="grid gap-3 md:grid-cols-2">
+              {(['TIBYAN', 'QARI'] as const).map((kind) => {
+                const roots = curriculumTree.filter((n) => n.curriculum === kind);
+                const title = kind === 'TIBYAN' ? 'منهج تبيان' : 'منهج قارئ';
+                return (
+                  <div key={kind} className="rounded-2xl border border-ios-border/70 bg-white/70 p-3">
+                    <p className="mb-2 text-sm font-extrabold text-primary">{title}</p>
+                    {roots.length ? (
+                      <CurriculumTreeView
+                        nodes={roots}
+                        selected={planViewLevel}
+                        onSelect={(name) => {
+                          setPlanViewLevel(name);
+                          setPlanMenuDay(null);
+                        }}
+                      />
+                    ) : (
+                      <p className="text-xs text-ios-muted">لا بيانات مشجّرة بعد</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="ds-card ds-card-pad space-y-3 p-4">
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-extrabold text-primary">خطط المنهج</h3>
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1678,7 +1763,7 @@ export function MasterPage() {
             <p className="text-[10px] font-bold text-ios-muted">
               {planViewLevel} — أسبوع {planViewWeek}: {weekFilled} من {WEEK_DAYS.length} أيام
             </p>
-            <p className="text-[9px] text-ios-muted">الربط: تبيان ← تمهيدي | قارئ ← صفوف أولية | تبيان/قارئ ← الكل</p>
+            <p className="text-[9px] text-ios-muted">الربط: تبيان ← روضة/تمهيدي/ابتدائي | قارئ ← تمهيدي صباحي/مسائي وأولية وروضة+تمهيدي</p>
           </div>
 
           {planViewMode === 'table' ? (

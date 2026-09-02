@@ -1,0 +1,246 @@
+[
+  {
+    "name": "تبيان/روضة",
+    "label": "روضة",
+    "curriculum": "TIBYAN",
+    "isLeaf": false,
+    "children": [
+      {
+        "name": "روضة — الفصل الأول",
+        "label": "الفصل الأول",
+        "curriculum": "TIBYAN",
+        "isLeaf": true,
+        "children": []
+      },
+      {
+        "name": "روضة — الفصل الثاني",
+        "label": "الفصل الثاني",
+        "curriculum": "TIBYAN",
+        "isLeaf": true,
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "تبيان/تمهيدي",
+    "label": "تمهيدي",
+    "curriculum": "TIBYAN",
+    "isLeaf": false,
+    "children": [
+      {
+        "name": "تمهيدي — الفصل الأول",
+        "label": "الفصل الأول",
+        "curriculum": "TIBYAN",
+        "isLeaf": true,
+        "children": []
+      },
+      {
+        "name": "تمهيدي — الفصل الثاني",
+        "label": "الفصل الثاني",
+        "curriculum": "TIBYAN",
+        "isLeaf": true,
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "تبيان/ابتدائي",
+    "label": "ابتدائي",
+    "curriculum": "TIBYAN",
+    "isLeaf": false,
+    "children": [
+      {
+        "name": "تبيان/ابتدائي/السنة الأولى",
+        "label": "السنة الأولى",
+        "curriculum": "TIBYAN",
+        "isLeaf": false,
+        "children": [
+          {
+            "name": "ابتدائي سنة أولى — الفصل الأول",
+            "label": "الفصل الأول",
+            "curriculum": "TIBYAN",
+            "isLeaf": true,
+            "children": []
+          },
+          {
+            "name": "ابتدائي سنة أولى — الفصل الثاني",
+            "label": "الفصل الثاني",
+            "curriculum": "TIBYAN",
+            "isLeaf": true,
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "تبيان/ابتدائي/السنة الثانية",
+        "label": "السنة الثانية",
+        "curriculum": "TIBYAN",
+        "isLeaf": false,
+        "children": [
+          {
+            "name": "ابتدائي سنة ثانية — الفصل الأول",
+            "label": "الفصل الأول",
+            "curriculum": "TIBYAN",
+            "isLeaf": true,
+            "children": []
+          },
+          {
+            "name": "ابتدائي سنة ثانية — الفصل الثاني",
+            "label": "الفصل الثاني",
+            "curriculum": "TIBYAN",
+            "isLeaf": true,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "قارئ/تمهيدي صباحي",
+    "label": "تمهيدي صباحي",
+    "curriculum": "QARI",
+    "isLeaf": false,
+    "children": [
+      {
+        "name": "تمهيدي صباحي — الفصل الأول",
+        "label": "الفصل الأول",
+        "curriculum": "QARI",
+        "isLeaf": true,
+        "children": []
+      },
+      {
+        "name": "تمهيدي صباحي — الفصل الثاني",
+        "label": "الفصل الثاني",
+        "curriculum": "QARI",
+        "isLeaf": true,
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "قارئ/تمهيدي مسائي",
+    "label": "تمهيدي مسائي",
+    "curriculum": "QARI",
+    "isLeaf": false,
+    "children": [
+      {
+        "name": "تمهيدي مسائي — الفصل الأول",
+        "label": "الفصل الأول",
+        "curriculum": "QARI",
+        "isLeaf": true,
+        "children": []
+      },
+      {
+        "name": "تمهيدي مسائي — الفصل الثاني",
+        "label": "الفصل الثاني",
+        "curriculum": "QARI",
+        "isLeaf": true,
+        "children": []
+      }
+    ]
+  },
+  {
+    "name": "قارئ/ابتدائي صفوف أولية",
+    "label": "ابتدائي صفوف أولية (سنة ونصف)",
+    "curriculum": "QARI",
+    "isLeaf": false,
+    "children": [
+      {
+        "name": "قارئ/ابتدائي/السنة الأولى",
+        "label": "السنة الأولى",
+        "curriculum": "QARI",
+        "isLeaf": false,
+        "children": [
+          {
+            "name": "ابتدائي أولية سنة أولى — الفصل الأول",
+            "label": "الفصل الأول",
+            "curriculum": "QARI",
+            "isLeaf": true,
+            "children": []
+          },
+          {
+            "name": "ابتدائي أولية سنة أولى — الفصل الثاني",
+            "label": "الفصل الثاني",
+            "curriculum": "QARI",
+            "isLeaf": true,
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "قارئ/ابتدائي/السنة الثانية",
+        "label": "السنة الثانية",
+        "curriculum": "QARI",
+        "isLeaf": false,
+        "children": [
+          {
+            "name": "ابتدائي أولية سنة ثانية — الفصل الأول",
+            "label": "الفصل الأول",
+            "curriculum": "QARI",
+            "isLeaf": true,
+            "children": []
+          },
+          {
+            "name": "ابتدائي أولية سنة ثانية — الفصل الثاني",
+            "label": "الفصل الثاني",
+            "curriculum": "QARI",
+            "isLeaf": true,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "قارئ/روضة وتمهيدي سنتين",
+    "label": "روضة + تمهيدي (سنتين)",
+    "curriculum": "QARI",
+    "isLeaf": false,
+    "children": [
+      {
+        "name": "قارئ/روضة مسائي",
+        "label": "روضة مسائي",
+        "curriculum": "QARI",
+        "isLeaf": false,
+        "children": [
+          {
+            "name": "روضة مسائي — الفصل الأول",
+            "label": "الفصل الأول",
+            "curriculum": "QARI",
+            "isLeaf": true,
+            "children": []
+          },
+          {
+            "name": "روضة مسائي — الفصل الثاني",
+            "label": "الفصل الثاني",
+            "curriculum": "QARI",
+            "isLeaf": true,
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "قارئ/تمهيدي مسائي سنتين",
+        "label": "تمهيدي مسائي (سنتين)",
+        "curriculum": "QARI",
+        "isLeaf": false,
+        "children": [
+          {
+            "name": "تمهيدي مسائي سنتين — الفصل الأول",
+            "label": "الفصل الأول",
+            "curriculum": "QARI",
+            "isLeaf": true,
+            "children": []
+          },
+          {
+            "name": "تمهيدي مسائي سنتين — الفصل الثاني",
+            "label": "الفصل الثاني",
+            "curriculum": "QARI",
+            "isLeaf": true,
+            "children": []
+          }
+        ]
+      }
+    ]
+  }
+]

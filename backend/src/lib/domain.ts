@@ -1,12 +1,14 @@
-/** مستويات الصف حسب نوع منهج الدار */
+import { leafLevelsForCurriculum } from './curriculum-tree.js';
+
+/** مستويات الصف (الأوراق) حسب نوع منهج الدار — مشتقة من المشجّرة */
 export const LEVELS_BY_CURRICULUM: Record<string, string[]> = {
-  TIBYAN: ['تمهيدي 1', 'تمهيدي 2'],
-  QARI: ['صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-  BOTH: ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-  'منهج تبيان': ['تمهيدي 1', 'تمهيدي 2'],
-  'منهج قارئ': ['صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-  كلاهما: ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-  'تبيان/قارئ': ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
+  TIBYAN: leafLevelsForCurriculum('TIBYAN'),
+  QARI: leafLevelsForCurriculum('QARI'),
+  BOTH: leafLevelsForCurriculum('BOTH'),
+  'منهج تبيان': leafLevelsForCurriculum('TIBYAN'),
+  'منهج قارئ': leafLevelsForCurriculum('QARI'),
+  كلاهما: leafLevelsForCurriculum('BOTH'),
+  'تبيان/قارئ': leafLevelsForCurriculum('BOTH'),
 };
 
 export function levelsForCurriculum(curriculum: string): string[] {

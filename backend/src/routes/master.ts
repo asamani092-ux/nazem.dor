@@ -885,25 +885,41 @@ export async function masterRoutes(app: FastifyInstance) {
   });
 
   app.get('/curriculum/levels', guard, async () => {
-    const rows = await prisma.curriculumLevel.findMany({ orderBy: { sortOrder: 'asc' } });
+    const rows = await prisma.curriculumLevel.findMany({
+      where: { isLeaf: true },
+      orderBy: { sortOrder: 'asc' },
+    });
     if (rows.length) {
       return { status: 'success', data: rows.map((r) => r.name) };
     }
-    const distinct = await prisma.curriculumPlan.findMany({
-      select: { level: true },
-      distinct: ['level'],
-      orderBy: { level: 'asc' },
-    });
-    return { status: 'success', data: distinct.map((d) => d.level) };
+    const { leafLevelsForCurriculum } = await import('../lib/curriculum-tree.js');
+    return { status: 'success', data: leafLevelsForCurriculum('BOTH') };
+  });
+
+  app.get('/curriculum/tree', guard, async () => {
+    const { getCurriculumTree } = await import('../lib/levels.js');
+    return { status: 'success', data: getCurriculumTree() };
   });
 
   app.post('/curriculum/levels', guard, async (request) => {
-    const body = z.object({ name: z.string().min(1) }).parse(request.body);
+    const body = z
+      .object({
+        name: z.string().min(1),
+        curriculum: z.enum(['TIBYAN', 'QARI']).default('TIBYAN'),
+        label: z.string().optional(),
+      })
+      .parse(request.body);
     const name = body.name.trim();
     const count = await prisma.curriculumLevel.count();
     await prisma.curriculumLevel.upsert({
       where: { name },
-      create: { name, sortOrder: count + 1 },
+      create: {
+        name,
+        label: (body.label || name).trim(),
+        curriculum: body.curriculum,
+        isLeaf: true,
+        sortOrder: count + 1,
+      },
       update: {},
     });
     return { status: 'success', data: { name } };

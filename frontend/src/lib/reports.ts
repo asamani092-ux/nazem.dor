@@ -16,12 +16,4 @@ export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   URL.revokeObjectURL(url);
 }
 
-export const LEVELS_BY_CURRICULUM: Record<string, string[]> = {
-  TIBYAN: ['تمهيدي 1', 'تمهيدي 2'],
-  QARI: ['صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-  BOTH: ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-  'منهج تبيان': ['تمهيدي 1', 'تمهيدي 2'],
-  'منهج قارئ': ['صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-  كلاهما: ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-  'تبيان/قارئ': ['تمهيدي 1', 'تمهيدي 2', 'صفوف أولية 1', 'صفوف أولية 2', 'صفوف أولية 3'],
-};
+export { LEVELS_BY_CURRICULUM } from './curriculum-tree';
