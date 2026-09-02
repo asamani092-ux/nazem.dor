@@ -63,18 +63,25 @@ export function TeacherPage() {
 
   const [lastSavedLabel, setLastSavedLabel] = useState('لم يُحفظ رصد لهذا الفصل بعد');
 
+  const { user, refresh } = useAuth();
+  const [effectiveClassLevel, setEffectiveClassLevel] = useState(String(user?.classLevel || ''));
+
   const isTamheedi =
-    /تمهيدي|روضة/.test(String(user?.classLevel || '')) && !/أولية|ابتدائي أولية/.test(String(user?.classLevel || ''));
-  const isAwwalia = /أولية|ابتدائي أولية|ابتدائي سنة/.test(String(user?.classLevel || '').replace(/أ/g, 'ا'));
+    /تمهيدي|روضة/.test(effectiveClassLevel) && !/أولية|ابتدائي أولية/.test(effectiveClassLevel);
+  const isAwwalia = /أولية|ابتدائي أولية|ابتدائي سنة/.test(effectiveClassLevel.replace(/أ/g, 'ا'));
   const weekCount = isTamheedi ? 15 : 10;
 
   async function loadDashboard() {
     const res = await api<{
-      data: { alerts: Alert[]; students: Student[]; lastSavedLabel?: string };
+      data: { alerts: Alert[]; students: Student[]; lastSavedLabel?: string; classLevel?: string };
     }>('/api/teacher/dashboard');
     setAlerts(res.data.alerts);
     setStudents(res.data.students);
     setLastSavedLabel(res.data.lastSavedLabel || 'لم يُحفظ رصد لهذا الفصل بعد');
+    if (res.data.classLevel) {
+      setEffectiveClassLevel(res.data.classLevel);
+      void refresh().catch(() => undefined);
+    }
     const init: Record<string, TrackState> = {};
     for (const s of res.data.students) {
       init[s.id] = { attendance: 'حاضرة', educational: 'أتقنت', homework: 'أنجزت', tarbawi: 'أتقنت' };
@@ -105,7 +112,7 @@ export function TeacherPage() {
   async function fetchPlan() {
     if (!week || !day) return notify('اختيار الأسبوع واليوم', 'error');
     const res = await api<{ educational: string; homework: string; tarbawi: string }>(
-      `/api/teacher/lesson-plan?level=${encodeURIComponent(user?.classLevel || '')}&week=${week}&day=${encodeURIComponent(day)}`,
+      `/api/teacher/lesson-plan?level=${encodeURIComponent(effectiveClassLevel || user?.classLevel || '')}&week=${week}&day=${encodeURIComponent(day)}`,
     );
     setPlan(res);
 
@@ -291,7 +298,7 @@ export function TeacherPage() {
       subtitle={user?.className || 'فصل التحفيظ'}
       userName={user?.name || ''}
       userRole={user?.role || ''}
-      contextLine={user?.classLevel}
+      contextLine={effectiveClassLevel || user?.classLevel}
       nav={[
         { key: 'track', label: 'الرصد' },
         { key: 'alerts', label: 'التنبيهات' },

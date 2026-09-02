@@ -20,8 +20,22 @@ async function enrichUser(user: {
   if (user.darId) {
     const dar = await prisma.dar.findUnique({ where: { id: user.darId } });
     darName = dar?.name;
-  }
-  if (user.classId) {
+    if (user.classId) {
+      const cls = await prisma.class.findUnique({ where: { id: user.classId } });
+      className = cls?.name;
+      classLevel = cls?.level;
+      if (dar && cls) {
+        const { coerceLevelForCurriculum } = await import('../lib/levels.js');
+        const next = coerceLevelForCurriculum(cls.level, String(dar.curriculum));
+        if (next && next !== cls.level) {
+          await prisma.class.update({ where: { id: cls.id }, data: { level: next } });
+          classLevel = next;
+        } else if (next) {
+          classLevel = next;
+        }
+      }
+    }
+  } else if (user.classId) {
     const cls = await prisma.class.findUnique({ where: { id: user.classId } });
     className = cls?.name;
     classLevel = cls?.level;
