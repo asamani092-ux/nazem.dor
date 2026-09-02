@@ -969,6 +969,88 @@ export async function masterRoutes(app: FastifyInstance) {
     return { status: 'success', data: { ...row, homework: normalizeHomework(row.homework) } };
   });
 
+  /** استبدال كل خطط المنهج دفعة واحدة. O(n) حذف + إدراج. */
+  app.post('/curriculum/import', superGuard, async (request) => {
+    const body = z
+      .object({
+        rows: z
+          .array(
+            z.object({
+              level: z.string().min(1),
+              week: z.number().int().positive(),
+              day: z.string().min(1),
+              educational: z.string().min(1),
+              homework: z.string().optional(),
+              tarbawi: z.string().optional(),
+            }),
+          )
+          .min(1),
+      })
+      .parse(request.body);
+
+    const cleared = (await prisma.curriculumPlan.deleteMany({})).count;
+    let inserted = 0;
+    for (const r of body.rows) {
+      const homework = normalizeHomework(r.homework ?? '');
+      await prisma.curriculumPlan.create({
+        data: {
+          level: r.level,
+          week: r.week,
+          day: r.day,
+          educational: r.educational,
+          homework,
+          tarbawi: r.tarbawi || '',
+        },
+      });
+      inserted++;
+    }
+    return { status: 'success', data: { cleared, inserted } };
+  });
+
+  /** إعادة زرع الخطط من ملف البذرة curriculum.json. O(n) */
+  app.post('/curriculum/reload-seed', superGuard, async (_request, reply) => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const candidates = [
+      path.join(here, '../../prisma/curriculum.json'),
+      path.join(process.cwd(), 'prisma/curriculum.json'),
+      path.join(process.cwd(), 'backend/prisma/curriculum.json'),
+    ];
+    const file = candidates.find((p) => fs.existsSync(p));
+    if (!file) {
+      return reply.code(404).send({ status: 'error', message: 'ملف curriculum.json غير موجود' });
+    }
+    const rows = JSON.parse(fs.readFileSync(file, 'utf8')) as Array<{
+      level: string;
+      week: number;
+      day: string;
+      educational: string;
+      homework?: string;
+      tarbawi?: string;
+    }>;
+    if (!rows.length) {
+      return reply.code(400).send({ status: 'error', message: 'ملف المنهج فارغ' });
+    }
+    const cleared = (await prisma.curriculumPlan.deleteMany({})).count;
+    let inserted = 0;
+    for (const r of rows) {
+      await prisma.curriculumPlan.create({
+        data: {
+          level: r.level,
+          week: r.week,
+          day: r.day,
+          educational: r.educational,
+          homework: normalizeHomework(r.homework ?? ''),
+          tarbawi: r.tarbawi || '',
+        },
+      });
+      inserted++;
+    }
+    return { status: 'success', data: { cleared, inserted, file } };
+  });
+
   app.get('/terms', superGuard, async () => {
     const terms = await listTerms();
     return {
