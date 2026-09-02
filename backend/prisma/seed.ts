@@ -134,6 +134,28 @@ async function main() {
     console.log('No curriculum.json found, plans left empty');
   }
 
+
+  // ترحيل مستويات الفصول القديمة → أوراق المشجّرة (بدون استيراد src/)
+  const legacyMap: Record<string, string> = {
+    'تمهيدي 1': 'تمهيدي — الفصل الأول',
+    'تمهيدي 2': 'تمهيدي — الفصل الثاني',
+    'صفوف أولية 1': 'ابتدائي أولية سنة أولى — الفصل الأول',
+    'صفوف أولية 2': 'ابتدائي أولية سنة أولى — الفصل الثاني',
+    'صفوف أولية 3': 'ابتدائي أولية سنة ثانية — الفصل الأول',
+    'تمهيدي صباحي': 'تمهيدي صباحي — الفصل الأول',
+    'تمهيدي مسائي': 'تمهيدي مسائي — الفصل الأول',
+    روضة: 'روضة — الفصل الأول',
+  };
+  const classes = await prisma.class.findMany({ select: { id: true, level: true } });
+  let classMigrated = 0;
+  for (const cls of classes) {
+    const next = legacyMap[cls.level];
+    if (next && next !== cls.level) {
+      await prisma.class.update({ where: { id: cls.id }, data: { level: next } });
+      classMigrated++;
+    }
+  }
+  console.log(`Class levels migrated: ${classMigrated}`);
 }
 
 main()

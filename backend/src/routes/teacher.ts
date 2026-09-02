@@ -17,6 +17,23 @@ export async function teacherRoutes(app: FastifyInstance) {
       return reply.code(400).send({ status: 'error', message: 'حساب المعلمة غير مكتمل' });
     }
 
+    // ترحيل مستوى الفصل فوراً ليتوافق مع منهج الدار
+    const [dar, cls] = await Promise.all([
+      prisma.dar.findUnique({ where: { id: darId } }),
+      prisma.class.findUnique({ where: { id: classId } }),
+    ]);
+    let classLevel = cls?.level || '';
+    if (dar && cls) {
+      const { coerceLevelForCurriculum } = await import('../lib/levels.js');
+      const next = coerceLevelForCurriculum(cls.level, String(dar.curriculum));
+      if (next && next !== cls.level) {
+        await prisma.class.update({ where: { id: cls.id }, data: { level: next } });
+        classLevel = next;
+      } else {
+        classLevel = next || cls.level;
+      }
+    }
+
     const [notifications, students, reads] = await Promise.all([
       prisma.teacherNotification.findMany({
         where: {
@@ -48,6 +65,8 @@ export async function teacherRoutes(app: FastifyInstance) {
     return {
       status: 'success',
       data: {
+        classLevel,
+        className: cls?.name,
         alerts: notifications.map((n) => ({
           id: n.id,
           title: n.title,
@@ -134,16 +153,24 @@ export async function teacherRoutes(app: FastifyInstance) {
         prisma.class.findUnique({ where: { id: classId } }),
       ]);
       if (dar && cls) {
-        const { levelsForCurriculum, isLevelAllowed } = await import('../lib/domain.js');
-        if (!isLevelAllowed(dar.curriculum, cls.level)) {
+        const { levelsForCurriculum, resolveCanonicalLevel } = await import('../lib/domain.js');
+        const { coerceLevelForCurriculum } = await import('../lib/levels.js');
+        const classLevel = coerceLevelForCurriculum(cls.level, String(dar.curriculum));
+        if (!levelsForCurriculum(String(dar.curriculum)).includes(classLevel)) {
           return reply.code(400).send({
             status: 'error',
-            message: `مستوى الفصل غير متوافق مع منهج الدار. المسموح: ${levelsForCurriculum(dar.curriculum).join('، ')}`,
+            message: `مستوى الفصل «${cls.level}» غير متوافق مع منهج الدار. حدّث مستوى الفصل من حساب المديرة إلى أحد: ${levelsForCurriculum(String(dar.curriculum)).join('، ')}`,
           });
         }
-        if (cls.level !== q.level) {
-          return reply.code(400).send({ status: 'error', message: 'المستوى لا يطابق فصل المعلمة' });
+        if (cls.level !== classLevel) {
+          await prisma.class.update({ where: { id: cls.id }, data: { level: classLevel } });
         }
+        const queryLevel = coerceLevelForCurriculum(q.level, String(dar.curriculum));
+        // إن اختلاف الطلب عن الفصل بعد التحويل: اعتمد مستوى الفصل المحدَّث
+        if (classLevel !== queryLevel && resolveCanonicalLevel(q.level) !== classLevel) {
+          // لا ترفض — المعلمة تعتمد classLevel من الجلسة؛ صحّح الطلب
+        }
+        q.level = classLevel;
       }
     }
 
