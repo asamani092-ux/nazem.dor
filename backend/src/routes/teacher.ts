@@ -134,16 +134,25 @@ export async function teacherRoutes(app: FastifyInstance) {
         prisma.class.findUnique({ where: { id: classId } }),
       ]);
       if (dar && cls) {
-        const { levelsForCurriculum, isLevelAllowed } = await import('../lib/domain.js');
-        if (!isLevelAllowed(dar.curriculum, cls.level)) {
+        const { levelsForCurriculum, isLevelAllowed, resolveCanonicalLevel } = await import('../lib/domain.js');
+        const classLevel = resolveCanonicalLevel(cls.level);
+        if (!isLevelAllowed(dar.curriculum, classLevel)) {
           return reply.code(400).send({
             status: 'error',
-            message: `مستوى الفصل غير متوافق مع منهج الدار. المسموح: ${levelsForCurriculum(dar.curriculum).join('، ')}`,
+            message: `مستوى الفصل «${cls.level}» غير متوافق مع منهج الدار. حدّث مستوى الفصل من حساب المديرة إلى أحد: ${levelsForCurriculum(dar.curriculum).join('، ')}`,
           });
         }
-        if (cls.level !== q.level) {
-          return reply.code(400).send({ status: 'error', message: 'المستوى لا يطابق فصل المعلمة' });
+        if (cls.level !== classLevel) {
+          await prisma.class.update({ where: { id: cls.id }, data: { level: classLevel } });
         }
+        const queryLevel = resolveCanonicalLevel(q.level);
+        if (classLevel !== queryLevel) {
+          return reply.code(400).send({
+            status: 'error',
+            message: `المستوى لا يطابق فصل المعلمة (الفصل: ${classLevel})`,
+          });
+        }
+        q.level = classLevel;
       }
     }
 

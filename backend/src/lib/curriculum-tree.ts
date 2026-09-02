@@ -199,3 +199,65 @@ export function curriculumTreeDto(tree: CurriculumTreeNode[] = CURRICULUM_TREE):
     children: node.children ? curriculumTreeDto(node.children) : [],
   }));
 }
+
+/**
+ * أسماء المستويات القديمة → الورقة الحالية.
+ * O(1) لكل استدعاء.
+ */
+export const LEGACY_LEVEL_MAP: Record<string, string> = {
+  'تمهيدي 1': 'تمهيدي — الفصل الأول',
+  'تمهيدي 2': 'تمهيدي — الفصل الثاني',
+  تمهيدي1: 'تمهيدي — الفصل الأول',
+  تمهيدي2: 'تمهيدي — الفصل الثاني',
+  'صفوف أولية 1': 'ابتدائي أولية سنة أولى — الفصل الأول',
+  'صفوف أولية 2': 'ابتدائي أولية سنة أولى — الفصل الثاني',
+  'صفوف أولية 3': 'ابتدائي أولية سنة ثانية — الفصل الأول',
+  'صف أولي 1': 'ابتدائي أولية سنة أولى — الفصل الأول',
+  'صف أولي 2': 'ابتدائي أولية سنة أولى — الفصل الثاني',
+  'صف أولي 3': 'ابتدائي أولية سنة ثانية — الفصل الأول',
+  روضة: 'روضة — الفصل الأول',
+  'روضة 1': 'روضة — الفصل الأول',
+  'روضة 2': 'روضة — الفصل الثاني',
+  'تمهيدي صباحي': 'تمهيدي صباحي — الفصل الأول',
+  'تمهيدي مسائي': 'تمهيدي مسائي — الفصل الأول',
+};
+
+function normLevelKey(level: string): string {
+  return String(level ?? '')
+    .replace(/أ/g, 'ا')
+    .replace(/[—–−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** إرجاع اسم الورقة المعتمد إن وُجد، وإلا الأصل. O(n) على الأوراق عند الحاجة */
+export function resolveCanonicalLevel(level: string): string {
+  const raw = String(level ?? '').trim();
+  if (!raw) return raw;
+  if (LEGACY_LEVEL_MAP[raw]) return LEGACY_LEVEL_MAP[raw];
+  const n = normLevelKey(raw);
+  for (const [from, to] of Object.entries(LEGACY_LEVEL_MAP)) {
+    if (normLevelKey(from) === n) return to;
+  }
+  const leaves = flattenCurriculumTree()
+    .filter((r) => r.isLeaf)
+    .map((r) => r.name);
+  if (leaves.includes(raw)) return raw;
+  const hit = leaves.find((l) => normLevelKey(l) === n);
+  if (hit) return hit;
+  // جذور/عقد وسيطة شائعة → أول ورقة ابن
+  const intermediates: Record<string, string> = {
+    'تبيان/روضة': 'روضة — الفصل الأول',
+    'تبيان/تمهيدي': 'تمهيدي — الفصل الأول',
+    'تبيان/ابتدائي': 'ابتدائي سنة أولى — الفصل الأول',
+    'قارئ/تمهيدي صباحي': 'تمهيدي صباحي — الفصل الأول',
+    'قارئ/تمهيدي مسائي': 'تمهيدي مسائي — الفصل الأول',
+    'قارئ/ابتدائي صفوف أولية': 'ابتدائي أولية سنة أولى — الفصل الأول',
+    'قارئ/روضة وتمهيدي سنتين': 'روضة مسائي — الفصل الأول',
+    'قارئ/روضة مسائي': 'روضة مسائي — الفصل الأول',
+    'قارئ/تمهيدي مسائي سنتين': 'تمهيدي مسائي سنتين — الفصل الأول',
+  };
+  if (intermediates[raw]) return intermediates[raw];
+  const interHit = Object.entries(intermediates).find(([k]) => normLevelKey(k) === n);
+  return interHit ? interHit[1] : raw;
+}

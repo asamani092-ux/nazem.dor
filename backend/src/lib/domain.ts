@@ -1,4 +1,4 @@
-import { leafLevelsForCurriculum } from './curriculum-tree.js';
+import { leafLevelsForCurriculum, resolveCanonicalLevel } from './curriculum-tree.js';
 
 /** مستويات الصف (الأوراق) حسب نوع منهج الدار — مشتقة من المشجّرة */
 export const LEVELS_BY_CURRICULUM: Record<string, string[]> = {
@@ -16,8 +16,11 @@ export function levelsForCurriculum(curriculum: string): string[] {
 }
 
 export function isLevelAllowed(curriculum: string, level: string): boolean {
-  return levelsForCurriculum(curriculum).includes(level);
+  const canonical = resolveCanonicalLevel(level);
+  return levelsForCurriculum(curriculum).includes(canonical);
 }
+
+export { resolveCanonicalLevel };
 
 /** أرقام الواجب بدون كسر زائد (5.0 → 5). النصوص تبقى كما هي. O(1) زمن/مكان */
 export function normalizeHomework(value: string): string {

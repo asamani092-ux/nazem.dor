@@ -1,7 +1,7 @@
 import { CurriculumType } from '@prisma/client';
 import { prisma } from './prisma.js';
 import { levelsForCurriculum } from './domain.js';
-import { curriculumTreeDto, leafLevelsForCurriculum } from './curriculum-tree.js';
+import { curriculumTreeDto, leafLevelsForCurriculum, resolveCanonicalLevel } from './curriculum-tree.js';
 
 function toCurriculumType(curriculum: string): CurriculumType | null {
   if (curriculum === 'TIBYAN' || curriculum === 'منهج تبيان') return CurriculumType.TIBYAN;
@@ -30,10 +30,25 @@ export async function getAllowedLevels(curriculum: string): Promise<string[]> {
 
 export async function isLevelAllowedMerged(curriculum: string, level: string): Promise<boolean> {
   const allowed = await getAllowedLevels(curriculum);
-  return allowed.includes(level);
+  const canonical = resolveCanonicalLevel(level);
+  return allowed.includes(level) || allowed.includes(canonical);
 }
 
 /** شجرة للواجهة من التعريف الثابت. O(n) */
 export function getCurriculumTree() {
   return curriculumTreeDto();
+}
+
+/** تحديث مستويات الفصول القديمة إلى أوراق المشجّرة. O(c) */
+export async function migrateClassLevelsToCanonical(): Promise<number> {
+  const classes = await prisma.class.findMany({ select: { id: true, level: true } });
+  let updated = 0;
+  for (const cls of classes) {
+    const next = resolveCanonicalLevel(cls.level);
+    if (next && next !== cls.level) {
+      await prisma.class.update({ where: { id: cls.id }, data: { level: next } });
+      updated++;
+    }
+  }
+  return updated;
 }

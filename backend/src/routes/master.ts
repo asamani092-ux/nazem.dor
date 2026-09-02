@@ -1051,6 +1051,13 @@ export async function masterRoutes(app: FastifyInstance) {
     return { status: 'success', data: { cleared, inserted, file } };
   });
 
+  /** ترحيل مستويات الفصول القديمة إلى أوراق المشجّرة. */
+  app.post('/curriculum/migrate-class-levels', superGuard, async () => {
+    const { migrateClassLevelsToCanonical } = await import('../lib/levels.js');
+    const updated = await migrateClassLevelsToCanonical();
+    return { status: 'success', data: { updated } };
+  });
+
   app.get('/terms', superGuard, async () => {
     const terms = await listTerms();
     return {

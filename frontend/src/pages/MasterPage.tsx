@@ -730,6 +730,17 @@ export function MasterPage() {
     }
   }
 
+  async function migrateClassLevels() {
+    try {
+      const res = await api<{ data: { updated: number } }>('/api/master/curriculum/migrate-class-levels', {
+        method: 'POST',
+      });
+      notify(`تم ترحيل ${res.data.updated} فصل إلى المستويات الجديدة`);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : 'فشل ترحيل المستويات', 'error');
+    }
+  }
+
   async function loadCurriculumLevels() {
     const res = await api<{ data: string[] }>('/api/master/curriculum/levels');
     if (res.data?.length) setCurriculumLevels(res.data);
@@ -1737,13 +1748,22 @@ export function MasterPage() {
                   إضافة مستوى
                 </Button>
                 {isAdmin ? (
-                  <Button
-                    variant="secondary"
-                    className="!w-auto !px-3 !py-2 !text-xs"
-                    onClick={() => void importDriveCurriculum()}
-                  >
-                    استيراد خطط درايف
-                  </Button>
+                  <>
+                    <Button
+                      variant="secondary"
+                      className="!w-auto !px-3 !py-2 !text-xs"
+                      onClick={() => void importDriveCurriculum()}
+                    >
+                      استيراد خطط درايف
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="!w-auto !px-3 !py-2 !text-xs"
+                      onClick={() => void migrateClassLevels()}
+                    >
+                      ترحيل مستويات الفصول
+                    </Button>
+                  </>
                 ) : null}
               </div>
             </div>
