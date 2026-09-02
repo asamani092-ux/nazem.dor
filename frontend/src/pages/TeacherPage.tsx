@@ -39,7 +39,7 @@ type TrackState = {
 };
 
 export function TeacherPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
   const { banner, notify, clearBanner } = usePageFeedback();
   const toast = useToast();
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -62,8 +62,6 @@ export function TeacherPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [lastSavedLabel, setLastSavedLabel] = useState('لم يُحفظ رصد لهذا الفصل بعد');
-
-  const { user, refresh } = useAuth();
   const [effectiveClassLevel, setEffectiveClassLevel] = useState(String(user?.classLevel || ''));
 
   const isTamheedi =
