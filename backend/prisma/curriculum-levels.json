@@ -1,0 +1,266 @@
+[
+  {
+    "name": "تبيان/روضة",
+    "label": "روضة",
+    "curriculum": "TIBYAN",
+    "parentName": null,
+    "isLeaf": false,
+    "sortOrder": 1
+  },
+  {
+    "name": "روضة — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/روضة",
+    "isLeaf": true,
+    "sortOrder": 2
+  },
+  {
+    "name": "روضة — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/روضة",
+    "isLeaf": true,
+    "sortOrder": 3
+  },
+  {
+    "name": "تبيان/تمهيدي",
+    "label": "تمهيدي",
+    "curriculum": "TIBYAN",
+    "parentName": null,
+    "isLeaf": false,
+    "sortOrder": 4
+  },
+  {
+    "name": "تمهيدي — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/تمهيدي",
+    "isLeaf": true,
+    "sortOrder": 5
+  },
+  {
+    "name": "تمهيدي — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/تمهيدي",
+    "isLeaf": true,
+    "sortOrder": 6
+  },
+  {
+    "name": "تبيان/ابتدائي",
+    "label": "ابتدائي",
+    "curriculum": "TIBYAN",
+    "parentName": null,
+    "isLeaf": false,
+    "sortOrder": 7
+  },
+  {
+    "name": "تبيان/ابتدائي/السنة الأولى",
+    "label": "السنة الأولى",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/ابتدائي",
+    "isLeaf": false,
+    "sortOrder": 8
+  },
+  {
+    "name": "ابتدائي سنة أولى — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/ابتدائي/السنة الأولى",
+    "isLeaf": true,
+    "sortOrder": 9
+  },
+  {
+    "name": "ابتدائي سنة أولى — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/ابتدائي/السنة الأولى",
+    "isLeaf": true,
+    "sortOrder": 10
+  },
+  {
+    "name": "تبيان/ابتدائي/السنة الثانية",
+    "label": "السنة الثانية",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/ابتدائي",
+    "isLeaf": false,
+    "sortOrder": 11
+  },
+  {
+    "name": "ابتدائي سنة ثانية — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/ابتدائي/السنة الثانية",
+    "isLeaf": true,
+    "sortOrder": 12
+  },
+  {
+    "name": "ابتدائي سنة ثانية — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "TIBYAN",
+    "parentName": "تبيان/ابتدائي/السنة الثانية",
+    "isLeaf": true,
+    "sortOrder": 13
+  },
+  {
+    "name": "قارئ/تمهيدي صباحي",
+    "label": "تمهيدي صباحي",
+    "curriculum": "QARI",
+    "parentName": null,
+    "isLeaf": false,
+    "sortOrder": 14
+  },
+  {
+    "name": "تمهيدي صباحي — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "QARI",
+    "parentName": "قارئ/تمهيدي صباحي",
+    "isLeaf": true,
+    "sortOrder": 15
+  },
+  {
+    "name": "تمهيدي صباحي — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "QARI",
+    "parentName": "قارئ/تمهيدي صباحي",
+    "isLeaf": true,
+    "sortOrder": 16
+  },
+  {
+    "name": "قارئ/تمهيدي مسائي",
+    "label": "تمهيدي مسائي",
+    "curriculum": "QARI",
+    "parentName": null,
+    "isLeaf": false,
+    "sortOrder": 17
+  },
+  {
+    "name": "تمهيدي مسائي — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "QARI",
+    "parentName": "قارئ/تمهيدي مسائي",
+    "isLeaf": true,
+    "sortOrder": 18
+  },
+  {
+    "name": "تمهيدي مسائي — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "QARI",
+    "parentName": "قارئ/تمهيدي مسائي",
+    "isLeaf": true,
+    "sortOrder": 19
+  },
+  {
+    "name": "قارئ/ابتدائي صفوف أولية",
+    "label": "ابتدائي صفوف أولية (سنة ونصف)",
+    "curriculum": "QARI",
+    "parentName": null,
+    "isLeaf": false,
+    "sortOrder": 20
+  },
+  {
+    "name": "قارئ/ابتدائي/السنة الأولى",
+    "label": "السنة الأولى",
+    "curriculum": "QARI",
+    "parentName": "قارئ/ابتدائي صفوف أولية",
+    "isLeaf": false,
+    "sortOrder": 21
+  },
+  {
+    "name": "ابتدائي أولية سنة أولى — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "QARI",
+    "parentName": "قارئ/ابتدائي/السنة الأولى",
+    "isLeaf": true,
+    "sortOrder": 22
+  },
+  {
+    "name": "ابتدائي أولية سنة أولى — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "QARI",
+    "parentName": "قارئ/ابتدائي/السنة الأولى",
+    "isLeaf": true,
+    "sortOrder": 23
+  },
+  {
+    "name": "قارئ/ابتدائي/السنة الثانية",
+    "label": "السنة الثانية",
+    "curriculum": "QARI",
+    "parentName": "قارئ/ابتدائي صفوف أولية",
+    "isLeaf": false,
+    "sortOrder": 24
+  },
+  {
+    "name": "ابتدائي أولية سنة ثانية — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "QARI",
+    "parentName": "قارئ/ابتدائي/السنة الثانية",
+    "isLeaf": true,
+    "sortOrder": 25
+  },
+  {
+    "name": "ابتدائي أولية سنة ثانية — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "QARI",
+    "parentName": "قارئ/ابتدائي/السنة الثانية",
+    "isLeaf": true,
+    "sortOrder": 26
+  },
+  {
+    "name": "قارئ/روضة وتمهيدي سنتين",
+    "label": "روضة + تمهيدي (سنتين)",
+    "curriculum": "QARI",
+    "parentName": null,
+    "isLeaf": false,
+    "sortOrder": 27
+  },
+  {
+    "name": "قارئ/روضة مسائي",
+    "label": "روضة مسائي",
+    "curriculum": "QARI",
+    "parentName": "قارئ/روضة وتمهيدي سنتين",
+    "isLeaf": false,
+    "sortOrder": 28
+  },
+  {
+    "name": "روضة مسائي — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "QARI",
+    "parentName": "قارئ/روضة مسائي",
+    "isLeaf": true,
+    "sortOrder": 29
+  },
+  {
+    "name": "روضة مسائي — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "QARI",
+    "parentName": "قارئ/روضة مسائي",
+    "isLeaf": true,
+    "sortOrder": 30
+  },
+  {
+    "name": "قارئ/تمهيدي مسائي سنتين",
+    "label": "تمهيدي مسائي (سنتين)",
+    "curriculum": "QARI",
+    "parentName": "قارئ/روضة وتمهيدي سنتين",
+    "isLeaf": false,
+    "sortOrder": 31
+  },
+  {
+    "name": "تمهيدي مسائي سنتين — الفصل الأول",
+    "label": "الفصل الأول",
+    "curriculum": "QARI",
+    "parentName": "قارئ/تمهيدي مسائي سنتين",
+    "isLeaf": true,
+    "sortOrder": 32
+  },
+  {
+    "name": "تمهيدي مسائي سنتين — الفصل الثاني",
+    "label": "الفصل الثاني",
+    "curriculum": "QARI",
+    "parentName": "قارئ/تمهيدي مسائي سنتين",
+    "isLeaf": true,
+    "sortOrder": 33
+  }
+]

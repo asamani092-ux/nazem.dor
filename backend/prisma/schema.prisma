@@ -197,10 +197,20 @@ model CurriculumPlan {
 }
 
 model CurriculumLevel {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  id         String         @id @default(cuid())
+  name       String         @unique
+  label      String         @default("")
+  curriculum CurriculumType
+  parentId   String?
+  isLeaf     Boolean        @default(true)
+  sortOrder  Int            @default(0)
+  createdAt  DateTime       @default(now())
+
+  parent   CurriculumLevel?  @relation("LevelTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children CurriculumLevel[] @relation("LevelTree")
+
+  @@index([curriculum, sortOrder])
+  @@index([parentId])
 }
 
 model SystemSetting {

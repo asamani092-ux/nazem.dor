@@ -63,8 +63,9 @@ export function TeacherPage() {
 
   const [lastSavedLabel, setLastSavedLabel] = useState('لم يُحفظ رصد لهذا الفصل بعد');
 
-  const isTamheedi = String(user?.classLevel || '').includes('تمهيدي');
-  const isAwwalia = String(user?.classLevel || '').replace(/أ/g, 'ا').includes('اولي');
+  const isTamheedi =
+    /تمهيدي|روضة/.test(String(user?.classLevel || '')) && !/أولية|ابتدائي أولية/.test(String(user?.classLevel || ''));
+  const isAwwalia = /أولية|ابتدائي أولية|ابتدائي سنة/.test(String(user?.classLevel || '').replace(/أ/g, 'ا'));
   const weekCount = isTamheedi ? 15 : 10;
 
   async function loadDashboard() {

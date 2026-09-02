@@ -52,6 +52,39 @@ async function main() {
     console.log(`SUPER_MASTER already exists — login with phone only: ${phone}`);
   }
 
+  // مشجّرة المستويات فارغة من الخطط — من JSON داخل prisma (بدون استيراد src/)
+  type FlatLevel = {
+    name: string;
+    label: string;
+    curriculum: 'TIBYAN' | 'QARI';
+    parentName: string | null;
+    isLeaf: boolean;
+    sortOrder: number;
+  };
+  const levelsPath = path.join(__dirname, 'curriculum-levels.json');
+  if (fs.existsSync(levelsPath)) {
+    const flat = JSON.parse(fs.readFileSync(levelsPath, 'utf8')) as FlatLevel[];
+    const plansCleared = (await prisma.curriculumPlan.deleteMany({})).count;
+    await prisma.curriculumLevel.deleteMany({});
+    const idByName = new Map<string, string>();
+    for (const row of flat) {
+      const created = await prisma.curriculumLevel.create({
+        data: {
+          name: row.name,
+          label: row.label,
+          curriculum: row.curriculum,
+          parentId: row.parentName ? idByName.get(row.parentName) ?? null : null,
+          isLeaf: row.isLeaf,
+          sortOrder: row.sortOrder,
+        },
+      });
+      idByName.set(row.name, created.id);
+    }
+    console.log(`Curriculum tree synced: ${flat.length} levels, plans cleared: ${plansCleared}`);
+  } else {
+    console.log('No curriculum-levels.json — skipped tree sync');
+  }
+
   const curriculumPath = path.join(__dirname, 'curriculum.json');
   if (fs.existsSync(curriculumPath)) {
     const rows = JSON.parse(fs.readFileSync(curriculumPath, 'utf8')) as Array<{
@@ -62,41 +95,45 @@ async function main() {
       homework: string;
       tarbawi: string;
     }>;
-
-    let upserted = 0;
-    const cleanHomework = (v: string) => {
-      const t = String(v ?? '').trim();
-      if (!/^-?\d+(\.\d+)?$/.test(t)) return t;
-      const n = Number(t);
-      if (!Number.isFinite(n)) return t;
-      return Number.isInteger(n) ? String(n) : String(n);
-    };
-    for (const row of rows) {
-      const homework = cleanHomework(String(row.homework));
-      await prisma.curriculumPlan.upsert({
-        where: {
-          level_week_day: { level: row.level, week: row.week, day: row.day },
-        },
-        create: {
-          level: row.level,
-          week: row.week,
-          day: row.day,
-          educational: row.educational,
-          homework,
-          tarbawi: row.tarbawi || '',
-        },
-        update: {
-          educational: row.educational,
-          homework,
-          tarbawi: row.tarbawi || '',
-        },
-      });
-      upserted++;
+    if (!rows.length) {
+      console.log('curriculum.json empty — plans left empty');
+    } else {
+      let upserted = 0;
+      const cleanHomework = (v: string) => {
+        const t = String(v ?? '').trim();
+        if (!/^-?\d+(\.\d+)?$/.test(t)) return t;
+        const n = Number(t);
+        if (!Number.isFinite(n)) return t;
+        return Number.isInteger(n) ? String(n) : String(n);
+      };
+      for (const row of rows) {
+        const homework = cleanHomework(String(row.homework));
+        await prisma.curriculumPlan.upsert({
+          where: {
+            level_week_day: { level: row.level, week: row.week, day: row.day },
+          },
+          create: {
+            level: row.level,
+            week: row.week,
+            day: row.day,
+            educational: row.educational,
+            homework,
+            tarbawi: row.tarbawi || '',
+          },
+          update: {
+            educational: row.educational,
+            homework,
+            tarbawi: row.tarbawi || '',
+          },
+        });
+        upserted++;
+      }
+      console.log(`Curriculum plans upserted: ${upserted}`);
     }
-    console.log(`Curriculum plans upserted: ${upserted}`);
   } else {
-    console.log('No curriculum.json found, skipped');
+    console.log('No curriculum.json found, plans left empty');
   }
+
 }
 
 main()
